@@ -14,10 +14,6 @@ type MetricsServer struct {
 	Runner     http.Handler
 }
 
-type Runner interface {
-	Run() error
-}
-
 func (s *MetricsServer) router() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/update/{metricType}/{metricName}/{value}/", handlers.UpdateMetricHandler)
