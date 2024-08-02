@@ -1,0 +1,87 @@
+package storage
+
+import (
+	"sync"
+)
+
+type (
+	MetricType string
+	MetricName string
+	Gaugeable  float64
+	Countable  int64
+)
+
+const (
+	GaugeTypeName   MetricType = "gauge"
+	CounterTypeName MetricType = "counter"
+)
+
+type CounterStorage struct {
+	lock    sync.RWMutex
+	storage map[MetricName]Countable
+}
+
+func (s *CounterStorage) UpdateMetric(metric MetricName, value Countable) Countable {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
+	s.storage[metric] += value
+	return s.storage[metric]
+}
+
+func (s *CounterStorage) GetMetric(metric MetricName) (Countable, bool) {
+	s.lock.RLock()
+	defer s.lock.RUnlock()
+
+	value, ok := s.storage[metric]
+	return value, ok
+}
+
+type GaugeStorage struct {
+	lock    sync.RWMutex
+	storage map[MetricName]Gaugeable
+}
+
+func (s *GaugeStorage) UpdateMetric(metric MetricName, value Gaugeable) Gaugeable {
+	s.lock.Lock()
+	s.storage[metric] = value
+	s.lock.Unlock()
+
+	return value
+}
+
+func (s *GaugeStorage) GetMetric(metric MetricName) (Gaugeable, bool) {
+	s.lock.RLock()
+	defer s.lock.RUnlock()
+
+	value, ok := s.storage[metric]
+	return value, ok
+}
+
+type MemStorage struct {
+	gauges   GaugeStorage
+	counters CounterStorage
+}
+
+func (s *MemStorage) UpdateCounter(metric MetricName, value Countable) Countable {
+	return s.counters.UpdateMetric(metric, value)
+}
+
+func (s *MemStorage) GetCounter(metric MetricName) (Countable, bool) {
+	return s.counters.GetMetric(metric)
+}
+
+func (s *MemStorage) SetGauge(metric MetricName, value Gaugeable) Gaugeable {
+	return s.gauges.UpdateMetric(metric, value)
+}
+
+func (s *MemStorage) GetGauge(metric MetricName) (Gaugeable, bool) {
+	return s.gauges.GetMetric(metric)
+}
+
+func NewMemStorage() *MemStorage {
+	return &MemStorage{
+		counters: CounterStorage{storage: make(map[MetricName]Countable)},
+		gauges:   GaugeStorage{storage: make(map[MetricName]Gaugeable)},
+	}
+}
