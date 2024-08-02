@@ -28,8 +28,9 @@ func NewServerApp(listenAddr string) *ServerApp {
 
 func (s *ServerApp) router() http.Handler {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/update/counter/{metricName}/{value}/", s.api.UpdateCounter)
-	mux.HandleFunc("/update/gauge/{metricName}/{value}/", s.api.UpdateGauge)
+	mux.HandleFunc("/update/counter/{name}/{value}", s.api.UpdateCounter)
+	mux.HandleFunc("/update/gauge/{name}/{value}", s.api.UpdateGauge)
+	mux.HandleFunc("/update/{type}/{name}/{value}/", func(w http.ResponseWriter, r *http.Request) { http.Error(w, "Bad Request", http.StatusBadRequest) })
 	return mux
 }
 
