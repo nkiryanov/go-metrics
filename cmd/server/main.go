@@ -25,7 +25,7 @@ func main() {
 		cancel()
 	}()
 
-	srv := server.MetricsServer{ListenAddr: ListenAddr}
+	srv := server.NewServerApp(ListenAddr)
 
 	if err := srv.Run(ctx); err != http.ErrServerClosed {
 		slog.Error("HTTP server Shutdown", "error", err.Error())

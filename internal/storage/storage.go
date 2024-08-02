@@ -4,6 +4,13 @@ import (
 	"sync"
 )
 
+type Storage interface {
+	UpdateCounter(metric MetricName, value Countable) Countable
+	GetCounter(metric MetricName) (Countable, bool)
+	SetGauge(metric MetricName, value Gaugeable) Gaugeable
+	GetGauge(metric MetricName) (Gaugeable, bool)
+}
+
 type (
 	MetricType string
 	MetricName string

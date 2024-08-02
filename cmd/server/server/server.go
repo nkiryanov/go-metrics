@@ -7,25 +7,34 @@ import (
 	"time"
 
 	"github.com/nkiryanov/go-metrics/internal/handlers"
+	"github.com/nkiryanov/go-metrics/internal/storage"
 )
 
-type MetricsServer struct {
+type ServerApp struct {
 	ListenAddr string
-	Runner     http.Handler
+
+	storage *storage.MemStorage
+	api     handlers.MetricsApi
 }
 
-type Runner interface {
-	Run() error
+func NewServerApp(listenAddr string) *ServerApp {
+	storage := storage.NewMemStorage()
+	return &ServerApp{
+		ListenAddr: listenAddr,
+		storage:    storage,
+		api:        handlers.NewMetricsApi(storage),
+	}
 }
 
-func (s *MetricsServer) router() http.Handler {
+func (s *ServerApp) router() http.Handler {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/update/{metricType}/{metricName}/{value}/", handlers.UpdateMetricHandler)
+	mux.HandleFunc("/update/counter/{metricName}/{value}/", s.api.UpdateCounter)
+	mux.HandleFunc("/update/gauge/{metricName}/{value}/", s.api.UpdateGauge)
 	return mux
 }
 
 // Run starts http server and closes gracefully on context cancellation
-func (s *MetricsServer) Run(ctx context.Context) error {
+func (s *ServerApp) Run(ctx context.Context) error {
 	slog.Info("Starting server", "ListenAddr", s.ListenAddr)
 
 	httpServer := &http.Server{
