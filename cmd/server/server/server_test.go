@@ -13,10 +13,10 @@ const (
 	HalfSecond time.Duration = 500 * time.Millisecond
 )
 
-func TestMetricsServer_RunExitWithSignal(t *testing.T) {
+func TestServerApp_RunExitWithSignal(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), HalfSecond)
 	defer cancel()
-	srv := MetricsServer{ListenAddr: "localhost:61999"}
+	srv := ServerApp{ListenAddr: "localhost:61999"}
 
 	err := srv.Run(ctx)
 

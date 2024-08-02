@@ -1,9 +1,43 @@
 package handlers
 
 import (
+	"log/slog"
 	"net/http"
+	"strconv"
+
+	"github.com/nkiryanov/go-metrics/internal/storage"
 )
 
-func UpdateMetricHandler(w http.ResponseWriter, r *http.Request) {
-	w.Write([]byte("Hello"))  // nolint: errcheck
+type MetricsApi struct {
+	storage *storage.MemStorage
+}
+
+func NewMetricsApi(storage *storage.MemStorage) MetricsApi {
+	return MetricsApi{storage: storage}
+}
+
+func (api *MetricsApi) UpdateCounter(w http.ResponseWriter, r *http.Request) {
+	name := r.PathValue("metricName")
+
+	countable, err := strconv.ParseInt(r.PathValue("value"), 10, 64)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	stored := api.storage.UpdateCounter(storage.MetricName(name), storage.Countable(countable))
+	slog.Info("Counter updated", "name", name, "value", stored)
+}
+
+func (api *MetricsApi) UpdateGauge(w http.ResponseWriter, r *http.Request) {
+	name := r.PathValue("metricName")
+
+	gauge, err := strconv.ParseFloat(r.PathValue("value"), 64)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	stored := api.storage.SetGauge(storage.MetricName(name), storage.Gaugeable(gauge))
+	slog.Info("Gauge updated", "name", name, "value", stored)
 }

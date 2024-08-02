@@ -26,7 +26,6 @@ func updateCounterConcurrently(s *MemStorage, key MetricName, value Countable, c
 	wg.Wait()
 }
 
-
 func setGaugeConcurrently(s *MemStorage, key MetricName, value Gaugeable, count int) {
 	var wg sync.WaitGroup
 
@@ -54,7 +53,6 @@ func TestMemStorage_GetCounterNotExistedCounter(t *testing.T) {
 	assert.Zero(t, value)
 }
 
-
 func TestMemStorage_GetGaugeNotExistedGauge(t *testing.T) {
 	storage := NewMemStorage()
 
@@ -62,7 +60,6 @@ func TestMemStorage_GetGaugeNotExistedGauge(t *testing.T) {
 	assert.False(t, ok)
 	assert.Zero(t, value)
 }
-
 
 func TestMemStorage_UpdateCounter(t *testing.T) {
 	storage := NewMemStorage()
@@ -116,7 +113,6 @@ func TestMemStorage_UpdateCounterConcurrently(t *testing.T) {
 	value, _ := storage.GetCounter("foo")
 	assert.EqualValues(t, 100, value)
 }
-
 
 func TestMemStorage_SetGaugeConcurrently(t *testing.T) {
 	storage := NewMemStorage()
