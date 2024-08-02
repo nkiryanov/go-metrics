@@ -5,5 +5,5 @@ import (
 )
 
 func UpdateMetricHandler(w http.ResponseWriter, r *http.Request) {
-	w.Write([]byte("Hello"))
+	w.Write([]byte("Hello"))  // nolint: errcheck
 }
