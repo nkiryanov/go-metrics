@@ -3,11 +3,12 @@ package main
 import (
 	"context"
 	"log/slog"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 
-	"github.com/nkiryanov/go-metrics/cmd/server/metrics_server"
+	"github.com/nkiryanov/go-metrics/cmd/server/server"
 )
 
 const (
@@ -20,13 +21,13 @@ func main() {
 		stop := make(chan os.Signal, 1)
 		signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 		<-stop
-		slog.Warn("[WARN] Interrupt signal")
+		slog.Warn("Interrupt signal")
 		cancel()
 	}()
 
-	srv := metrics_server.Server{ListenAddr: ListenAddr}
+	srv := server.MetricsServer{ListenAddr: ListenAddr}
 
-	if err := srv.Run(ctx); err != nil {
-		slog.Error("[ERROR] Error", "error", err.Error())
+	if err := srv.Run(ctx); err != http.ErrServerClosed {
+		slog.Error("HTTP server Shutdown", "error", err.Error())
 	}
 }
