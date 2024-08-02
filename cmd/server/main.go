@@ -8,7 +8,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/nkiryanov/go-metrics/cmd/server/server"
+	"github.com/nkiryanov/go-metrics/cmd/server/app"
 )
 
 const (
@@ -25,7 +25,7 @@ func main() {
 		cancel()
 	}()
 
-	srv := server.NewServerApp(ListenAddr)
+	srv := app.NewServerApp(ListenAddr)
 
 	if err := srv.Run(ctx); err != http.ErrServerClosed {
 		slog.Error("HTTP server Shutdown", "error", err.Error())

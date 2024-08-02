@@ -1,4 +1,4 @@
-package server
+package app
 
 import (
 	"context"
@@ -14,7 +14,7 @@ type ServerApp struct {
 	ListenAddr string
 
 	storage *storage.MemStorage
-	api     handlers.MetricsApi
+	api     handlers.MetricsAPI
 }
 
 func NewServerApp(listenAddr string) *ServerApp {
@@ -22,7 +22,7 @@ func NewServerApp(listenAddr string) *ServerApp {
 	return &ServerApp{
 		ListenAddr: listenAddr,
 		storage:    storage,
-		api:        handlers.NewMetricsApi(storage),
+		api:        handlers.NewMetricsAPI(storage),
 	}
 }
 
