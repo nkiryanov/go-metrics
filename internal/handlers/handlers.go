@@ -17,9 +17,9 @@ func NewMetricsAPI(storage *storage.MemStorage) MetricsAPI {
 }
 
 func (api *MetricsAPI) UpdateCounter(w http.ResponseWriter, r *http.Request) {
-	name := r.PathValue("metricName")
+	name := r.PathValue("mName")
 
-	countable, err := strconv.ParseInt(r.PathValue("value"), 10, 64)
+	countable, err := strconv.ParseInt(r.PathValue("mValue"), 10, 64)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -30,9 +30,9 @@ func (api *MetricsAPI) UpdateCounter(w http.ResponseWriter, r *http.Request) {
 }
 
 func (api *MetricsAPI) UpdateGauge(w http.ResponseWriter, r *http.Request) {
-	name := r.PathValue("metricName")
+	name := r.PathValue("mName")
 
-	gauge, err := strconv.ParseFloat(r.PathValue("value"), 64)
+	gauge, err := strconv.ParseFloat(r.PathValue("mValue"), 64)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
