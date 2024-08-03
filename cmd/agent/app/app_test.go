@@ -15,10 +15,14 @@ const (
 	HalfSecond = 500 * time.Millisecond
 )
 
+func initAgent() Agent {
+	return *NewAgent(storage.NewMemStorage(), "localhost:8080", 2*time.Second, 10*time.Second)
+}
+
 func TestAgent_PollStoppedOnSignal(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), HalfSecond)
 	defer cancel()
-	agent := NewAgent(storage.NewMemStorage())
+	agent := initAgent()
 
 	err := agent.Poll(ctx)
 
@@ -27,7 +31,7 @@ func TestAgent_PollStoppedOnSignal(t *testing.T) {
 }
 
 func TestAgent_PollCaptureStats(t *testing.T) {
-	agent := NewAgent(storage.NewMemStorage())
+	agent := initAgent()
 	ctx, cancel := context.WithTimeout(context.Background(), HalfSecond)
 	defer cancel()
 
