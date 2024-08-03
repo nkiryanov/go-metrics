@@ -14,10 +14,10 @@ type MetricsAPIHandler interface {
 }
 
 type MetricsAPI struct {
-	storage *storage.MemStorage
+	storage storage.Storage
 }
 
-func NewMetricsAPI(storage *storage.MemStorage) MetricsAPI {
+func NewMetricsAPI(storage storage.Storage) MetricsAPI {
 	return MetricsAPI{storage: storage}
 }
 

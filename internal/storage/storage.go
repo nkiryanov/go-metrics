@@ -23,12 +23,12 @@ const (
 	CounterTypeName MetricType = "counter"
 )
 
-type CounterStorage struct {
+type counterStore struct {
 	lock    sync.RWMutex
 	storage map[MetricName]Countable
 }
 
-func (s *CounterStorage) UpdateMetric(metric MetricName, value Countable) Countable {
+func (s *counterStore) UpdateMetric(metric MetricName, value Countable) Countable {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
@@ -36,7 +36,7 @@ func (s *CounterStorage) UpdateMetric(metric MetricName, value Countable) Counta
 	return s.storage[metric]
 }
 
-func (s *CounterStorage) GetMetric(metric MetricName) (Countable, bool) {
+func (s *counterStore) GetMetric(metric MetricName) (Countable, bool) {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
 
@@ -44,12 +44,12 @@ func (s *CounterStorage) GetMetric(metric MetricName) (Countable, bool) {
 	return value, ok
 }
 
-type GaugeStorage struct {
+type gaugeStore struct {
 	lock    sync.RWMutex
 	storage map[MetricName]Gaugeable
 }
 
-func (s *GaugeStorage) UpdateMetric(metric MetricName, value Gaugeable) Gaugeable {
+func (s *gaugeStore) UpdateMetric(metric MetricName, value Gaugeable) Gaugeable {
 	s.lock.Lock()
 	s.storage[metric] = value
 	s.lock.Unlock()
@@ -57,7 +57,7 @@ func (s *GaugeStorage) UpdateMetric(metric MetricName, value Gaugeable) Gaugeabl
 	return value
 }
 
-func (s *GaugeStorage) GetMetric(metric MetricName) (Gaugeable, bool) {
+func (s *gaugeStore) GetMetric(metric MetricName) (Gaugeable, bool) {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
 
@@ -66,8 +66,8 @@ func (s *GaugeStorage) GetMetric(metric MetricName) (Gaugeable, bool) {
 }
 
 type MemStorage struct {
-	gauges   GaugeStorage
-	counters CounterStorage
+	gauges   gaugeStore
+	counters counterStore
 }
 
 func (s *MemStorage) UpdateCounter(metric MetricName, value Countable) Countable {
@@ -88,7 +88,7 @@ func (s *MemStorage) GetGauge(metric MetricName) (Gaugeable, bool) {
 
 func NewMemStorage() *MemStorage {
 	return &MemStorage{
-		counters: CounterStorage{storage: make(map[MetricName]Countable)},
-		gauges:   GaugeStorage{storage: make(map[MetricName]Gaugeable)},
+		counters: counterStore{storage: make(map[MetricName]Countable)},
+		gauges:   gaugeStore{storage: make(map[MetricName]Gaugeable)},
 	}
 }
