@@ -8,6 +8,11 @@ import (
 	"github.com/nkiryanov/go-metrics/internal/storage"
 )
 
+type MetricsAPIHandler interface {
+	UpdateCounter(w http.ResponseWriter, r *http.Request)
+	UpdateGauge(w http.ResponseWriter, r *http.Request)
+}
+
 type MetricsAPI struct {
 	storage *storage.MemStorage
 }
@@ -16,7 +21,7 @@ func NewMetricsAPI(storage *storage.MemStorage) MetricsAPI {
 	return MetricsAPI{storage: storage}
 }
 
-func (api *MetricsAPI) UpdateCounter(w http.ResponseWriter, r *http.Request) {
+func (api MetricsAPI) UpdateCounter(w http.ResponseWriter, r *http.Request) {
 	name := r.PathValue("mName")
 
 	countable, err := strconv.ParseInt(r.PathValue("mValue"), 10, 64)
@@ -29,7 +34,7 @@ func (api *MetricsAPI) UpdateCounter(w http.ResponseWriter, r *http.Request) {
 	slog.Info("Counter updated", "name", name, "value", stored)
 }
 
-func (api *MetricsAPI) UpdateGauge(w http.ResponseWriter, r *http.Request) {
+func (api MetricsAPI) UpdateGauge(w http.ResponseWriter, r *http.Request) {
 	name := r.PathValue("mName")
 
 	gauge, err := strconv.ParseFloat(r.PathValue("mValue"), 64)

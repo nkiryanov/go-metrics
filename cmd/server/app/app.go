@@ -13,8 +13,8 @@ import (
 type ServerApp struct {
 	ListenAddr string
 
-	storage *storage.MemStorage
-	api     handlers.MetricsAPI
+	storage storage.Storage
+	api     handlers.MetricsAPIHandler
 }
 
 func NewServerApp(listenAddr string) *ServerApp {

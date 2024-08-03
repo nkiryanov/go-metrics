@@ -16,7 +16,7 @@ const (
 func TestServerApp_RunExitWithSignal(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), HalfSecond)
 	defer cancel()
-	srv := ServerApp{ListenAddr: "localhost:61999"}
+	srv := NewServerApp("localhost:61999")
 
 	err := srv.Run(ctx)
 
