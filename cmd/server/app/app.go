@@ -8,6 +8,9 @@ import (
 
 	"github.com/nkiryanov/go-metrics/internal/handlers"
 	"github.com/nkiryanov/go-metrics/internal/storage"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 )
 
 type ServerApp struct {
@@ -27,11 +30,16 @@ func NewServerApp(listenAddr string) *ServerApp {
 }
 
 func (s *ServerApp) router() http.Handler {
-	mux := http.NewServeMux()
-	mux.HandleFunc("/update/counter/{mName}/{mValue}", s.api.UpdateCounter)
-	mux.HandleFunc("/update/gauge/{mName}/{mValue}", s.api.UpdateGauge)
-	mux.HandleFunc("/update/{mType}/{mName}/{mValue}/", func(w http.ResponseWriter, r *http.Request) { http.Error(w, "Bad Request", http.StatusBadRequest) })
-	return mux
+	r := chi.NewRouter()
+
+	r.Route("/update", func(r chi.Router) {
+		r.Use(middleware.SetHeader("Content-Type", "text/plain"))
+		r.Post("/counter/{mName}/{mValue}", s.api.UpdateCounter)
+		r.Post("/gauge/{mName}/{mValue}", s.api.UpdateGauge)
+		r.Post("/{mType}/{mName}/{mValue}/", func(w http.ResponseWriter, r *http.Request) { http.Error(w, "Bad Request", http.StatusBadRequest) })
+	})
+
+	return r
 }
 
 // Run starts http server and closes gracefully on context cancellation
