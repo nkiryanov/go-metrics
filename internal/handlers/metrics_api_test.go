@@ -146,6 +146,16 @@ func TestMetricsAPI_UpdateGauge(t *testing.T) {
 	}
 }
 
+func TestMetricsAPI_UpdateInvalidMetricType(t *testing.T) {
+	s := storage.NewMemStorage()
+	router := registerRouter(s)
+	w, r := preparePostRequest("/update/invalid/metric/10")
+
+	router.ServeHTTP(w, r)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
 func TestMetricsAPI_UpdateCounterWithPrefilledStorage(t *testing.T) {
 	s := storage.NewMemStorage()
 	router := registerRouter(s)

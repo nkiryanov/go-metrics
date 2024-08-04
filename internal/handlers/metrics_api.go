@@ -32,7 +32,7 @@ func (api MetricsAPI) RegisterRoutes(r chi.Router) {
 		r.Use(middleware.SetHeader("Content-Type", "text/plain"))
 		r.Post("/counter/{mName}/{mValue}", api.updateCounter)
 		r.Post("/gauge/{mName}/{mValue}", api.updateGauge)
-		r.Post("/{mType}/{mName}/{mValue}/", func(w http.ResponseWriter, r *http.Request) { http.Error(w, "Bad Request", http.StatusBadRequest) })
+		r.Post("/{mType}/{mName}/{mValue}", func(w http.ResponseWriter, r *http.Request) { http.Error(w, "Bad Request", http.StatusBadRequest) })
 	})
 }
 
