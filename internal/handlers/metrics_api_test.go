@@ -34,8 +34,8 @@ func prefillGauge(s storage.Storage, name string, value string) {
 	s.SetGauge(storage.MetricName(name), storage.Gaugeable(gv))
 }
 
-func preparePostRequest(url string) (w *httptest.ResponseRecorder, r *http.Request) {
-	r = httptest.NewRequest(http.MethodPost, url, nil)
+func prepareRequest(method string, url string) (w *httptest.ResponseRecorder, r *http.Request) {
+	r = httptest.NewRequest(method, url, nil)
 	w = httptest.NewRecorder()
 	return
 }
@@ -44,7 +44,7 @@ func TestMetricAPI_UpdateCounterResponse(t *testing.T) {
 	storage := storage.NewMemStorage()
 	prefillCounter(storage, "cpu-usage", "100")
 	router := registerRouter(storage)
-	w, r := preparePostRequest("/update/counter/cpu-usage/100")
+	w, r := prepareRequest("POST", "/update/counter/cpu-usage/100")
 
 	router.ServeHTTP(w, r)
 
@@ -91,7 +91,7 @@ func TestMetricsAPI_UpdateCounterStored(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			s := storage.NewMemStorage()
 			router := registerRouter(s)
-			w, r := preparePostRequest(fmt.Sprintf("/update/counter/%s/%s", tc.metricName, tc.metricValue))
+			w, r := prepareRequest("POST", fmt.Sprintf("/update/counter/%s/%s", tc.metricName, tc.metricValue))
 
 			router.ServeHTTP(w, r)
 
@@ -134,7 +134,7 @@ func TestMetricsAPI_UpdateGauge(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			s := storage.NewMemStorage()
 			router := registerRouter(s)
-			w, r := preparePostRequest(fmt.Sprintf("/update/gauge/%s/%s", tc.metricName, tc.metricValue))
+			w, r := prepareRequest("POST", fmt.Sprintf("/update/gauge/%s/%s", tc.metricName, tc.metricValue))
 
 			router.ServeHTTP(w, r)
 
@@ -149,7 +149,7 @@ func TestMetricsAPI_UpdateGauge(t *testing.T) {
 func TestMetricsAPI_UpdateInvalidMetricType(t *testing.T) {
 	s := storage.NewMemStorage()
 	router := registerRouter(s)
-	w, r := preparePostRequest("/update/invalid/metric/10")
+	w, r := prepareRequest("POST", "/update/invalid/metric/10")
 
 	router.ServeHTTP(w, r)
 
@@ -159,7 +159,7 @@ func TestMetricsAPI_UpdateInvalidMetricType(t *testing.T) {
 func TestMetricsAPI_UpdateCounterWithPrefilledStorage(t *testing.T) {
 	s := storage.NewMemStorage()
 	router := registerRouter(s)
-	w, r := preparePostRequest("/update/counter/poll-count/20")
+	w, r := prepareRequest("POST", "/update/counter/poll-count/20")
 	// Set 'poll-count' counter metric in storage
 	prefillCounter(s, "poll-count", "10")
 
@@ -174,7 +174,7 @@ func TestMetricsAPI_UpdateCounterWithPrefilledStorage(t *testing.T) {
 func TestMetricsAPI_UpdateGaugeWithPrefilledStorage(t *testing.T) {
 	s := storage.NewMemStorage()
 	router := registerRouter(s)
-	w, r := preparePostRequest("/update/gauge/memory/20.23")
+	w, r := prepareRequest("POST", "/update/gauge/memory/20.23")
 	// Set 'memory' gauge metric in storage
 	prefillGauge(s, "memory", "10.23")
 
@@ -184,4 +184,48 @@ func TestMetricsAPI_UpdateGaugeWithPrefilledStorage(t *testing.T) {
 	vStored, isInStore := s.GetGauge(storage.MetricName("memory"))
 	assert.True(t, isInStore)
 	assert.EqualValues(t, 20.23, vStored, "stored value should be replaced with new value")
+}
+
+func TestMetricsApi_getMetric(t *testing.T) {
+	s := storage.NewMemStorage()
+	prefillCounter(s, "poll-count", "10")
+	prefillGauge(s, "memory", "10.23")
+
+	testCases := []struct {
+		name          string
+		path          string
+		expectedCode  int
+		expectedValue string
+	}{
+		{
+			name:          "get counter metric",
+			path:          "/value/counter/poll-count",
+			expectedCode:  http.StatusOK,
+			expectedValue: "10",
+		},
+		{
+			name:          "get gauge metric",
+			path:          "/value/gauge/memory",
+			expectedCode:  http.StatusOK,
+			expectedValue: "10.23",
+		},
+		{
+			name:          "error unknown metric",
+			path:          "/value/counter/unknown",
+			expectedCode:  http.StatusNotFound,
+			expectedValue: "Metric not found",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			router := registerRouter(s)
+			w, r := prepareRequest(http.MethodGet, tc.path)
+
+			router.ServeHTTP(w, r)
+
+			assert.Equal(t, tc.expectedCode, w.Code)
+			assert.Contains(t, w.Body.String(), tc.expectedValue)
+		})
+	}
 }
