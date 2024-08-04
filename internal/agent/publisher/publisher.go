@@ -20,7 +20,7 @@ type Publisher interface {
 
 var ErrPublisherStopped = errors.New("publisher: Publisher stopped")
 
-type HttpPublisher struct {
+type HTTPPublisher struct {
 	pubAddr     string
 	pubInterval time.Duration
 
@@ -28,24 +28,24 @@ type HttpPublisher struct {
 	client  *http.Client
 }
 
-func NewHttpPublisher(pubAddr string, pubInterval time.Duration, storage storage.Storage) (*HttpPublisher, error) {
-	pubUrl, err := url.Parse(pubAddr)
+func NewHTTPPublisher(pubAddr string, pubInterval time.Duration, storage storage.Storage) (*HTTPPublisher, error) {
+	pubURL, err := url.Parse(pubAddr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse publisher address: %w", err)
 	}
-	if pubUrl.Scheme == "" || pubUrl.Host == "" {
+	if pubURL.Scheme == "" || pubURL.Host == "" {
 		return nil, errors.New("publisher: Invalid publisher address")
 	}
 
-	return &HttpPublisher{
-		pubAddr:     pubUrl.String(),
+	return &HTTPPublisher{
+		pubAddr:     pubURL.String(),
 		pubInterval: pubInterval,
 		storage:     storage,
 		client:      &http.Client{},
 	}, nil
 }
 
-func (p HttpPublisher) postMetric(mType storage.MetricType, name storage.MetricName) (status int, err error) {
+func (p HTTPPublisher) postMetric(mType storage.MetricType, name storage.MetricName) (status int, err error) {
 	var value string
 
 	switch mType {
@@ -75,7 +75,7 @@ func (p HttpPublisher) postMetric(mType storage.MetricType, name storage.MetricN
 	return code, nil
 }
 
-func (p HttpPublisher) batchPublish() {
+func (p HTTPPublisher) batchPublish() {
 	var wg sync.WaitGroup
 
 	p.storage.IterateGauges(func(name storage.MetricName, value storage.Gaugeable) {
@@ -113,7 +113,7 @@ func (p HttpPublisher) batchPublish() {
 	wg.Wait()
 }
 
-func (p HttpPublisher) Run(ctx context.Context) error {
+func (p HTTPPublisher) Run(ctx context.Context) error {
 	go func() {
 		ticker := time.NewTicker(p.pubInterval)
 		defer ticker.Stop()

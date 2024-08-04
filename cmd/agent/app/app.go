@@ -20,7 +20,7 @@ type Agent struct {
 }
 
 func NewAgent(storage storage.Storage, pubAddr string, pollInterval, pubInterval time.Duration) (*Agent, error) {
-	publisher, err := publisher.NewHttpPublisher(pubAddr, pubInterval, storage)
+	publisher, err := publisher.NewHTTPPublisher(pubAddr, pubInterval, storage)
 	if err != nil {
 		return nil, fmt.Errorf("agent: Failed to create publisher: %w", err)
 	}

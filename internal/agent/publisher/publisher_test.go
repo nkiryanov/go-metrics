@@ -21,22 +21,22 @@ type capturedReq struct {
 	path   string
 }
 
-type testHttpReceiver struct {
+type testHTTPReceiver struct {
 	requests []capturedReq
 	lock     sync.Mutex
 }
 
-func newTestHttpReceiver() testHttpReceiver {
-	return testHttpReceiver{requests: make([]capturedReq, 0)}
+func newTestHTTPReceiver() testHTTPReceiver {
+	return testHTTPReceiver{requests: make([]capturedReq, 0)}
 }
 
-func (rcv *testHttpReceiver) Handler(w http.ResponseWriter, req *http.Request) {
+func (rcv *testHTTPReceiver) Handler(w http.ResponseWriter, req *http.Request) {
 	rcv.lock.Lock()
 	rcv.requests = append(rcv.requests, capturedReq{req.Method, req.URL.Path})
 	rcv.lock.Unlock()
 }
 
-func (rcv *testHttpReceiver) run(listenAddr string, ctx context.Context) {
+func (rcv *testHTTPReceiver) run(listenAddr string, ctx context.Context) {
 	// Run http receiver in background
 	srv := &http.Server{
 		Addr:    listenAddr,
@@ -53,33 +53,33 @@ func (rcv *testHttpReceiver) run(listenAddr string, ctx context.Context) {
 	}()
 }
 
-func TestPublisher_NewHttpPublisherValidAddr(t *testing.T) {
+func TestPublisher_NewHTTPPublisherValidAddr(t *testing.T) {
 	pubAddr := "http://example.com:8080"
 	pubInterval := time.Second
 	storage := storage.NewMemStorage()
 
-	got, err := NewHttpPublisher(pubAddr, pubInterval, storage)
+	got, err := NewHTTPPublisher(pubAddr, pubInterval, storage)
 
 	require.NoError(t, err)
 	assert.Equal(t, "http://example.com:8080", got.pubAddr)
 }
 
-func TestPublisher_NewHttpPublisherInvalidAddr(t *testing.T) {
+func TestPublisher_NewHTTPPublisherInvalidAddr(t *testing.T) {
 	pubAddr := "localhost:8080"
 	pubInterval := time.Second
 	storage := storage.NewMemStorage()
 
-	_, err := NewHttpPublisher(pubAddr, pubInterval, storage)
+	_, err := NewHTTPPublisher(pubAddr, pubInterval, storage)
 
 	require.Error(t, err)
 	assert.Equal(t, "publisher: Invalid publisher address", err.Error())
 }
 
-func TestHttpPublisher_postMetric(t *testing.T) {
-	publisher, _ := NewHttpPublisher("http://localhost:51493", time.Millisecond, storage.NewMemStorage())
+func TestHTTPPublisher_postMetric(t *testing.T) {
+	publisher, _ := NewHTTPPublisher("http://localhost:51493", time.Millisecond, storage.NewMemStorage())
 	// Run test http receiver
 	ctx, stopRcv := context.WithTimeout(context.Background(), halfSecond)
-	rcv := newTestHttpReceiver()
+	rcv := newTestHTTPReceiver()
 	rcv.run("localhost:51493", ctx)
 
 	status, err := publisher.postMetric(storage.CounterTypeName, "counter-stat")
@@ -92,16 +92,16 @@ func TestHttpPublisher_postMetric(t *testing.T) {
 	assert.Equal(t, "/update/counter/counter-stat/0", rcv.requests[0].path)
 }
 
-func TestHttpPublisher_batchPublish(t *testing.T) {
+func TestHTTPPublisher_batchPublish(t *testing.T) {
 	// Prepare storage with some metrics
 	s := storage.NewMemStorage()
 	s.UpdateCounter("counter-stat", 1)
 	s.SetGauge("gauge-stat", 2.01)
 	// Prepare publisher
-	publisher, _ := NewHttpPublisher("http://localhost:51493", time.Second, s)
+	publisher, _ := NewHTTPPublisher("http://localhost:51493", time.Second, s)
 	// Run test http receiver
-	ctx, stopRcv := context.WithTimeout(context.Background(), halfSecond)
-	rcv := newTestHttpReceiver()
+	ctx, stopRcv := context.WithTimeout(context.Background(), time.Second)
+	rcv := newTestHTTPReceiver()
 	rcv.run("localhost:51493", ctx)
 
 	publisher.batchPublish()
@@ -112,10 +112,10 @@ func TestHttpPublisher_batchPublish(t *testing.T) {
 	assert.Contains(t, rcv.requests, capturedReq{"POST", "/update/gauge/gauge-stat/2.01"})
 }
 
-func TestHttpPublisher_RunStopWithSignal(t *testing.T) {
+func TestHTTPPublisher_RunStopWithSignal(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), halfSecond)
 	defer cancel()
-	publisher, _ := NewHttpPublisher("http://example.com", time.Second, storage.NewMemStorage())
+	publisher, _ := NewHTTPPublisher("http://example.com", time.Second, storage.NewMemStorage())
 
 	err := publisher.Run(ctx)
 
