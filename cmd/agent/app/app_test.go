@@ -16,7 +16,8 @@ const (
 )
 
 func initAgent() Agent {
-	return *NewAgent(storage.NewMemStorage(), "localhost:8080", 2*time.Second, 10*time.Second)
+	a, _ := NewAgent(storage.NewMemStorage(), "http://localhost:101010", 2*time.Second, 10*time.Second)
+	return *a
 }
 
 func TestAgent_PollStoppedOnSignal(t *testing.T) {
