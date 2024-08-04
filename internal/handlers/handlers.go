@@ -5,12 +5,13 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/nkiryanov/go-metrics/internal/storage"
 )
 
 type MetricsAPIHandler interface {
-	UpdateCounter(w http.ResponseWriter, r *http.Request)
-	UpdateGauge(w http.ResponseWriter, r *http.Request)
+	RegisterRoutes(chi.Router)
 }
 
 type MetricsAPI struct {
@@ -19,6 +20,14 @@ type MetricsAPI struct {
 
 func NewMetricsAPI(storage storage.Storage) MetricsAPI {
 	return MetricsAPI{storage: storage}
+}
+
+func (api MetricsAPI) RegisterRoutes(r chi.Router) {
+	r.Use(middleware.SetHeader("Content-Type", "text/plain"))
+
+	r.Post("/counter/{mName}/{mValue}", api.UpdateCounter)
+	r.Post("/gauge/{mName}/{mValue}", api.UpdateGauge)
+	r.Post("/{mType}/{mName}/{mValue}/", func(w http.ResponseWriter, r *http.Request) { http.Error(w, "Bad Request", http.StatusBadRequest) })
 }
 
 func (api MetricsAPI) UpdateCounter(w http.ResponseWriter, r *http.Request) {
@@ -30,8 +39,10 @@ func (api MetricsAPI) UpdateCounter(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	stored := api.storage.UpdateCounter(storage.MetricName(name), storage.Countable(countable))
-	slog.Info("Counter updated", "name", name, "value", stored)
+	storedValue := api.storage.UpdateCounter(storage.MetricName(name), storage.Countable(countable))
+	slog.Info("Counter updated", "name", name, "value", storedValue)
+
+	api.genMetricResponse(w, storedValue.String())
 }
 
 func (api MetricsAPI) UpdateGauge(w http.ResponseWriter, r *http.Request) {
@@ -43,6 +54,14 @@ func (api MetricsAPI) UpdateGauge(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	stored := api.storage.SetGauge(storage.MetricName(name), storage.Gaugeable(gauge))
-	slog.Info("Gauge updated", "name", name, "value", stored)
+	storedValue := api.storage.SetGauge(storage.MetricName(name), storage.Gaugeable(gauge))
+	slog.Info("Gauge updated", "name", name, "value", storedValue)
+
+	api.genMetricResponse(w, storedValue.String())
+}
+
+func (api MetricsAPI) genMetricResponse(w http.ResponseWriter, value string) {
+	if _, err := w.Write([]byte(value)); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
 }

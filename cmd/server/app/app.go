@@ -10,7 +10,6 @@ import (
 	"github.com/nkiryanov/go-metrics/internal/storage"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
 )
 
 type ServerApp struct {
@@ -32,12 +31,7 @@ func NewServerApp(listenAddr string) *ServerApp {
 func (s *ServerApp) router() http.Handler {
 	r := chi.NewRouter()
 
-	r.Route("/update", func(r chi.Router) {
-		r.Use(middleware.SetHeader("Content-Type", "text/plain"))
-		r.Post("/counter/{mName}/{mValue}", s.api.UpdateCounter)
-		r.Post("/gauge/{mName}/{mValue}", s.api.UpdateGauge)
-		r.Post("/{mType}/{mName}/{mValue}/", func(w http.ResponseWriter, r *http.Request) { http.Error(w, "Bad Request", http.StatusBadRequest) })
-	})
+	r.Route("/update", s.api.RegisterRoutes)
 
 	return r
 }
