@@ -11,19 +11,24 @@ import (
 
 	"github.com/nkiryanov/go-metrics/cmd/server/app"
 	"github.com/nkiryanov/go-metrics/internal/handlers"
+	"github.com/nkiryanov/go-metrics/internal/handlers/templates"
 	"github.com/nkiryanov/go-metrics/internal/storage"
 )
 
 const (
-	ListenAddr     string = ":8080"
-	metricsListTpl string = "internal/handlers/templates/metrics_list.html"
+	ListenAddr string = ":8080"
 )
 
 var srv *app.ServerApp
 
 func init() {
-	listTpl, err := template.ParseFiles(metricsListTpl)
+	dir, err := os.Getwd()
+	if err != nil {
+		panic(err)
+	}
+	slog.Info("Current directory:", "dir", dir)
 
+	listTpl, err := template.New("listTpl").Parse(templates.MetricsListTpl)
 	if err != nil {
 		panic(err)
 	}

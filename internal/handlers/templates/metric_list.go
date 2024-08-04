@@ -1,3 +1,6 @@
+package templates
+
+const MetricsListTpl = `<!DOCTYPE html>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -56,3 +59,4 @@
     {{- end -}}
 </body>
 </html>
+`
