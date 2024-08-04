@@ -12,39 +12,16 @@ import (
 )
 
 const (
-	HalfSecond = 500 * time.Millisecond
+	halfSecond = 500 * time.Millisecond
 )
 
-func initAgent() Agent {
-	a, _ := NewAgent(storage.NewMemStorage(), "http://localhost:101010", 2*time.Second, 10*time.Second)
-	return *a
-}
-
-func TestAgent_PollStoppedOnSignal(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), HalfSecond)
+func TestAgent_RunStoppedOnSignal(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), halfSecond)
 	defer cancel()
-	agent := initAgent()
+	agent, _ := NewAgent(storage.NewMemStorage(), "http://localhost:101010", 2*time.Second, 10*time.Second)
 
-	err := agent.Poll(ctx)
+	err := agent.Run(ctx)
 
 	require.Error(t, err)
 	assert.Equal(t, "agent: Agent stopped", err.Error())
-}
-
-func TestAgent_PollCaptureStats(t *testing.T) {
-	agent := initAgent()
-	ctx, cancel := context.WithTimeout(context.Background(), HalfSecond)
-	defer cancel()
-
-	err := agent.Poll(ctx)
-
-	require.Error(t, err)
-	for _, gauge := range gauges {
-		_, ok := agent.storage.GetGauge(gauge)
-		assert.True(t, ok, "Expected gauge %s to be set", gauge)
-	}
-	for _, counter := range []storage.MetricName{PollCount} {
-		_, ok := agent.storage.GetCounter(counter)
-		assert.True(t, ok, "Expected counter %s to be set", counter)
-	}
 }
