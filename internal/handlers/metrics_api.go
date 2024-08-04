@@ -25,12 +25,12 @@ func NewMetricsAPI(storage storage.Storage) MetricsAPI {
 func (api MetricsAPI) RegisterRoutes(r chi.Router) {
 	r.Use(middleware.SetHeader("Content-Type", "text/plain"))
 
-	r.Post("/counter/{mName}/{mValue}", api.UpdateCounter)
-	r.Post("/gauge/{mName}/{mValue}", api.UpdateGauge)
+	r.Post("/counter/{mName}/{mValue}", api.updateCounter)
+	r.Post("/gauge/{mName}/{mValue}", api.updateGauge)
 	r.Post("/{mType}/{mName}/{mValue}/", func(w http.ResponseWriter, r *http.Request) { http.Error(w, "Bad Request", http.StatusBadRequest) })
 }
 
-func (api MetricsAPI) UpdateCounter(w http.ResponseWriter, r *http.Request) {
+func (api MetricsAPI) updateCounter(w http.ResponseWriter, r *http.Request) {
 	name := r.PathValue("mName")
 
 	countable, err := strconv.ParseInt(r.PathValue("mValue"), 10, 64)
@@ -45,7 +45,7 @@ func (api MetricsAPI) UpdateCounter(w http.ResponseWriter, r *http.Request) {
 	api.genMetricResponse(w, storedValue.String())
 }
 
-func (api MetricsAPI) UpdateGauge(w http.ResponseWriter, r *http.Request) {
+func (api MetricsAPI) updateGauge(w http.ResponseWriter, r *http.Request) {
 	name := r.PathValue("mName")
 
 	gauge, err := strconv.ParseFloat(r.PathValue("mValue"), 64)
