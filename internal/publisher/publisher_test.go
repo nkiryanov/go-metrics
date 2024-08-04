@@ -3,9 +3,9 @@ package publisher
 import (
 	"context"
 	"net/http"
+	"sync"
 	"testing"
 	"time"
-	"sync"
 
 	"github.com/nkiryanov/go-metrics/internal/storage"
 	"github.com/stretchr/testify/assert"
@@ -23,7 +23,7 @@ type capturedReq struct {
 
 type testHttpReceiver struct {
 	requests []capturedReq
-	lock sync.Mutex
+	lock     sync.Mutex
 }
 
 func newTestHttpReceiver() testHttpReceiver {
@@ -44,7 +44,7 @@ func (rcv *testHttpReceiver) run(listenAddr string, ctx context.Context) {
 	}
 
 	go func() {
-		srv.ListenAndServe()  // nolint:errcheck
+		srv.ListenAndServe() // nolint:errcheck
 	}()
 
 	go func() {
