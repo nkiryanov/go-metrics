@@ -16,10 +16,10 @@ import (
 )
 
 func registerRouter(s storage.Storage) chi.Router {
-	api := NewMetricsAPI(s)
+	api := NewMetricsAPI(s, nil)
 
 	router := chi.NewRouter()
-	router.Route("/update", api.RegisterRoutes)
+	router.Route("/", api.RegisterRoutes)
 
 	return router
 }

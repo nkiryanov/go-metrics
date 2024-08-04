@@ -22,9 +22,9 @@ type (
 	Gaugeable  float64
 	Countable  int64
 	MetricRepr struct {
-		mName  string
-		mType  string
-		mValue string
+		MName  string
+		MType  string
+		MValue string
 	}
 )
 
@@ -134,15 +134,15 @@ func (s *MemStorage) ListMetrics() []MetricRepr {
 	metrics := make([]MetricRepr, 0, s.Len())
 
 	s.IterateCounters(func(name MetricName, value Countable) {
-		metrics = append(metrics, MetricRepr{mType: string(CounterTypeName), mName: string(name), mValue: value.String()})
+		metrics = append(metrics, MetricRepr{MType: string(CounterTypeName), MName: string(name), MValue: value.String()})
 	})
 
 	s.IterateGauges(func(metric MetricName, value Gaugeable) {
-		metrics = append(metrics, MetricRepr{mType: string(GaugeTypeName), mName: string(metric), mValue: value.String()})
+		metrics = append(metrics, MetricRepr{MType: string(GaugeTypeName), MName: string(metric), MValue: value.String()})
 	})
 
 	sort.Slice(metrics, func(i, j int) bool {
-		return metrics[i].mName < metrics[j].mName
+		return metrics[i].MName < metrics[j].MName
 	})
 
 	return metrics

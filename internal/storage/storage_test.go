@@ -169,9 +169,9 @@ func TestMemStorage_ListMetrics(t *testing.T) {
 	metrics := storage.ListMetrics()
 
 	require.Len(t, metrics, 5)
-	assert.Equal(t, MetricRepr{mName: "abra", mType: "gauge", mValue: "5.5"}, metrics[0])
-	assert.Equal(t, MetricRepr{mName: "bar", mType: "counter", mValue: "3"}, metrics[1])
-	assert.Equal(t, MetricRepr{mName: "bar", mType: "gauge", mValue: "4.4"}, metrics[2])
-	assert.Equal(t, MetricRepr{mName: "foo", mType: "counter", mValue: "1"}, metrics[3])
-	assert.Equal(t, MetricRepr{mName: "foo", mType: "gauge", mValue: "2.2"}, metrics[4])
+	assert.Equal(t, MetricRepr{MName: "abra", MType: "gauge", MValue: "5.5"}, metrics[0])
+	assert.Equal(t, MetricRepr{MName: "bar", MType: "counter", MValue: "3"}, metrics[1])
+	assert.Equal(t, MetricRepr{MName: "bar", MType: "gauge", MValue: "4.4"}, metrics[2])
+	assert.Equal(t, MetricRepr{MName: "foo", MType: "counter", MValue: "1"}, metrics[3])
+	assert.Equal(t, MetricRepr{MName: "foo", MType: "gauge", MValue: "2.2"}, metrics[4])
 }

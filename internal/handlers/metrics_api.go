@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"html/template"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -16,18 +17,23 @@ type MetricsAPIHandler interface {
 
 type MetricsAPI struct {
 	storage storage.Storage
+
+	listTpl *template.Template
 }
 
-func NewMetricsAPI(storage storage.Storage) MetricsAPI {
-	return MetricsAPI{storage: storage}
+func NewMetricsAPI(storage storage.Storage, listTpl *template.Template) MetricsAPI {
+	return MetricsAPI{storage: storage, listTpl: listTpl}
 }
 
 func (api MetricsAPI) RegisterRoutes(r chi.Router) {
-	r.Use(middleware.SetHeader("Content-Type", "text/plain"))
+	r.With(middleware.SetHeader("Content-Type", "text/html")).Get("/", api.listMetrics)
 
-	r.Post("/counter/{mName}/{mValue}", api.updateCounter)
-	r.Post("/gauge/{mName}/{mValue}", api.updateGauge)
-	r.Post("/{mType}/{mName}/{mValue}/", func(w http.ResponseWriter, r *http.Request) { http.Error(w, "Bad Request", http.StatusBadRequest) })
+	r.Route("/update", func(r chi.Router) {
+		r.Use(middleware.SetHeader("Content-Type", "text/plain"))
+		r.Post("/counter/{mName}/{mValue}", api.updateCounter)
+		r.Post("/gauge/{mName}/{mValue}", api.updateGauge)
+		r.Post("/{mType}/{mName}/{mValue}/", func(w http.ResponseWriter, r *http.Request) { http.Error(w, "Bad Request", http.StatusBadRequest) })
+	})
 }
 
 func (api MetricsAPI) updateCounter(w http.ResponseWriter, r *http.Request) {
@@ -62,6 +68,14 @@ func (api MetricsAPI) updateGauge(w http.ResponseWriter, r *http.Request) {
 
 func (api MetricsAPI) genMetricResponse(w http.ResponseWriter, value string) {
 	if _, err := w.Write([]byte(value)); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
+func (api MetricsAPI) listMetrics(w http.ResponseWriter, _ *http.Request) {
+	metrics := api.storage.ListMetrics()
+
+	if err := api.listTpl.Execute(w, metrics); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }

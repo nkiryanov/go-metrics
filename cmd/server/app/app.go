@@ -7,31 +7,19 @@ import (
 	"time"
 
 	"github.com/nkiryanov/go-metrics/internal/handlers"
-	"github.com/nkiryanov/go-metrics/internal/storage"
 
 	"github.com/go-chi/chi/v5"
 )
 
 type ServerApp struct {
 	ListenAddr string
-
-	storage storage.Storage
-	api     handlers.MetricsAPIHandler
-}
-
-func NewServerApp(listenAddr string) *ServerApp {
-	storage := storage.NewMemStorage()
-	return &ServerApp{
-		ListenAddr: listenAddr,
-		storage:    storage,
-		api:        handlers.NewMetricsAPI(storage),
-	}
+	API        handlers.MetricsAPIHandler
 }
 
 func (s *ServerApp) router() http.Handler {
 	r := chi.NewRouter()
 
-	r.Route("/update", s.api.RegisterRoutes)
+	r.Route("/", s.API.RegisterRoutes)
 
 	return r
 }
