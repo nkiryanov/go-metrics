@@ -19,8 +19,8 @@ type Agent struct {
 	poller   poller.Poller
 }
 
-func NewAgent(storage storage.Storage, pubAddr string, pollInterval, pubInterval time.Duration) (*Agent, error) {
-	reporter, err := reporter.NewHTTPReporter(pubAddr, pubInterval, storage)
+func NewAgent(storage storage.Storage, reptAddr string, pollInterval, reptInterval time.Duration) (*Agent, error) {
+	reporter, err := reporter.NewHTTPReporter(reptAddr, reptInterval, storage)
 	if err != nil {
 		return nil, fmt.Errorf("agent: Failed to create publisher: %w", err)
 	}

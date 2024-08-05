@@ -3,14 +3,14 @@ package opts
 import (
 	"flag"
 	"fmt"
-	// "log/slog"
 	"strconv"
+	"strings"
 	"time"
 )
 
 const (
-	PollInterval = 2 * time.Second
-	PubInterval  = 10 * time.Second
+	PollInterval   = 2 * time.Second
+	ReportInterval = 10 * time.Second
 
 	PubAddr = "http://localhost:8080"
 )
@@ -25,7 +25,7 @@ type Options struct {
 func ParseOptions() *Options {
 	opts := &Options{
 		PollInterval:   PollInterval,
-		ReportInterval: PubInterval,
+		ReportInterval: ReportInterval,
 	}
 
 	parseDurationFunc := func(d *time.Duration) func(string) error {
@@ -48,7 +48,9 @@ func ParseOptions() *Options {
 
 	flag.Parse()
 
-	flag.Parse()
+	if !strings.Contains(opts.ReportAddr, "://") {
+		opts.ReportAddr = "http://" + opts.ReportAddr
+	}
 
 	return opts
 }
