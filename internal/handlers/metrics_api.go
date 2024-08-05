@@ -8,6 +8,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+
+	"github.com/nkiryanov/go-metrics/internal/handlers/templates"
 	"github.com/nkiryanov/go-metrics/internal/storage"
 )
 
@@ -21,8 +23,11 @@ type MetricsAPI struct {
 	listTpl *template.Template
 }
 
-func NewMetricsAPI(storage storage.Storage, listTpl *template.Template) MetricsAPI {
-	return MetricsAPI{storage: storage, listTpl: listTpl}
+func NewMetricsAPI(storage storage.Storage) MetricsAPI {
+	return MetricsAPI{
+		storage: storage,
+		listTpl: templates.MetricList,
+	}
 }
 
 func (api MetricsAPI) RegisterRoutes(r chi.Router) {

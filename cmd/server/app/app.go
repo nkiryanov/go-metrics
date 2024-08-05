@@ -6,14 +6,15 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/nkiryanov/go-metrics/cmd/server/opts"
 	"github.com/nkiryanov/go-metrics/internal/handlers"
 
 	"github.com/go-chi/chi/v5"
 )
 
 type ServerApp struct {
-	ListenAddr string
-	API        handlers.MetricsAPIHandler
+	Opts *opts.Options
+	API  handlers.MetricsAPIHandler
 }
 
 func (s *ServerApp) router() http.Handler {
@@ -26,31 +27,33 @@ func (s *ServerApp) router() http.Handler {
 
 // Run starts http server and closes gracefully on context cancellation
 func (s *ServerApp) Run(ctx context.Context) error {
-	slog.Info("Starting server", "ListenAddr", s.ListenAddr)
+	slog.Info("Starting server", "ListenAddr", s.Opts.ListenAddr)
 
 	httpServer := &http.Server{
-		Addr:    s.ListenAddr,
+		Addr:    s.Opts.ListenAddr,
 		Handler: s.router(),
 	}
 
 	idleConnsClosed := make(chan struct{})
+	srvCtx, srvCtxCancel := context.WithCancel(ctx)
+	defer srvCtxCancel()
 
 	go func() {
-		<-ctx.Done()
+		<-srvCtx.Done()
 
-		if httpServer != nil {
-			timeoutCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			defer cancel()
-			if err := httpServer.Shutdown(timeoutCtx); err != nil {
-				slog.Error("HTTP server Shutdown", "error", err.Error())
-			}
-			slog.Info("HTTP server stopped")
+		timeoutCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		if err := httpServer.Shutdown(timeoutCtx); err == context.DeadlineExceeded {
+			slog.Error("force http server shutdown...")
 		}
+		slog.Info("HTTP server stopped")
 		close(idleConnsClosed)
 	}()
 
-	// Listen and serve until context is cancelled
+	// Listen and serve until context is cancelled; then close gracefully connections
 	err := httpServer.ListenAndServe()
+	srvCtxCancel()
 	<-idleConnsClosed
 
 	return err

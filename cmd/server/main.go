@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"html/template"
 	"log/slog"
 	"net/http"
 	"os"
@@ -10,38 +9,17 @@ import (
 	"syscall"
 
 	"github.com/nkiryanov/go-metrics/cmd/server/app"
+	"github.com/nkiryanov/go-metrics/cmd/server/opts"
 	"github.com/nkiryanov/go-metrics/internal/handlers"
-	"github.com/nkiryanov/go-metrics/internal/handlers/templates"
 	"github.com/nkiryanov/go-metrics/internal/storage"
 )
 
-const (
-	ListenAddr string = ":8080"
-)
-
-var srv *app.ServerApp
-
-func init() {
-	dir, err := os.Getwd()
-	if err != nil {
-		panic(err)
-	}
-	slog.Info("Current directory:", "dir", dir)
-
-	listTpl, err := template.New("listTpl").Parse(templates.MetricsListTpl)
-	if err != nil {
-		panic(err)
-	}
-
-	api := handlers.NewMetricsAPI(storage.NewMemStorage(), listTpl)
-
-	srv = &app.ServerApp{
-		ListenAddr: ListenAddr,
-		API:        api,
-	}
-}
-
 func main() {
+	srv := &app.ServerApp{
+		Opts: opts.NewOptions(),
+		API:  handlers.NewMetricsAPI(storage.NewMemStorage()),
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
 		stop := make(chan os.Signal, 1)

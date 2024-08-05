@@ -8,6 +8,8 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/nkiryanov/go-metrics/cmd/server/opts"
 )
 
 const (
@@ -23,10 +25,20 @@ func (m mockAPI) RegisterRoutes(chi.Router) {
 func TestServerApp_RunExitWithSignal(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), HalfSecond)
 	defer cancel()
-	srv := ServerApp{ListenAddr: ":8080", API: mockAPI{}}
+	srv := ServerApp{Opts: opts.NewOptions(), API: mockAPI{}}
 
 	err := srv.Run(ctx)
 
 	require.Error(t, err)
 	assert.Equal(t, "http: Server closed", err.Error())
+}
+
+func TestServerApp_RunExitOnServerError(t *testing.T) {
+	ctx := context.Background()
+	srv := ServerApp{Opts: &opts.Options{ListenAddr: "invalid_add"}, API: mockAPI{}}
+
+	err := srv.Run(ctx)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "listen")
 }

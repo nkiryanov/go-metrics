@@ -16,7 +16,7 @@ import (
 )
 
 func registerRouter(s storage.Storage) chi.Router {
-	api := NewMetricsAPI(s, nil)
+	api := NewMetricsAPI(s)
 
 	router := chi.NewRouter()
 	router.Route("/", api.RegisterRoutes)
