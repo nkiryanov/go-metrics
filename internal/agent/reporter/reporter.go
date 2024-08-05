@@ -1,4 +1,4 @@
-package publisher
+package reporter
 
 import (
 	"context"
@@ -7,45 +7,36 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
-	"net/url"
 	"sync"
 	"time"
 
 	"github.com/nkiryanov/go-metrics/internal/storage"
 )
 
-type Publisher interface {
+type Reporter interface {
 	Run(ctx context.Context) error
 }
 
-var ErrPublisherStopped = errors.New("publisher: Publisher stopped")
+var ErrReporterStopped = errors.New("reporter: Reporter stopped")
 
-type HTTPPublisher struct {
-	pubAddr     string
-	pubInterval time.Duration
+type HTTPReporter struct {
+	repAddr     string
+	repInterval time.Duration
 
 	storage storage.Storage
 	client  *http.Client
 }
 
-func NewHTTPPublisher(pubAddr string, pubInterval time.Duration, storage storage.Storage) (*HTTPPublisher, error) {
-	pubURL, err := url.Parse(pubAddr)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse publisher address: %w", err)
-	}
-	if pubURL.Scheme == "" || pubURL.Host == "" {
-		return nil, errors.New("publisher: Invalid publisher address")
-	}
-
-	return &HTTPPublisher{
-		pubAddr:     pubURL.String(),
-		pubInterval: pubInterval,
+func NewHTTPReporter(repAddr string, repInterval time.Duration, storage storage.Storage) (*HTTPReporter, error) {
+	return &HTTPReporter{
+		repAddr:     repAddr,
+		repInterval: repInterval,
 		storage:     storage,
 		client:      &http.Client{},
 	}, nil
 }
 
-func (p HTTPPublisher) postMetric(mType storage.MetricType, name storage.MetricName) (status int, err error) {
+func (p HTTPReporter) reportMetric(mType storage.MetricType, name storage.MetricName) (status int, err error) {
 	var value string
 
 	switch mType {
@@ -55,7 +46,7 @@ func (p HTTPPublisher) postMetric(mType storage.MetricType, name storage.MetricN
 		value = func() string { gauge, _ := p.storage.GetGauge(name); return gauge.String() }()
 	}
 
-	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/update/%s/%s/%s", p.pubAddr, mType, name, value), nil)
+	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/update/%s/%s/%s", p.repAddr, mType, name, value), nil)
 	if err != nil {
 		return 0, err
 	}
@@ -75,7 +66,7 @@ func (p HTTPPublisher) postMetric(mType storage.MetricType, name storage.MetricN
 	return code, nil
 }
 
-func (p HTTPPublisher) batchPublish() {
+func (p HTTPReporter) batchReport() {
 	var wg sync.WaitGroup
 
 	p.storage.IterateGauges(func(name storage.MetricName, value storage.Gaugeable) {
@@ -84,7 +75,7 @@ func (p HTTPPublisher) batchPublish() {
 		go func(name storage.MetricName) {
 			defer wg.Done()
 
-			status, err := p.postMetric(storage.GaugeTypeName, name)
+			status, err := p.reportMetric(storage.GaugeTypeName, name)
 			if err != nil || status != http.StatusOK {
 				slog.Error("Failed to post gauge", "name", name, "error", err, "status", status)
 				return
@@ -100,7 +91,7 @@ func (p HTTPPublisher) batchPublish() {
 		go func(name storage.MetricName) {
 			defer wg.Done()
 
-			status, err := p.postMetric(storage.CounterTypeName, name)
+			status, err := p.reportMetric(storage.CounterTypeName, name)
 			if err != nil || status != http.StatusOK {
 				slog.Error("Failed to post counter", "name", name, "error", err, "status", status)
 				return
@@ -113,9 +104,9 @@ func (p HTTPPublisher) batchPublish() {
 	wg.Wait()
 }
 
-func (p HTTPPublisher) Run(ctx context.Context) error {
+func (p HTTPReporter) Run(ctx context.Context) error {
 	go func() {
-		ticker := time.NewTicker(p.pubInterval)
+		ticker := time.NewTicker(p.repInterval)
 		defer ticker.Stop()
 
 		for {
@@ -123,14 +114,14 @@ func (p HTTPPublisher) Run(ctx context.Context) error {
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				p.batchPublish()
+				p.batchReport()
 				slog.Info("Metrics published")
-				ticker.Reset(p.pubInterval)
+				ticker.Reset(p.repInterval)
 			}
 		}
 	}()
 
 	<-ctx.Done()
 
-	return ErrPublisherStopped
+	return ErrReporterStopped
 }

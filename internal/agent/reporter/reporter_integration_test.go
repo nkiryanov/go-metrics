@@ -1,7 +1,7 @@
 //go:build integration
 // +build integration
 
-package publisher
+package reporter
 
 import (
 	"context"
@@ -54,14 +54,14 @@ func (rcv *testHTTPReceiver) run(listenAddr string, ctx context.Context) {
 	}()
 }
 
-func TestHTTPPublisher_postMetric(t *testing.T) {
-	publisher, _ := NewHTTPPublisher("http://localhost:51493", time.Millisecond, storage.NewMemStorage())
+func TestHTTPReporter_reportMetric(t *testing.T) {
+	reporter, _ := NewHTTPReporter("http://localhost:51493", time.Millisecond, storage.NewMemStorage())
 	// Run test http receiver
 	ctx, stopRcv := context.WithTimeout(context.Background(), halfSecond)
 	rcv := newTestHTTPReceiver()
 	rcv.run("localhost:51493", ctx)
 
-	status, err := publisher.postMetric(storage.CounterTypeName, "counter-stat")
+	status, err := reporter.reportMetric(storage.CounterTypeName, "counter-stat")
 
 	stopRcv()
 	require.NoError(t, err)
@@ -71,19 +71,19 @@ func TestHTTPPublisher_postMetric(t *testing.T) {
 	assert.Equal(t, "/update/counter/counter-stat/0", rcv.requests[0].path)
 }
 
-func TestHTTPPublisher_batchPublish(t *testing.T) {
+func TestHTTPReporter_batchReport(t *testing.T) {
 	// Prepare storage with some metrics
 	s := storage.NewMemStorage()
 	s.UpdateCounter("counter-stat", 1)
 	s.SetGauge("gauge-stat", 2.01)
-	// Prepare publisher
-	publisher, _ := NewHTTPPublisher("http://localhost:51493", time.Second, s)
+	// Prepare reporter
+	reporter, _ := NewHTTPReporter("http://localhost:51493", time.Second, s)
 	// Run test http receiver
 	ctx, stopRcv := context.WithTimeout(context.Background(), halfSecond)
 	rcv := newTestHTTPReceiver()
 	rcv.run("localhost:51493", ctx)
 
-	publisher.batchPublish()
+	reporter.batchReport()
 
 	stopRcv()
 	require.Len(t, rcv.requests, 2)
