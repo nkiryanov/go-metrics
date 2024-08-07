@@ -2,7 +2,6 @@ package storage
 
 import (
 	"fmt"
-	"strconv"
 	"sync"
 )
 
@@ -10,12 +9,12 @@ import (
 
 type counterStore struct {
 	lock    sync.RWMutex
-	storage map[string]Countable
+	storage map[string]Counter
 }
 
 type gaugeStore struct {
 	lock    sync.RWMutex
-	storage map[string]Gaugeable
+	storage map[string]Gauge
 }
 
 type MemStorage struct {
@@ -25,47 +24,12 @@ type MemStorage struct {
 
 func NewMemStorage() *MemStorage {
 	return &MemStorage{
-		counters: counterStore{storage: make(map[string]Countable)},
-		gauges:   gaugeStore{storage: make(map[string]Gaugeable)},
+		counters: counterStore{storage: make(map[string]Counter)},
+		gauges:   gaugeStore{storage: make(map[string]Gauge)},
 	}
 }
 
-func (s *MemStorage) UpdateCounter(mName string, value Countable) Countable {
-	s.counters.lock.Lock()
-	defer s.counters.lock.Unlock()
-
-	s.counters.storage[mName] += value
-	return s.counters.storage[mName]
-}
-
-func (s *MemStorage) UpdateGauge(mName string, value Gaugeable) Gaugeable {
-	s.gauges.lock.Lock()
-	s.gauges.storage[mName] = value
-	s.gauges.lock.Unlock()
-
-	return value
-}
-
-func (s *MemStorage) UpdateValue(mType string, mName string, mValue string) (Storable, error) {
-	switch mType {
-	case CounterTypeName:
-		countable, err := strconv.ParseInt(mValue, 10, 64)
-		if err != nil {
-			return Countable(0), err
-		}
-		return s.UpdateCounter(mName, Countable(countable)), nil
-	case GaugeTypeName:
-		gauge, err := strconv.ParseFloat(mValue, 64)
-		if err != nil {
-			return Gaugeable(0), err
-		}
-		return s.UpdateGauge(mName, Gaugeable(gauge)), nil
-	default:
-		return nil, fmt.Errorf("unknown metric type: %s", mType)
-	}
-}
-
-func (s *MemStorage) GetCounter(mName string) (Countable, bool) {
+func (s *MemStorage) GetCounter(mName string) (Counter, bool) {
 	s.counters.lock.RLock()
 	defer s.counters.lock.RUnlock()
 
@@ -73,7 +37,24 @@ func (s *MemStorage) GetCounter(mName string) (Countable, bool) {
 	return value, ok
 }
 
-func (s *MemStorage) GetGauge(mName string) (Gaugeable, bool) {
+func (s *MemStorage) UpdateCounter(mName string, value Counter) Counter {
+	s.counters.lock.Lock()
+	defer s.counters.lock.Unlock()
+
+	s.counters.storage[mName] += value
+	return s.counters.storage[mName]
+}
+
+func (s *MemStorage) IterateCounters(fn func(mName string, mValue Counter)) {
+	s.counters.lock.RLock()
+	defer s.counters.lock.RUnlock()
+
+	for mName, mValue := range s.counters.storage {
+		fn(mName, mValue)
+	}
+}
+
+func (s *MemStorage) GetGauge(mName string) (Gauge, bool) {
 	s.gauges.lock.RLock()
 	defer s.gauges.lock.RUnlock()
 
@@ -81,11 +62,19 @@ func (s *MemStorage) GetGauge(mName string) (Gaugeable, bool) {
 	return value, ok
 }
 
-func (s *MemStorage) IterateCounters(fn func(mName string, value Countable)) {
-	s.counters.lock.RLock()
-	defer s.counters.lock.RUnlock()
+func (s *MemStorage) UpdateGauge(mName string, value Gauge) Gauge {
+	s.gauges.lock.Lock()
+	s.gauges.storage[mName] = value
+	s.gauges.lock.Unlock()
 
-	for mName, mValue := range s.counters.storage {
+	return value
+}
+
+func (s *MemStorage) IterateGauges(fn func(mName string, mValue Gauge)) {
+	s.gauges.lock.RLock()
+	defer s.gauges.lock.RUnlock()
+
+	for mName, mValue := range s.gauges.storage {
 		fn(mName, mValue)
 	}
 }
@@ -100,12 +89,30 @@ func (s *MemStorage) Len() int {
 	return len(s.counters.storage) + len(s.gauges.storage)
 }
 
-func (s *MemStorage) IterateGauges(fn func(mName string, mValue Gaugeable)) {
-	s.gauges.lock.RLock()
-	defer s.gauges.lock.RUnlock()
+func (s *MemStorage) GetMetric(mType string, mName string) (Storable, bool, error) {
+	var val Storable
+	var ok bool
 
-	for mName, mValue := range s.gauges.storage {
-		fn(mName, mValue)
+	switch mType {
+	case CounterTypeName:
+		val, ok = s.GetCounter(mName)
+	case GaugeTypeName:
+		val, ok = s.GetGauge(mName)
+	default:
+		return nil, false, fmt.Errorf("unknown metric type: %s", mType)
+	}
+
+	return val, ok, nil
+}
+
+func (s *MemStorage) UpdateMetric(mName string, mValue Storable) (Storable, error) {
+	switch storable := mValue.(type) {
+	case Counter:
+		return s.UpdateCounter(mName, storable), nil
+	case Gauge:
+		return s.UpdateGauge(mName, storable), nil
+	default:
+		return nil, fmt.Errorf("unknown metric type: %s", storable)
 	}
 }
 

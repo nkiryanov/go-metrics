@@ -8,37 +8,29 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func updateCounterConcurrently(s *MemStorage, key string, value Countable, count int) {
+// Some storable that not supported by storage
+type yastorable string
+func (ns yastorable) String() string { return "not-supported-storable" }
+
+func updateConcurrently(s *MemStorage, key string, value Storable, count int) {
 	var wg sync.WaitGroup
 
 	for range count {
 		wg.Add(2)
 		go func() {
-			s.UpdateCounter(key, value)
+			s.UpdateMetric(key, value)
 			wg.Done()
 		}()
 
 		go func() {
-			s.GetCounter(key)
-			wg.Done()
-		}()
-	}
-
-	wg.Wait()
-}
-
-func setGaugeConcurrently(s *MemStorage, key string, value Gaugeable, count int) {
-	var wg sync.WaitGroup
-
-	for range count {
-		wg.Add(2)
-		go func() {
-			s.UpdateGauge(key, value)
-			wg.Done()
-		}()
-
-		go func() {
-			s.GetGauge(key)
+			switch value.(type) {
+			case Counter:
+				s.GetCounter(key)
+			case Gauge:
+				s.GetGauge(key)
+			default:
+				panic("what are you doing bro?!")
+			}
 			wg.Done()
 		}()
 	}
@@ -48,7 +40,7 @@ func setGaugeConcurrently(s *MemStorage, key string, value Gaugeable, count int)
 
 func TestMemStorage_GetCounter(t *testing.T) {
 	type expectedResult struct {
-		value Countable
+		value Counter
 		ok    bool
 	}
 	tCases := []struct {
@@ -81,9 +73,55 @@ func TestMemStorage_GetCounter(t *testing.T) {
 	}
 }
 
+func TestMemStorage_UpdateCountable(t *testing.T) {
+	storage := NewMemStorage()
+
+	firstUpdated := storage.UpdateCounter("foo", 230)
+	secondUpdated := storage.UpdateCounter("foo", 500)
+	stored, ok := storage.GetCounter("foo")
+
+	assert.EqualValues(t, 230, firstUpdated)
+	assert.EqualValues(t, 230+500, secondUpdated, "existed countable should updated with value")
+	assert.Equal(t, true, ok)
+	assert.EqualValues(t, 230+500, stored, "stored valued should be sum of all updated")
+}
+
+func TestMemStorage_UpdateCounterConcurrently(t *testing.T) {
+	storage := NewMemStorage()
+
+	updateConcurrently(storage, "foo", Counter(1), 100)
+
+	value, _ := storage.GetCounter("foo")
+	assert.EqualValues(t, 100, value)
+}
+
+func TestMemStorage_IterateCounters(t *testing.T) {
+	storage := NewMemStorage()
+	storage.UpdateCounter("foo", 1)
+	storage.UpdateCounter("bar", 2)
+	var wg sync.WaitGroup
+
+	// Do some concurrent access
+	for range 10 {
+		wg.Add(1)
+		go func() {
+			storage.IterateCounters(func(string, Counter) {})
+			wg.Done()
+		}()
+	}
+
+	got := func() Counter {
+		var sum Counter
+		storage.IterateCounters(func(_ string, value Counter) { sum += value })
+		return sum
+	}()
+
+	assert.EqualValues(t, 3, got)
+}
+
 func TestMemStorage_GetGauge(t *testing.T) {
 	type expectedResult struct {
-		value Gaugeable
+		value Gauge
 		ok    bool
 	}
 	tCases := []struct {
@@ -116,19 +154,6 @@ func TestMemStorage_GetGauge(t *testing.T) {
 	}
 }
 
-func TestMemStorage_UpdateCountable(t *testing.T) {
-	storage := NewMemStorage()
-
-	firstUpdated := storage.UpdateCounter("foo", 230)
-	secondUpdated := storage.UpdateCounter("foo", 500)
-	stored, ok := storage.GetCounter("foo")
-
-	assert.Equal(t, 230, firstUpdated)
-	assert.Equal(t, 230+500, secondUpdated, "existed countable should updated with value")
-	assert.Equal(t, true, ok)
-	assert.Equal(t, 230+500, stored, "stored valued should be sum of all updated")
-}
-
 func TestMemStorage_UpdateGauge(t *testing.T) {
 	storage := NewMemStorage()
 
@@ -136,51 +161,18 @@ func TestMemStorage_UpdateGauge(t *testing.T) {
 	secondUpdated := storage.UpdateGauge("foo", 100.23)
 	stored, _ := storage.GetGauge("foo")
 
-	assert.Equal(t, 230.23, firstUpdated)
-	assert.Equal(t, 100.23, secondUpdated, "updating gauge should replace stored value")
-	assert.Equal(t, 100.23, stored, "stored value should match last updated call")
+	assert.EqualValues(t, 230.23, firstUpdated)
+	assert.EqualValues(t, 100.23, secondUpdated, "updating gauge should replace stored value")
+	assert.EqualValues(t, 100.23, stored, "stored value should match last updated call")
 }
 
-func TestMemStorage_UpdateCounterConcurrently(t *testing.T) {
+func TestMemStorage_UpdateGaugeConcurrently(t *testing.T) {
 	storage := NewMemStorage()
 
-	updateCounterConcurrently(storage, "foo", 1, 100)
-
-	value, _ := storage.GetCounter("foo")
-	assert.EqualValues(t, 100, value)
-}
-
-func TestMemStorage_SetGaugeConcurrently(t *testing.T) {
-	storage := NewMemStorage()
-
-	setGaugeConcurrently(storage, "bar", 1.1, 100)
+	updateConcurrently(storage, "bar", Gauge(1.1), 100)
 
 	value, _ := storage.GetGauge("bar")
 	assert.EqualValues(t, 1.1, value)
-}
-
-func TestMemStorage_IterateCounters(t *testing.T) {
-	storage := NewMemStorage()
-	storage.UpdateCounter("foo", 1)
-	storage.UpdateCounter("bar", 2)
-	var wg sync.WaitGroup
-
-	// Do some concurrent access
-	for range 10 {
-		wg.Add(1)
-		go func() {
-			storage.IterateCounters(func(string, Countable) {})
-			wg.Done()
-		}()
-	}
-
-	got := func() Countable {
-		var sum Countable
-		storage.IterateCounters(func(_ string, value Countable) { sum += value })
-		return sum
-	}()
-
-	assert.EqualValues(t, 3, got)
 }
 
 func TestMemStorage_IterateGauges(t *testing.T) {
@@ -193,14 +185,14 @@ func TestMemStorage_IterateGauges(t *testing.T) {
 	for range 10 {
 		wg.Add(1)
 		go func() {
-			storage.IterateGauges(func(string, Gaugeable) {})
+			storage.IterateGauges(func(string, Gauge) {})
 			wg.Done()
 		}()
 	}
 
-	got := func() Gaugeable {
-		var sum Gaugeable
-		storage.IterateGauges(func(_ string, value Gaugeable) { sum += value })
+	got := func() Gauge {
+		var sum Gauge
+		storage.IterateGauges(func(_ string, value Gauge) { sum += value })
 		return sum
 	}()
 
@@ -209,9 +201,9 @@ func TestMemStorage_IterateGauges(t *testing.T) {
 
 func TestMemStorage_Len(t *testing.T) {
 	storage := NewMemStorage()
-	storage.UpdateValue("counter", "foo", "10")
-	storage.UpdateValue("counter", "bar", "200")
-	storage.UpdateValue("gauge", "goo", "500.233")
+	storage.UpdateMetric("foo", Counter(10))
+	storage.UpdateMetric("bar", Counter(200))
+	storage.UpdateMetric("goo", Gauge(500.233))
 	var wg sync.WaitGroup
 
 	for range 10 {
@@ -223,11 +215,10 @@ func TestMemStorage_Len(t *testing.T) {
 	assert.Equal(t, 3, got)
 }
 
-func TestMemStorage_UpdateValue(t *testing.T) {
+func TestMemStorage_UpdateMetric(t *testing.T) {
 	type fnArgs struct {
-		mType  string
 		mName  string
-		mValue string
+		mValue Storable
 	}
 	type expectedResult struct {
 		expectedGot Storable
@@ -240,27 +231,17 @@ func TestMemStorage_UpdateValue(t *testing.T) {
 	}{
 		{
 			name:     "update counter with valid value",
-			fnArgs:   fnArgs{"counter", "foo", "10"},
-			expected: expectedResult{expectedGot: Countable(10), ok: true},
-		},
-		{
-			name:     "update counter with invalid value",
-			fnArgs:   fnArgs{"counter", "foo", "not-int-value"},
-			expected: expectedResult{expectedGot: Countable(0), ok: false},
+			fnArgs:   fnArgs{"foo", Counter(10)},
+			expected: expectedResult{expectedGot: Counter(10), ok: true},
 		},
 		{
 			name:     "update gauge with valid value",
-			fnArgs:   fnArgs{"gauge", "gau", "10.23"},
-			expected: expectedResult{expectedGot: Gaugeable(10.23), ok: true},
+			fnArgs:   fnArgs{"cpu-usage", Gauge(10.23)},
+			expected: expectedResult{expectedGot: Gauge(10.23), ok: true},
 		},
 		{
-			name:     "update gauge with invalid data",
-			fnArgs:   fnArgs{"gauge", "gua", "not-valid-value"},
-			expected: expectedResult{expectedGot: Gaugeable(0.0), ok: false},
-		},
-		{
-			name:     "update with incorrect metric at all",
-			fnArgs:   fnArgs{"incorrect-type", "bar", "10"},
+			name: "try to update with not supported storable",
+			fnArgs: fnArgs{"not-supported-type", yastorable("its-storable-but-storage-not-support-it")},
 			expected: expectedResult{expectedGot: nil, ok: false},
 		},
 	}
@@ -269,7 +250,7 @@ func TestMemStorage_UpdateValue(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			storage := NewMemStorage()
 
-			got, err := storage.UpdateValue(tc.fnArgs.mType, tc.fnArgs.mName, tc.fnArgs.mValue)
+			got, err := storage.UpdateMetric(tc.fnArgs.mName, tc.fnArgs.mValue)
 
 			if tc.expected.ok {
 				require.Nil(t, err)
@@ -285,9 +266,9 @@ func TestMemStorage_UpdateValue(t *testing.T) {
 
 func TestMemStorage_Iterate(t *testing.T) {
 	storage := NewMemStorage()
-	storage.UpdateValue("counter", "foo", "10")
-	storage.UpdateValue("counter", "bar", "200")
-	storage.UpdateValue("gauge", "goo", "500.233")
+	storage.UpdateMetric("foo", Counter(10))
+	storage.UpdateMetric("bar", Counter(200))
+	storage.UpdateMetric("goo", Gauge(500.233))
 	var wg sync.WaitGroup
 
 	// Run something to imitate concurrent access
@@ -307,7 +288,7 @@ func TestMemStorage_Iterate(t *testing.T) {
 	}()
 
 	require.Equal(t, 3, len(metrics))
-	assert.Equal(t, Countable(10), metrics[0])
-	assert.Equal(t, Countable(200), metrics[1])
-	assert.Equal(t, Gaugeable(500.233), metrics[2])
+	assert.Equal(t, Counter(10), metrics[0])
+	assert.Equal(t, Counter(200), metrics[1])
+	assert.Equal(t, Gauge(500.233), metrics[2])
 }
