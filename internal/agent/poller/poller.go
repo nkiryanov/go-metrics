@@ -13,41 +13,41 @@ import (
 
 const (
 	// Gauges captured by runtime.ReadMemStats
-	Alloc         = storage.MetricName("Alloc")
-	BuckHashSys   = storage.MetricName("BuckHashSys")
-	Frees         = storage.MetricName("Frees")
-	GCCPUFraction = storage.MetricName("GCCPUFraction")
-	GCSys         = storage.MetricName("GCSys")
-	HeapAlloc     = storage.MetricName("HeapAlloc")
-	HeapIdle      = storage.MetricName("HeapIdle")
-	HeapInuse     = storage.MetricName("HeapInuse")
-	HeapObjects   = storage.MetricName("HeapObjects")
-	HeapReleased  = storage.MetricName("HeapReleased")
-	HeapSys       = storage.MetricName("HeapSys")
-	LastGC        = storage.MetricName("LastGC")
-	Lookups       = storage.MetricName("Lookups")
-	MCacheInuse   = storage.MetricName("MCacheInuse")
-	MCacheSys     = storage.MetricName("MCacheSys")
-	MSpanInuse    = storage.MetricName("MSpanInuse")
-	MSpanSys      = storage.MetricName("MSpanSys")
-	Mallocs       = storage.MetricName("Mallocs")
-	NextGC        = storage.MetricName("NextGC")
-	NumForcedGC   = storage.MetricName("NumForcedGC")
-	NumGC         = storage.MetricName("NumGC")
-	OtherSys      = storage.MetricName("OtherSys")
-	PauseTotalNs  = storage.MetricName("PauseTotalNs")
-	StackInuse    = storage.MetricName("StackInuse")
-	StackSys      = storage.MetricName("StackSys")
-	Sys           = storage.MetricName("Sys")
-	TotalAlloc    = storage.MetricName("TotalAlloc")
-	RandomValue   = storage.MetricName("RandomValue")
+	Alloc         = "Alloc"
+	BuckHashSys   = "BuckHashSys"
+	Frees         = "Frees"
+	GCCPUFraction = "GCCPUFraction"
+	GCSys         = "GCSys"
+	HeapAlloc     = "HeapAlloc"
+	HeapIdle      = "HeapIdle"
+	HeapInuse     = "HeapInuse"
+	HeapObjects   = "HeapObjects"
+	HeapReleased  = "HeapReleased"
+	HeapSys       = "HeapSys"
+	LastGC        = "LastGC"
+	Lookups       = "Lookups"
+	MCacheInuse   = "MCacheInuse"
+	MCacheSys     = "MCacheSys"
+	MSpanInuse    = "MSpanInuse"
+	MSpanSys      = "MSpanSys"
+	Mallocs       = "Mallocs"
+	NextGC        = "NextGC"
+	NumForcedGC   = "NumForcedGC"
+	NumGC         = "NumGC"
+	OtherSys      = "OtherSys"
+	PauseTotalNs  = "PauseTotalNs"
+	StackInuse    = "StackInuse"
+	StackSys      = "StackSys"
+	Sys           = "Sys"
+	TotalAlloc    = "TotalAlloc"
+	RandomValue   = "RandomValue"
 
 	// Counters computed by the agent
-	PollCount = storage.MetricName("PollCount")
+	PollCount = "PollCount"
 )
 
 var (
-	gauges           = []storage.MetricName{Alloc, BuckHashSys, Frees, GCCPUFraction, GCSys, HeapAlloc, HeapIdle, HeapInuse, HeapObjects, HeapReleased, HeapSys, LastGC, Lookups, MCacheInuse, MCacheSys, MSpanInuse, MSpanSys, Mallocs, NextGC, NumForcedGC, NumGC, OtherSys, PauseTotalNs, StackInuse, StackSys, Sys, TotalAlloc, RandomValue}
+	gauges           = []string{Alloc, BuckHashSys, Frees, GCCPUFraction, GCSys, HeapAlloc, HeapIdle, HeapInuse, HeapObjects, HeapReleased, HeapSys, LastGC, Lookups, MCacheInuse, MCacheSys, MSpanInuse, MSpanSys, Mallocs, NextGC, NumForcedGC, NumGC, OtherSys, PauseTotalNs, StackInuse, StackSys, Sys, TotalAlloc, RandomValue}
 	ErrPollerStopped = errors.New("poller: Poller stopped")
 )
 
@@ -66,7 +66,7 @@ func NewMemStatsPoller(storage storage.Storage, pollInterval time.Duration) MemS
 	return MemStatsPoller{storage: storage, pollInterval: pollInterval}
 }
 
-func (sp MemStatsPoller) captureGauge(name storage.MetricName) (storage.Gaugeable, error) {
+func (sp MemStatsPoller) captureGauge(name string) (storage.Gaugeable, error) {
 	switch name {
 	// Gauges captured by runtime.ReadMemStats
 	case Alloc:
@@ -142,7 +142,7 @@ func (sp MemStatsPoller) captureStats() {
 			continue
 		}
 
-		sp.storage.SetGauge(name, value)
+		sp.storage.UpdateGauge(name, value)
 	}
 
 	sp.storage.UpdateCounter(PollCount, 1)

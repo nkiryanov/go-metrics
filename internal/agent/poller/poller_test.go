@@ -35,7 +35,7 @@ func TestPoller_PollCaptureStats(t *testing.T) {
 		_, ok := poller.storage.GetGauge(gauge)
 		assert.True(t, ok, "Expected gauge %s to be set", gauge)
 	}
-	for _, counter := range []storage.MetricName{PollCount} {
+	for _, counter := range []string{PollCount} {
 		_, ok := poller.storage.GetCounter(counter)
 		assert.True(t, ok, "Expected counter %s to be set", counter)
 	}

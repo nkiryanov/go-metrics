@@ -14,7 +14,7 @@ import (
 
 type ServerApp struct {
 	Opts *opts.Options
-	API  handlers.MetricsAPIHandler
+	API  handlers.MetricsRouter
 }
 
 func (s *ServerApp) router() http.Handler {

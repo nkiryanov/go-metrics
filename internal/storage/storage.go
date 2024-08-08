@@ -1,5 +1,6 @@
 package storage
 
+//go:generate moq -out mocks/storage.go -pkg mocks -skip-ensure -fmt goimports . Storage
 
 type Storage interface {
 	GetCounter(mName string) (Counter, bool)
@@ -11,7 +12,8 @@ type Storage interface {
 	IterateGauges(func(mName string, value Gauge))
 
 	// Polymorphic methods
+	Len() int
 	GetMetric(mType string, mName string) (Storable, bool, error)
-	UpdateMetric(mType string, mName string, mValue Storable) (Storable, error)
+	UpdateMetric(mName string, mValue Storable) (Storable, error)
 	Iterate(func(mType string, mName string, mValue Storable))
 }

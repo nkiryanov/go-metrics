@@ -10,6 +10,7 @@ import (
 
 // Some storable that not supported by storage
 type yastorable string
+
 func (ns yastorable) String() string { return "not-supported-storable" }
 
 func updateConcurrently(s *MemStorage, key string, value Storable, count int) {
@@ -240,8 +241,8 @@ func TestMemStorage_UpdateMetric(t *testing.T) {
 			expected: expectedResult{expectedGot: Gauge(10.23), ok: true},
 		},
 		{
-			name: "try to update with not supported storable",
-			fnArgs: fnArgs{"not-supported-type", yastorable("its-storable-but-storage-not-support-it")},
+			name:     "try to update with not supported storable",
+			fnArgs:   fnArgs{"not-supported-type", yastorable("its-storable-but-storage-not-support-it")},
 			expected: expectedResult{expectedGot: nil, ok: false},
 		},
 	}
