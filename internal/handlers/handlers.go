@@ -5,6 +5,7 @@ import (
 	"html/template"
 	"log/slog"
 	"net/http"
+	"sort"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/nkiryanov/go-metrics/internal/storage"
@@ -70,6 +71,10 @@ func listMetrics(s storage.Storage, tpl *template.Template) http.HandlerFunc {
 
 		s.Iterate(func(mt string, mn string, value storage.Storable) {
 			metrics = append(metrics, metric{mt, mn, value.String()})
+		})
+
+		sort.Slice(metrics, func(i, j int) bool {
+			return metrics[i].Name < metrics[j].Name
 		})
 
 		if err := tpl.Execute(w, metrics); err != nil {

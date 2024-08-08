@@ -66,65 +66,65 @@ func NewMemStatsPoller(storage storage.Storage, pollInterval time.Duration) MemS
 	return MemStatsPoller{storage: storage, pollInterval: pollInterval}
 }
 
-func (sp MemStatsPoller) captureGauge(name string) (storage.Gaugeable, error) {
+func (sp MemStatsPoller) captureGauge(name string) (storage.Gauge, error) {
 	switch name {
 	// Gauges captured by runtime.ReadMemStats
 	case Alloc:
-		return storage.Gaugeable(sp.mstats.Alloc), nil
+		return storage.Gauge(sp.mstats.Alloc), nil
 	case BuckHashSys:
-		return storage.Gaugeable(sp.mstats.BuckHashSys), nil
+		return storage.Gauge(sp.mstats.BuckHashSys), nil
 	case Frees:
-		return storage.Gaugeable(sp.mstats.Frees), nil
+		return storage.Gauge(sp.mstats.Frees), nil
 	case GCCPUFraction:
-		return storage.Gaugeable(sp.mstats.GCCPUFraction), nil
+		return storage.Gauge(sp.mstats.GCCPUFraction), nil
 	case GCSys:
-		return storage.Gaugeable(sp.mstats.GCSys), nil
+		return storage.Gauge(sp.mstats.GCSys), nil
 	case HeapAlloc:
-		return storage.Gaugeable(sp.mstats.HeapAlloc), nil
+		return storage.Gauge(sp.mstats.HeapAlloc), nil
 	case HeapIdle:
-		return storage.Gaugeable(sp.mstats.HeapIdle), nil
+		return storage.Gauge(sp.mstats.HeapIdle), nil
 	case HeapInuse:
-		return storage.Gaugeable(sp.mstats.HeapInuse), nil
+		return storage.Gauge(sp.mstats.HeapInuse), nil
 	case HeapObjects:
-		return storage.Gaugeable(sp.mstats.HeapObjects), nil
+		return storage.Gauge(sp.mstats.HeapObjects), nil
 	case HeapReleased:
-		return storage.Gaugeable(sp.mstats.HeapReleased), nil
+		return storage.Gauge(sp.mstats.HeapReleased), nil
 	case HeapSys:
-		return storage.Gaugeable(sp.mstats.HeapSys), nil
+		return storage.Gauge(sp.mstats.HeapSys), nil
 	case LastGC:
-		return storage.Gaugeable(sp.mstats.LastGC), nil
+		return storage.Gauge(sp.mstats.LastGC), nil
 	case Lookups:
-		return storage.Gaugeable(sp.mstats.Lookups), nil
+		return storage.Gauge(sp.mstats.Lookups), nil
 	case MCacheInuse:
-		return storage.Gaugeable(sp.mstats.MCacheInuse), nil
+		return storage.Gauge(sp.mstats.MCacheInuse), nil
 	case MCacheSys:
-		return storage.Gaugeable(sp.mstats.MCacheSys), nil
+		return storage.Gauge(sp.mstats.MCacheSys), nil
 	case MSpanInuse:
-		return storage.Gaugeable(sp.mstats.MSpanInuse), nil
+		return storage.Gauge(sp.mstats.MSpanInuse), nil
 	case MSpanSys:
-		return storage.Gaugeable(sp.mstats.MSpanSys), nil
+		return storage.Gauge(sp.mstats.MSpanSys), nil
 	case Mallocs:
-		return storage.Gaugeable(sp.mstats.Mallocs), nil
+		return storage.Gauge(sp.mstats.Mallocs), nil
 	case NextGC:
-		return storage.Gaugeable(sp.mstats.NextGC), nil
+		return storage.Gauge(sp.mstats.NextGC), nil
 	case NumForcedGC:
-		return storage.Gaugeable(sp.mstats.NumForcedGC), nil
+		return storage.Gauge(sp.mstats.NumForcedGC), nil
 	case NumGC:
-		return storage.Gaugeable(sp.mstats.NumGC), nil
+		return storage.Gauge(sp.mstats.NumGC), nil
 	case OtherSys:
-		return storage.Gaugeable(sp.mstats.OtherSys), nil
+		return storage.Gauge(sp.mstats.OtherSys), nil
 	case PauseTotalNs:
-		return storage.Gaugeable(sp.mstats.PauseTotalNs), nil
+		return storage.Gauge(sp.mstats.PauseTotalNs), nil
 	case StackInuse:
-		return storage.Gaugeable(sp.mstats.StackInuse), nil
+		return storage.Gauge(sp.mstats.StackInuse), nil
 	case StackSys:
-		return storage.Gaugeable(sp.mstats.StackSys), nil
+		return storage.Gauge(sp.mstats.StackSys), nil
 	case Sys:
-		return storage.Gaugeable(sp.mstats.Sys), nil
+		return storage.Gauge(sp.mstats.Sys), nil
 	case TotalAlloc:
-		return storage.Gaugeable(sp.mstats.TotalAlloc), nil
+		return storage.Gauge(sp.mstats.TotalAlloc), nil
 	case RandomValue:
-		return storage.Gaugeable(rand.Float64()), nil
+		return storage.Gauge(rand.Float64()), nil
 	default:
 		slog.Error("Unknown metric", "name", name)
 		return 0, errors.New("poller: Unknown metric")

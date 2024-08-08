@@ -7,22 +7,11 @@ import (
 	"time"
 
 	"github.com/nkiryanov/go-metrics/cmd/server/opts"
-	"github.com/nkiryanov/go-metrics/internal/handlers"
-
-	"github.com/go-chi/chi/v5"
 )
 
 type ServerApp struct {
 	Opts *opts.Options
-	API  handlers.MetricsRouter
-}
-
-func (s *ServerApp) router() http.Handler {
-	r := chi.NewRouter()
-
-	r.Route("/", s.API.RegisterRoutes)
-
-	return r
+	API  http.Handler
 }
 
 // Run starts http server and closes gracefully on context cancellation
@@ -31,7 +20,7 @@ func (s *ServerApp) Run(ctx context.Context) error {
 
 	httpServer := &http.Server{
 		Addr:    s.Opts.ListenAddr,
-		Handler: s.router(),
+		Handler: s.API,
 	}
 
 	idleConnsClosed := make(chan struct{})

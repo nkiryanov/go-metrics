@@ -19,7 +19,7 @@ func updateConcurrently(s *MemStorage, key string, value Storable, count int) {
 	for range count {
 		wg.Add(2)
 		go func() {
-			s.UpdateMetric(key, value)
+			s.UpdateMetric(key, value) // nolint: errcheck
 			wg.Done()
 		}()
 
@@ -202,9 +202,9 @@ func TestMemStorage_IterateGauges(t *testing.T) {
 
 func TestMemStorage_Len(t *testing.T) {
 	storage := NewMemStorage()
-	storage.UpdateMetric("foo", Counter(10))
-	storage.UpdateMetric("bar", Counter(200))
-	storage.UpdateMetric("goo", Gauge(500.233))
+	storage.UpdateMetric("foo", Counter(10))    // nolint: errcheck
+	storage.UpdateMetric("bar", Counter(200))   // nolint: errcheck
+	storage.UpdateMetric("goo", Gauge(500.233)) // nolint: errcheck
 	var wg sync.WaitGroup
 
 	for range 10 {
@@ -267,9 +267,9 @@ func TestMemStorage_UpdateMetric(t *testing.T) {
 
 func TestMemStorage_Iterate(t *testing.T) {
 	storage := NewMemStorage()
-	storage.UpdateMetric("foo", Counter(10))
-	storage.UpdateMetric("bar", Counter(200))
-	storage.UpdateMetric("goo", Gauge(500.233))
+	storage.UpdateMetric("foo", Counter(10))    // nolint: errcheck
+	storage.UpdateMetric("bar", Counter(200))   // nolint: errcheck
+	storage.UpdateMetric("goo", Gauge(500.233)) // nolint: errcheck
 	var wg sync.WaitGroup
 
 	// Run something to imitate concurrent access
@@ -289,7 +289,7 @@ func TestMemStorage_Iterate(t *testing.T) {
 	}()
 
 	require.Equal(t, 3, len(metrics))
-	assert.Equal(t, Counter(10), metrics[0])
-	assert.Equal(t, Counter(200), metrics[1])
-	assert.Equal(t, Gauge(500.233), metrics[2])
+	assert.Contains(t, metrics, Counter(10))
+	assert.Contains(t, metrics, Counter(200))
+	assert.Contains(t, metrics, Gauge(500.233))
 }

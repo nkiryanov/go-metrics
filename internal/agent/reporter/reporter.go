@@ -69,7 +69,7 @@ func (p HTTPReporter) reportMetric(mType string, name string) (status int, err e
 func (p HTTPReporter) batchReport() {
 	var wg sync.WaitGroup
 
-	p.storage.IterateGauges(func(name string, value storage.Gaugeable) {
+	p.storage.IterateGauges(func(name string, value storage.Gauge) {
 		wg.Add(1)
 
 		go func(name string) {
@@ -85,7 +85,7 @@ func (p HTTPReporter) batchReport() {
 		}(name)
 	})
 
-	p.storage.IterateCounters(func(name string, value storage.Countable) {
+	p.storage.IterateCounters(func(name string, value storage.Counter) {
 		wg.Add(1)
 
 		go func(name string) {
