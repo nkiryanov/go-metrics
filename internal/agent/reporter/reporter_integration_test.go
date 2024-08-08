@@ -75,7 +75,7 @@ func TestHTTPReporter_batchReport(t *testing.T) {
 	// Prepare storage with some metrics
 	s := storage.NewMemStorage()
 	s.UpdateCounter("counter-stat", 1)
-	s.SetGauge("gauge-stat", 2.01)
+	s.UpdateGauge("gauge-stat", 2.01)
 	// Prepare reporter
 	reporter, _ := NewHTTPReporter("http://localhost:51493", time.Second, s)
 	// Run test http receiver

@@ -36,7 +36,7 @@ func NewHTTPReporter(repAddr string, repInterval time.Duration, storage storage.
 	}, nil
 }
 
-func (p HTTPReporter) reportMetric(mType storage.MetricType, name storage.MetricName) (status int, err error) {
+func (p HTTPReporter) reportMetric(mType string, name string) (status int, err error) {
 	var value string
 
 	switch mType {
@@ -69,10 +69,10 @@ func (p HTTPReporter) reportMetric(mType storage.MetricType, name storage.Metric
 func (p HTTPReporter) batchReport() {
 	var wg sync.WaitGroup
 
-	p.storage.IterateGauges(func(name storage.MetricName, value storage.Gaugeable) {
+	p.storage.IterateGauges(func(name string, value storage.Gauge) {
 		wg.Add(1)
 
-		go func(name storage.MetricName) {
+		go func(name string) {
 			defer wg.Done()
 
 			status, err := p.reportMetric(storage.GaugeTypeName, name)
@@ -85,10 +85,10 @@ func (p HTTPReporter) batchReport() {
 		}(name)
 	})
 
-	p.storage.IterateCounters(func(name storage.MetricName, value storage.Countable) {
+	p.storage.IterateCounters(func(name string, value storage.Counter) {
 		wg.Add(1)
 
-		go func(name storage.MetricName) {
+		go func(name string) {
 			defer wg.Done()
 
 			status, err := p.reportMetric(storage.CounterTypeName, name)
