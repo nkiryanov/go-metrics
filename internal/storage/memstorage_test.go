@@ -231,17 +231,17 @@ func TestMemStorage_UpdateMetric(t *testing.T) {
 		expected expectedResult
 	}{
 		{
-			name:     "update counter with valid value",
+			name:     "update counter, ok",
 			fnArgs:   fnArgs{"foo", Counter(10)},
 			expected: expectedResult{expectedGot: Counter(10), ok: true},
 		},
 		{
-			name:     "update gauge with valid value",
+			name:     "update gauge, bad",
 			fnArgs:   fnArgs{"cpu-usage", Gauge(10.23)},
 			expected: expectedResult{expectedGot: Gauge(10.23), ok: true},
 		},
 		{
-			name:     "try to update with not supported storable",
+			name:     "update not-supported-type, bad",
 			fnArgs:   fnArgs{"not-supported-type", yastorable("its-storable-but-storage-not-support-it")},
 			expected: expectedResult{expectedGot: nil, ok: false},
 		},

@@ -32,22 +32,22 @@ func TestHandler_UpdateMetric(t *testing.T) {
 		expectedBody string
 	}{
 		{
-			"Post metric, parsed and saved to store ok",
+			"POST metric, ok",
 			nil, nil,
 			http.MethodPost, "/update/counter/cpu-usage/100", http.StatusOK, "saved-to-store-ok",
 		},
 		{
-			"Get metric, should 405",
+			"GET metric, 405-NotAllowed",
 			nil, nil,
 			http.MethodGet, "/update/counter/cpu-usage/100", http.StatusMethodNotAllowed, "",
 		},
 		{
-			"Post metric, but parsing error occur",
+			"POST metric parse error, 400",
 			errors.New("oh no! parsing error"), nil,
 			http.MethodPost, "/update/counter/cpu-usage/100.23", http.StatusBadRequest, "oh no! parsing error\n",
 		},
 		{
-			"Post metric, but storage save error occurred",
+			"POST metric storage err, 500",
 			nil, errors.New("oh no! storage failed :("),
 			http.MethodPost, "/update/counter/cpu-usage/100", http.StatusInternalServerError, "oh no! storage failed :(\n",
 		},
@@ -96,25 +96,25 @@ func TestHandlers_GetMetric(t *testing.T) {
 		expectedBody string
 	}{
 		{
-			"Get-existed-metric",
+			"GET existed, ok",
 			&mocks.StorableMock{StringFunc: func() string { return "100" }}, true, nil,
 			http.MethodGet, "/value/counter/cpu-usage",
 			http.StatusOK, "100",
 		},
 		{
-			"NotFound if metric valid but not found",
+			"GET not existed, 404",
 			nil, false, nil,
 			http.MethodGet, "/value/counter/mem-usage",
 			http.StatusNotFound, "metric not found. type: counter, name: mem-usage\n",
 		},
 		{
-			"NotFound if metric type unknown",
+			"GET unknown type, 404",
 			nil, false, errors.New("storage error: unknown metric type"),
 			http.MethodGet, "/value/unknown-type/mem-usage",
 			http.StatusNotFound, "storage error: unknown metric type\n",
 		},
 		{
-			"NotFound if url not valid",
+			"GET invalid url pattern, 404",
 			nil, true, nil,
 			http.MethodGet, "/value/co",
 			http.StatusNotFound, "404 page not found\n",
@@ -164,11 +164,11 @@ func TestHandlers_ListMetrics(t *testing.T) {
 		expectedInBody []string
 	}{
 		{
-			"List metrics",
+			"GET list, ok",
 			http.MethodGet, "/", http.StatusOK, []string{"foo", "bar", "mem-load", "100", "200", "234.23"},
 		},
 		{
-			"List post method should not allowed",
+			"POST list, 405-NotAllowed",
 			http.MethodPost, "/", http.StatusMethodNotAllowed, []string{},
 		},
 	}
