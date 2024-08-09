@@ -44,12 +44,12 @@ const (
 )
 
 var (
-	gauges           = []string{Alloc, BuckHashSys, Frees, GCCPUFraction, GCSys, HeapAlloc, HeapIdle, HeapInuse, HeapObjects, HeapReleased, HeapSys, LastGC, Lookups, MCacheInuse, MCacheSys, MSpanInuse, MSpanSys, Mallocs, NextGC, NumForcedGC, NumGC, OtherSys, PauseTotalNs, StackInuse, StackSys, Sys, TotalAlloc, RandomValue}
-	counters		 = []string{PollCount}
+	gauges   = []string{Alloc, BuckHashSys, Frees, GCCPUFraction, GCSys, HeapAlloc, HeapIdle, HeapInuse, HeapObjects, HeapReleased, HeapSys, LastGC, Lookups, MCacheInuse, MCacheSys, MSpanInuse, MSpanSys, Mallocs, NextGC, NumForcedGC, NumGC, OtherSys, PauseTotalNs, StackInuse, StackSys, Sys, TotalAlloc, RandomValue}
+	counters = []string{PollCount}
 )
 
 type MemCapturer struct {
-	mu sync.Mutex
+	mu     sync.Mutex
 	mstats runtime.MemStats
 }
 
@@ -59,14 +59,14 @@ func NewMemCapturer() *MemCapturer {
 
 // Capture mem (mostly) stats
 func (c *MemCapturer) Capture() []Stat {
-	var stats = make([]Stat, 0, len(gauges) + len(counters))
+	var stats = make([]Stat, 0, len(gauges)+len(counters))
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	runtime.ReadMemStats(&c.mstats)
 
-	return append(stats, 
+	return append(stats,
 		[]Stat{
 			{Alloc, storage.Gauge(c.mstats.Alloc)},
 			{BuckHashSys, storage.Gauge(c.mstats.BuckHashSys)},
@@ -101,6 +101,6 @@ func (c *MemCapturer) Capture() []Stat {
 
 			// Capture counter
 			{PollCount, storage.Counter(1)},
-		}...
+		}...,
 	)
 }

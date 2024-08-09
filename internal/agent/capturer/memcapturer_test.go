@@ -1,8 +1,8 @@
 package capturer
 
 import (
-	"testing"
 	"sync"
+	"testing"
 
 	"github.com/stretchr/testify/assert"
 )

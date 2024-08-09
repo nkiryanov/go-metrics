@@ -42,7 +42,7 @@ func (rept *HTTPReporter) ReportOnce(m *Metric) error {
 func (rept *HTTPReporter) ReportBatch(ms []*Metric) []error {
 	var wg sync.WaitGroup
 
-	var errs []error = make([]error, 0)
+	errs := make([]error, 0)
 
 	ewriter := func() func(error) {
 		var mu sync.Mutex

@@ -25,11 +25,7 @@ func main() {
 	}()
 
 	storage := storage.NewMemStorage()
-	agent, err := app.NewAgent(storage, opts.ReportAddr, opts.PollInterval, opts.ReportInterval)
-	if err != nil {
-		slog.Error("Failed to create agent", "error", err)
-		os.Exit(1)
-	}
+	agent := app.NewAgent(storage, opts.ReportAddr, opts.PollInterval, opts.ReportInterval)
 
 	if err := agent.Run(ctx); err != app.ErrAgentStopped {
 		slog.Error("Something terrible happened", "error", err)

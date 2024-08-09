@@ -18,7 +18,7 @@ const (
 func TestAgent_RunStoppedOnSignal(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), halfSecond)
 	defer cancel()
-	agent, _ := NewAgent(storage.NewMemStorage(), "http://localhost:101010", 2*time.Second, 10*time.Second)
+	agent := NewAgent(storage.NewMemStorage(), "http://localhost:101010", 2*time.Second, 10*time.Second)
 
 	err := agent.Run(ctx)
 

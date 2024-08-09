@@ -5,7 +5,7 @@ import (
 )
 
 type Stat struct {
-	Name string
+	Name  string
 	Value storage.Storable
 }
 
