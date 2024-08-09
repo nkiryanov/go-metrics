@@ -1,18 +1,48 @@
 package opts
 
 import (
+	"errors"
 	"flag"
+	"strconv"
+	"strings"
 )
 
 type Options struct {
-	ListenAddr string
+	ListenAddr NetAddress
 }
 
-func NewOptions() *Options {
-	opts := &Options{}
-
-	flag.StringVar(&opts.ListenAddr, "a", "localhost:8080", "server listen address in format 'host:port'")
+func (o *Options) Parse() {
+	flag.Var(&o.ListenAddr, "a", "server listen address in format 'host:port'")
 	flag.Parse()
+}
 
-	return opts
+type NetAddress struct {
+	Host string
+	Port int
+}
+
+func (a NetAddress) String() string {
+	return a.Host + ":" + strconv.Itoa(a.Port)
+}
+
+func (a *NetAddress) Set(s string) error {
+	hp := strings.Split(s, ":")
+
+	if len(hp) != 2 {
+		return errors.New("need address in a form host:port")
+	}
+
+	port, err := strconv.Atoi(hp[1])
+	if err != nil {
+		return err
+	}
+
+	if port < 0 || port > 65535 {
+		return errors.New("port has to be in range 0-65535")
+	}
+
+	a.Host = hp[0]
+	a.Port = port
+
+	return nil
 }

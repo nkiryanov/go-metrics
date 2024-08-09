@@ -14,11 +14,22 @@ import (
 	"github.com/nkiryanov/go-metrics/internal/storage"
 )
 
+const (
+	host = "localhost"
+	port = 8080
+)
+
 func main() {
+	opts := &opts.Options{
+		ListenAddr: opts.NetAddress{Host: host, Port: port},
+	}
+
+	opts.Parse()
+
 	s := storage.NewMemStorage()
 
 	srv := &app.ServerApp{
-		Opts:    opts.NewOptions(),
+		Opts:    opts,
 		Handler: handlers.NewMetricRouter(s, storage.MemParser{}),
 	}
 
