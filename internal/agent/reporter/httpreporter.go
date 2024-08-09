@@ -9,12 +9,14 @@ import (
 )
 
 type HTTPReporter struct {
+	addr string
 	client *resty.Client
 }
 
-func NewHTTPReporter(addr string) *HTTPReporter {
-	return &HTTPReporter{
-		client: resty.New().SetBaseURL(addr),
+func NewHTTPReporter(addr string, client *resty.Client) *HTTPReporter {
+	return &HTTPReporter{ 
+		addr: 	addr,
+		client: client,
 	}
 }
 
@@ -29,7 +31,7 @@ func (rept *HTTPReporter) ReportOnce(m *Metric) error {
 			"mName":  m.Name,
 			"mValue": m.Value.String(),
 		}).
-		Post("/update/{mType}/{mName}/{mValue}")
+		Post(fmt.Sprintf("%s/update/{mType}/{mName}/{mValue}", rept.addr))
 
 	if err != nil {
 		return err

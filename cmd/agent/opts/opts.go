@@ -16,16 +16,16 @@ const (
 )
 
 type Options struct {
-	ReportAddr string
+	ReptAddr string
 
-	PollInterval   time.Duration
-	ReportInterval time.Duration
+	PollIntv   time.Duration
+	ReptIntv time.Duration
 }
 
 func ParseOptions() *Options {
 	opts := &Options{
-		PollInterval:   PollInterval,
-		ReportInterval: ReportInterval,
+		PollIntv:   PollInterval,
+		ReptIntv: ReportInterval,
 	}
 
 	parseDurationFunc := func(d *time.Duration) func(string) error {
@@ -42,14 +42,14 @@ func ParseOptions() *Options {
 		}
 	}
 
-	flag.StringVar(&opts.ReportAddr, "a", "http://localhost:8080", "server report address in format 'scheme://host:port'")
-	flag.Func("p", "polling interval in seconds", parseDurationFunc(&opts.PollInterval))
-	flag.Func("r", "reporting interval in seconds", parseDurationFunc(&opts.ReportInterval))
+	flag.StringVar(&opts.ReptAddr, "a", "http://localhost:8080", "server report address in format 'scheme://host:port'")
+	flag.Func("p", "polling interval in seconds", parseDurationFunc(&opts.PollIntv))
+	flag.Func("r", "reporting interval in seconds", parseDurationFunc(&opts.ReptIntv))
 
 	flag.Parse()
 
-	if !strings.Contains(opts.ReportAddr, "://") {
-		opts.ReportAddr = "http://" + opts.ReportAddr
+	if !strings.Contains(opts.ReptAddr, "://") {
+		opts.ReptAddr = "http://" + opts.ReptAddr
 	}
 
 	return opts

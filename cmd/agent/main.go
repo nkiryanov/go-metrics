@@ -7,9 +7,13 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/nkiryanov/go-metrics/internal/agent/capturer"
+	"github.com/nkiryanov/go-metrics/internal/agent/reporter"
+	"github.com/nkiryanov/go-metrics/internal/storage"
+
 	"github.com/nkiryanov/go-metrics/cmd/agent/app"
 	"github.com/nkiryanov/go-metrics/cmd/agent/opts"
-	"github.com/nkiryanov/go-metrics/internal/storage"
+	"github.com/go-resty/resty/v2"
 )
 
 func main() {
@@ -24,8 +28,14 @@ func main() {
 		cancel()
 	}()
 
-	storage := storage.NewMemStorage()
-	agent := app.NewAgent(storage, opts.ReportAddr, opts.PollInterval, opts.ReportInterval)
+	agent := &app.Agent{
+		PollIntv: opts.PollIntv,
+		ReptIntv: opts.ReptIntv,
+
+		Storage: storage.NewMemStorage(),
+		Rept: reporter.NewHTTPReporter(opts.ReptAddr, resty.New()),
+		Capt: capturer.NewMemCapturer(),
+	}
 
 	if err := agent.Run(ctx); err != app.ErrAgentStopped {
 		slog.Error("Something terrible happened", "error", err)

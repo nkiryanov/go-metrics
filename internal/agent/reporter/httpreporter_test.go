@@ -6,6 +6,8 @@ import (
 	"github.com/jarcoal/httpmock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/go-resty/resty/v2"
 )
 
 type mValue string
@@ -13,7 +15,7 @@ type mValue string
 func (m mValue) String() string { return string(m) }
 
 func TestHTTPReporter_ReportOnce(t *testing.T) {
-	rept := NewHTTPReporter("http://reports.server")
+	rept := NewHTTPReporter("http://reports.server", resty.New())
 
 	httpmock.ActivateNonDefault(rept.client.GetClient())
 	defer httpmock.DeactivateAndReset()
@@ -78,7 +80,7 @@ func TestHTTPReporter_ReportOnce(t *testing.T) {
 }
 
 func TestHTTPReporter_ReportBatch(t *testing.T) {
-	rept := NewHTTPReporter("http://pornhub.com")
+	rept := NewHTTPReporter("http://pornhub.com", resty.New())
 
 	httpmock.ActivateNonDefault(rept.client.GetClient())
 	defer httpmock.DeactivateAndReset()
