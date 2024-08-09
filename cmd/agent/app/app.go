@@ -23,28 +23,6 @@ type Agent struct {
 	storage storage.Storage
 }
 
-func NewAgent(storage storage.Storage, reptAddr string, pollIntv, reptIntv time.Duration) *Agent {
-	return &Agent{
-		rept:     reporter.NewHTTPReporter(reptAddr),
-		capt:     capturer.NewMemCapturer(),
-		storage:  storage,
-		pollIntv: pollIntv,
-		reptIntv: reptIntv,
-	}
-}
-
-func (a *Agent) capture() {
-	stats := a.capt.Capture()
-
-	for _, stat := range stats {
-		if _, err := a.storage.UpdateMetric(stat.Name, stat.Value); err != nil {
-			slog.Error("agent: cant't update storage metric", "error", err.Error())
-		}
-	}
-
-	slog.Info("agent: mem stats saved")
-}
-
 func (a *Agent) report() {
 	ms := make([]*reporter.Metric, 0, a.storage.Len())
 

@@ -1,6 +1,7 @@
 package capturer
 
 import (
+	"log/slog"
 	"math/rand"
 	"runtime"
 	"sync"
@@ -103,4 +104,24 @@ func (c *MemCapturer) Capture() []Stat {
 			{PollCount, storage.Counter(1)},
 		}...,
 	)
+}
+
+func (c *MemCapturer) CaptureAndSave(s storage.Storage) error {
+	var errFirst error
+	stats := c.Capture()
+
+	for _, stat := range stats {
+		if _, err := s.UpdateMetric(stat.Name, stat.Value); err != nil {
+			slog.Error("capturer: cant't update storage metric", "error", err.Error())
+			if errFirst == nil {
+				errFirst = err
+			}
+		}
+	}
+
+	if errFirst == nil {
+		slog.Info("capturer: mem stats saved")
+	}
+
+	return errFirst
 }
