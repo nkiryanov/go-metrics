@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"fmt"
 	"strconv"
 )
 
@@ -19,7 +20,7 @@ type (
 
 // Common interface for types storable in storage
 type Storable interface {
-	String() string
+	fmt.Stringer
 	Type() string
 }
 

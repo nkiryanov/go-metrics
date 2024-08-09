@@ -4,7 +4,6 @@ import (
 	"github.com/nkiryanov/go-metrics/internal/storage"
 )
 
-
 //go:generate moq -out mocks/capturer.go -pkg mocks -skip-ensure -fmt goimports . Capturer
 
 type Stat struct {
@@ -19,5 +18,5 @@ type Capturer interface {
 
 	// Should capture (same method as Capture()) and save []Stat in 's storage.Storage'
 	// Return error if storage not support any of stat
-	CaptureWithSave(s storage.Storage) error
+	CaptureAndSave(s storage.Storage) error
 }

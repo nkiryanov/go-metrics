@@ -3,7 +3,6 @@ package app
 import (
 	"context"
 	"errors"
-	"log/slog"
 	"time"
 
 	"github.com/nkiryanov/go-metrics/internal/agent/capturer"
@@ -23,26 +22,21 @@ type Agent struct {
 	Storage storage.Storage
 }
 
-func (a *Agent) report() {
-	ms := make([]*reporter.Metric, 0, a.Storage.Len())
-
-	a.Storage.Iterate(func(mType string, mName string, mValue storage.Storable) {
-		ms = append(ms, &reporter.Metric{Name: mName, Type: mType, Value: mValue})
-	})
-
-	if errs := a.Rept.ReportBatch(ms); len(errs) > 0 {
-		slog.Warn("agent: can't report metrics", "count", len(errs), "error", errs[0].Error())
-	} else {
-		slog.Info("agent: metrics reported", "count", len(ms))
-	}
-}
-
 func (a *Agent) Run(ctx context.Context) error {
-	// discard capture errors cause them logged and that enough
-	captureFn := func() { _ = a.Capt.CaptureWithSave(a.Storage) }
+	// discard capture errors cause log them at corresponding packages
+	captureFn := func() { _ = a.Capt.CaptureAndSave(a.Storage) }
+
+	// create slice of all stored metrics and run report batch
+	reportFn := func() {
+		ms := make([]*reporter.Metric, 0, a.Storage.Len())
+		a.Storage.Iterate(func(mType string, mName string, mValue storage.Storable) {
+			ms = append(ms, &reporter.Metric{Name: mName, Type: mType, Value: mValue})
+		})
+		_ = a.Rept.ReportBatch(ms)
+	}
 
 	go runner.NewIntvRunner(0, a.PollIntv).Run(ctx, captureFn)
-	go runner.NewIntvRunner(5*time.Second, a.ReptIntv).Run(ctx, a.report)
+	go runner.NewIntvRunner(5*time.Second, a.ReptIntv).Run(ctx, reportFn)
 
 	<-ctx.Done()
 	return ErrAgentStopped

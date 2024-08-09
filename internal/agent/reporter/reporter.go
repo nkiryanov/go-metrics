@@ -13,6 +13,10 @@ type Metric struct {
 }
 
 type Reporter interface {
+	// Should report metric
+	// Return error if any error occurs
 	ReportOnce(m *Metric) error
-	ReportBatch(ms []*Metric) []error
+
+	// Should iterate ms and report all of them
+	ReportBatch(ms []*Metric) error
 }

@@ -11,9 +11,9 @@ import (
 	"github.com/nkiryanov/go-metrics/internal/agent/reporter"
 	"github.com/nkiryanov/go-metrics/internal/storage"
 
+	"github.com/go-resty/resty/v2"
 	"github.com/nkiryanov/go-metrics/cmd/agent/app"
 	"github.com/nkiryanov/go-metrics/cmd/agent/opts"
-	"github.com/go-resty/resty/v2"
 )
 
 func main() {
@@ -33,8 +33,8 @@ func main() {
 		ReptIntv: opts.ReptIntv,
 
 		Storage: storage.NewMemStorage(),
-		Rept: reporter.NewHTTPReporter(opts.ReptAddr, resty.New()),
-		Capt: capturer.NewMemCapturer(),
+		Rept:    reporter.NewHTTPReporter(opts.ReptAddr, resty.New()),
+		Capt:    capturer.NewMemCapturer(),
 	}
 
 	if err := agent.Run(ctx); err != app.ErrAgentStopped {

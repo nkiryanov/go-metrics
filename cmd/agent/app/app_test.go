@@ -9,9 +9,9 @@ import (
 	"github.com/nkiryanov/go-metrics/internal/agent/reporter"
 	"github.com/nkiryanov/go-metrics/internal/storage"
 
+	"github.com/go-resty/resty/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/go-resty/resty/v2"
 )
 
 const (
@@ -24,12 +24,12 @@ func TestAgent_RunStoppedOnSignal(t *testing.T) {
 
 	// Prefer not to use mock here, cause it made test closer to production use
 	agent := &Agent{
-		PollIntv: 2*time.Second,
-		ReptIntv: 10*time.Second,
+		PollIntv: 2 * time.Second,
+		ReptIntv: 10 * time.Second,
 
 		Storage: storage.NewMemStorage(),
-		Rept: reporter.NewHTTPReporter("http://localhost:40010", resty.New()),
-		Capt: capturer.NewMemCapturer(),
+		Rept:    reporter.NewHTTPReporter("http://localhost:40010", resty.New()),
+		Capt:    capturer.NewMemCapturer(),
 	}
 
 	err := agent.Run(ctx)

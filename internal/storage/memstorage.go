@@ -116,7 +116,7 @@ func (s *MemStorage) UpdateMetric(mName string, mValue Storable) (Storable, erro
 	}
 }
 
-func (s *MemStorage) Iterate(fn func(mType string, mName string, mValue Storable)) {
+func (s *MemStorage) Iterate(fn IterFunc) {
 	s.counters.lock.RLock()
 	for mName, mValue := range s.counters.storage {
 		fn(mValue.Type(), mName, mValue)

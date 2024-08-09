@@ -10,8 +10,8 @@ import (
 )
 
 type ServerApp struct {
-	Opts *opts.Options
-	API  http.Handler
+	Opts    *opts.Options
+	Handler http.Handler
 }
 
 // Run starts http server and closes gracefully on context cancellation
@@ -20,7 +20,7 @@ func (s *ServerApp) Run(ctx context.Context) error {
 
 	httpServer := &http.Server{
 		Addr:    s.Opts.ListenAddr,
-		Handler: s.API,
+		Handler: s.Handler,
 	}
 
 	idleConnsClosed := make(chan struct{})

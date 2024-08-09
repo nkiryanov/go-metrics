@@ -106,7 +106,7 @@ func (c *MemCapturer) Capture() []Stat {
 	)
 }
 
-func (c *MemCapturer) CaptureWithSave(s storage.Storage) error {
+func (c *MemCapturer) CaptureAndSave(s storage.Storage) error {
 	var errFirst error
 	stats := c.Capture()
 

@@ -15,7 +15,7 @@ import (
 //
 //		// make and configure a mocked reporter.Reporter
 //		mockedReporter := &ReporterMock{
-//			ReportBatchFunc: func(ms []*reporter.Metric) []error {
+//			ReportBatchFunc: func(ms []*reporter.Metric) error {
 //				panic("mock out the ReportBatch method")
 //			},
 //			ReportOnceFunc: func(m *reporter.Metric) error {
@@ -29,7 +29,7 @@ import (
 //	}
 type ReporterMock struct {
 	// ReportBatchFunc mocks the ReportBatch method.
-	ReportBatchFunc func(ms []*reporter.Metric) []error
+	ReportBatchFunc func(ms []*reporter.Metric) error
 
 	// ReportOnceFunc mocks the ReportOnce method.
 	ReportOnceFunc func(m *reporter.Metric) error
@@ -52,7 +52,7 @@ type ReporterMock struct {
 }
 
 // ReportBatch calls ReportBatchFunc.
-func (mock *ReporterMock) ReportBatch(ms []*reporter.Metric) []error {
+func (mock *ReporterMock) ReportBatch(ms []*reporter.Metric) error {
 	if mock.ReportBatchFunc == nil {
 		panic("ReporterMock.ReportBatchFunc: method is nil but Reporter.ReportBatch was just called")
 	}

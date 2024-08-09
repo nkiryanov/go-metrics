@@ -18,13 +18,13 @@ const (
 type Options struct {
 	ReptAddr string
 
-	PollIntv   time.Duration
+	PollIntv time.Duration
 	ReptIntv time.Duration
 }
 
 func ParseOptions() *Options {
 	opts := &Options{
-		PollIntv:   PollInterval,
+		PollIntv: PollInterval,
 		ReptIntv: ReportInterval,
 	}
 

@@ -2,6 +2,7 @@ package reporter
 
 import (
 	"fmt"
+	"log/slog"
 	"net/http"
 	"sync"
 
@@ -9,13 +10,13 @@ import (
 )
 
 type HTTPReporter struct {
-	addr string
+	addr   string
 	client *resty.Client
 }
 
 func NewHTTPReporter(addr string, client *resty.Client) *HTTPReporter {
-	return &HTTPReporter{ 
-		addr: 	addr,
+	return &HTTPReporter{
+		addr:   addr,
 		client: client,
 	}
 }
@@ -34,10 +35,12 @@ func (rept *HTTPReporter) ReportOnce(m *Metric) error {
 		Post(fmt.Sprintf("%s/update/{mType}/{mName}/{mValue}", rept.addr))
 
 	if err != nil {
+		slog.Error("reporter: http client error", "error", err.Error())
 		return err
 	}
 
-	if resp.StatusCode() != http.StatusOK {
+	if status := resp.StatusCode(); status != http.StatusOK {
+		slog.Error("reporter: server responds with not OK", "code", status, "body", resp.Body())
 		return fmt.Errorf("reporter: metric update error = %s", resp.Body())
 	}
 
@@ -46,20 +49,13 @@ func (rept *HTTPReporter) ReportOnce(m *Metric) error {
 
 // ReportBatch sends concurrent metric update
 // POST /{baseUrl}/update/{metricType}/{metricName}/{metricValue}
-// All errors captured and returned.
-func (rept *HTTPReporter) ReportBatch(ms []*Metric) []error {
+// If errors while reporting occurred return one of them (randomly chosen)
+func (rept *HTTPReporter) ReportBatch(ms []*Metric) error {
 	var wg sync.WaitGroup
+	var once sync.Once
+	var err error
 
-	errs := make([]error, 0)
-
-	ewriter := func() func(error) {
-		var mu sync.Mutex
-		return func(err error) {
-			mu.Lock()
-			errs = append(errs, err)
-			mu.Unlock()
-		}
-	}()
+	onceBody := func(e error) { err = e }
 
 	for _, m := range ms {
 		wg.Add(1)
@@ -67,11 +63,13 @@ func (rept *HTTPReporter) ReportBatch(ms []*Metric) []error {
 			defer wg.Done()
 
 			if err := rept.ReportOnce(m); err != nil {
-				ewriter(err)
+				once.Do(func() {
+					onceBody(err)
+				})
 			}
 		}(m)
 	}
 
 	wg.Wait()
-	return errs
+	return err
 }

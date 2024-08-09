@@ -12,7 +12,7 @@ import (
 type yastorable string
 
 func (ys yastorable) String() string { return "not-supported-storable" }
-func (ya yastorable) Type() string   { return "no-supported" }
+func (ys yastorable) Type() string   { return "no-supported" }
 
 func updateConcurrently(s *MemStorage, key string, value Storable, count int) {
 	var wg sync.WaitGroup

@@ -19,8 +19,8 @@ import (
 //			CaptureFunc: func() []capturer.Stat {
 //				panic("mock out the Capture method")
 //			},
-//			CaptureWithSaveFunc: func(s storage.Storage) error {
-//				panic("mock out the CaptureWithSave method")
+//			CaptureAndSaveFunc: func(s storage.Storage) error {
+//				panic("mock out the CaptureAndSave method")
 //			},
 //		}
 //
@@ -32,22 +32,22 @@ type CapturerMock struct {
 	// CaptureFunc mocks the Capture method.
 	CaptureFunc func() []capturer.Stat
 
-	// CaptureWithSaveFunc mocks the CaptureWithSave method.
-	CaptureWithSaveFunc func(s storage.Storage) error
+	// CaptureAndSaveFunc mocks the CaptureAndSave method.
+	CaptureAndSaveFunc func(s storage.Storage) error
 
 	// calls tracks calls to the methods.
 	calls struct {
 		// Capture holds details about calls to the Capture method.
 		Capture []struct {
 		}
-		// CaptureWithSave holds details about calls to the CaptureWithSave method.
-		CaptureWithSave []struct {
+		// CaptureAndSave holds details about calls to the CaptureAndSave method.
+		CaptureAndSave []struct {
 			// S is the s argument value.
 			S storage.Storage
 		}
 	}
-	lockCapture         sync.RWMutex
-	lockCaptureWithSave sync.RWMutex
+	lockCapture        sync.RWMutex
+	lockCaptureAndSave sync.RWMutex
 }
 
 // Capture calls CaptureFunc.
@@ -77,34 +77,34 @@ func (mock *CapturerMock) CaptureCalls() []struct {
 	return calls
 }
 
-// CaptureWithSave calls CaptureWithSaveFunc.
-func (mock *CapturerMock) CaptureWithSave(s storage.Storage) error {
-	if mock.CaptureWithSaveFunc == nil {
-		panic("CapturerMock.CaptureWithSaveFunc: method is nil but Capturer.CaptureWithSave was just called")
+// CaptureAndSave calls CaptureAndSaveFunc.
+func (mock *CapturerMock) CaptureAndSave(s storage.Storage) error {
+	if mock.CaptureAndSaveFunc == nil {
+		panic("CapturerMock.CaptureAndSaveFunc: method is nil but Capturer.CaptureAndSave was just called")
 	}
 	callInfo := struct {
 		S storage.Storage
 	}{
 		S: s,
 	}
-	mock.lockCaptureWithSave.Lock()
-	mock.calls.CaptureWithSave = append(mock.calls.CaptureWithSave, callInfo)
-	mock.lockCaptureWithSave.Unlock()
-	return mock.CaptureWithSaveFunc(s)
+	mock.lockCaptureAndSave.Lock()
+	mock.calls.CaptureAndSave = append(mock.calls.CaptureAndSave, callInfo)
+	mock.lockCaptureAndSave.Unlock()
+	return mock.CaptureAndSaveFunc(s)
 }
 
-// CaptureWithSaveCalls gets all the calls that were made to CaptureWithSave.
+// CaptureAndSaveCalls gets all the calls that were made to CaptureAndSave.
 // Check the length with:
 //
-//	len(mockedCapturer.CaptureWithSaveCalls())
-func (mock *CapturerMock) CaptureWithSaveCalls() []struct {
+//	len(mockedCapturer.CaptureAndSaveCalls())
+func (mock *CapturerMock) CaptureAndSaveCalls() []struct {
 	S storage.Storage
 } {
 	var calls []struct {
 		S storage.Storage
 	}
-	mock.lockCaptureWithSave.RLock()
-	calls = mock.calls.CaptureWithSave
-	mock.lockCaptureWithSave.RUnlock()
+	mock.lockCaptureAndSave.RLock()
+	calls = mock.calls.CaptureAndSave
+	mock.lockCaptureAndSave.RUnlock()
 	return calls
 }

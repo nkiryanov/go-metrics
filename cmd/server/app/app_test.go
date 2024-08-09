@@ -15,10 +15,10 @@ const (
 	HalfSecond time.Duration = 500 * time.Millisecond
 )
 
-func TestServerApp_RunExitWithSignal(t *testing.T) {
+func TestServerApp_ExitWithSignal(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), HalfSecond)
 	defer cancel()
-	srv := ServerApp{Opts: opts.NewOptions(), API: nil}
+	srv := ServerApp{Opts: opts.NewOptions(), Handler: nil}
 
 	err := srv.Run(ctx)
 
@@ -26,9 +26,9 @@ func TestServerApp_RunExitWithSignal(t *testing.T) {
 	assert.Equal(t, "http: Server closed", err.Error())
 }
 
-func TestServerApp_RunExitOnServerError(t *testing.T) {
+func TestServerApp_ExitOnServerError(t *testing.T) {
 	ctx := context.Background()
-	srv := ServerApp{Opts: &opts.Options{ListenAddr: "invalid_add"}, API: nil}
+	srv := ServerApp{Opts: &opts.Options{ListenAddr: "invalid_add"}, Handler: nil}
 
 	err := srv.Run(ctx)
 

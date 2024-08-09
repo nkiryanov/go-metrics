@@ -24,7 +24,7 @@ import (
 //			GetMetricFunc: func(mType string, mName string) (storage.Storable, bool, error) {
 //				panic("mock out the GetMetric method")
 //			},
-//			IterateFunc: func(fn func(mType string, mName string, mValue storage.Storable))  {
+//			IterateFunc: func(iterFunc storage.IterFunc)  {
 //				panic("mock out the Iterate method")
 //			},
 //			IterateCountersFunc: func(fn func(mName string, value storage.Counter))  {
@@ -62,7 +62,7 @@ type StorageMock struct {
 	GetMetricFunc func(mType string, mName string) (storage.Storable, bool, error)
 
 	// IterateFunc mocks the Iterate method.
-	IterateFunc func(fn func(mType string, mName string, mValue storage.Storable))
+	IterateFunc func(iterFunc storage.IterFunc)
 
 	// IterateCountersFunc mocks the IterateCounters method.
 	IterateCountersFunc func(fn func(mName string, value storage.Counter))
@@ -103,8 +103,8 @@ type StorageMock struct {
 		}
 		// Iterate holds details about calls to the Iterate method.
 		Iterate []struct {
-			// Fn is the fn argument value.
-			Fn func(mType string, mName string, mValue storage.Storable)
+			// IterFunc is the iterFunc argument value.
+			IterFunc storage.IterFunc
 		}
 		// IterateCounters holds details about calls to the IterateCounters method.
 		IterateCounters []struct {
@@ -254,19 +254,19 @@ func (mock *StorageMock) GetMetricCalls() []struct {
 }
 
 // Iterate calls IterateFunc.
-func (mock *StorageMock) Iterate(fn func(mType string, mName string, mValue storage.Storable)) {
+func (mock *StorageMock) Iterate(iterFunc storage.IterFunc) {
 	if mock.IterateFunc == nil {
 		panic("StorageMock.IterateFunc: method is nil but Storage.Iterate was just called")
 	}
 	callInfo := struct {
-		Fn func(mType string, mName string, mValue storage.Storable)
+		IterFunc storage.IterFunc
 	}{
-		Fn: fn,
+		IterFunc: iterFunc,
 	}
 	mock.lockIterate.Lock()
 	mock.calls.Iterate = append(mock.calls.Iterate, callInfo)
 	mock.lockIterate.Unlock()
-	mock.IterateFunc(fn)
+	mock.IterateFunc(iterFunc)
 }
 
 // IterateCalls gets all the calls that were made to Iterate.
@@ -274,10 +274,10 @@ func (mock *StorageMock) Iterate(fn func(mType string, mName string, mValue stor
 //
 //	len(mockedStorage.IterateCalls())
 func (mock *StorageMock) IterateCalls() []struct {
-	Fn func(mType string, mName string, mValue storage.Storable)
+	IterFunc storage.IterFunc
 } {
 	var calls []struct {
-		Fn func(mType string, mName string, mValue storage.Storable)
+		IterFunc storage.IterFunc
 	}
 	mock.lockIterate.RLock()
 	calls = mock.calls.Iterate

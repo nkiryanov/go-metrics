@@ -95,17 +95,39 @@ func TestHTTPReporter_ReportBatch(t *testing.T) {
 		httpmock.NewStringResponder(500, "go fuck yourself!"),
 	)
 
-	errs := rept.ReportBatch(
-		[]*Metric{
-			{Type: "counter", Name: "smth", Value: mValue("2")},            // Valid metric
-			{Type: "counter", Name: "ya-smth", Value: mValue("22")},        // Yet another valid metric
-			{Type: "not-valid", Name: "smth-invalid", Value: mValue("hi")}, // Invalid
-		},
-	)
+	t.Run("do batch reports", func(t *testing.T) {
+		httpmock.ZeroCallCounters()
 
-	assert.Equal(t, len(errs), 1, "Only one request should produce error")
-	info := httpmock.GetCallCountInfo()
-	assert.Equal(t, 1, info["POST http://pornhub.com/update/counter/smth/2"])
-	assert.Equal(t, 1, info["POST http://pornhub.com/update/counter/ya-smth/22"])
-	assert.Equal(t, 1, info["POST http://pornhub.com/update/not-valid/smth-invalid/hi"])
+		err := rept.ReportBatch(
+			[]*Metric{
+				{Type: "counter", Name: "smth", Value: mValue("2")},     // Valid metric
+				{Type: "counter", Name: "ya-smth", Value: mValue("22")}, // Yet another valid metric
+			},
+		)
+
+		require.NoError(t, err)
+		info := httpmock.GetCallCountInfo()
+		assert.Equal(t, 1, info["POST http://pornhub.com/update/counter/smth/2"])
+		assert.Equal(t, 1, info["POST http://pornhub.com/update/counter/ya-smth/22"])
+	})
+
+	t.Run("return any happened error", func(t *testing.T) {
+		httpmock.ZeroCallCounters()
+
+		err := rept.ReportBatch(
+			[]*Metric{
+				{Type: "counter", Name: "smth", Value: mValue("2")},            // Valid metric
+				{Type: "counter", Name: "ya-smth", Value: mValue("22")},        // Yet another valid metric
+				{Type: "not-valid", Name: "smth-invalid", Value: mValue("hi")}, // Invalid
+				{Type: "not-valid", Name: "fuck", Value: mValue("me")},         // Ya invalid
+			},
+		)
+
+		require.Error(t, err)
+		info := httpmock.GetCallCountInfo()
+		assert.Equal(t, 1, info["POST http://pornhub.com/update/counter/smth/2"])
+		assert.Equal(t, 1, info["POST http://pornhub.com/update/counter/ya-smth/22"])
+		assert.Equal(t, 1, info["POST http://pornhub.com/update/not-valid/smth-invalid/hi"])
+		assert.Equal(t, 1, info["POST http://pornhub.com/update/not-valid/fuck/me"])
+	})
 }

@@ -10,3 +10,7 @@ fmt:
 .PHONY: lint
 lint:
 	golangci-lint run ./...
+
+.PHONE: generate
+generate:
+	go generate ./...

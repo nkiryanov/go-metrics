@@ -15,10 +15,11 @@ import (
 )
 
 func main() {
+	s := storage.NewMemStorage()
 
 	srv := &app.ServerApp{
-		Opts: opts.NewOptions(),
-		API:  handlers.NewMetricRouter(storage.NewMemStorage(), storage.MemParser{}),
+		Opts:    opts.NewOptions(),
+		Handler: handlers.NewMetricRouter(s, storage.MemParser{}),
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())

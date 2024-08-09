@@ -56,7 +56,7 @@ func TestMemCapturer_Capture(t *testing.T) {
 	})
 }
 
-func TestMemCapturer_CaptureWithSave(t *testing.T) {
+func TestMemCapturer_CaptureAndSave(t *testing.T) {
 	expectedNames := append(gauges, counters...)
 	mc := NewMemCapturer()
 
@@ -65,7 +65,7 @@ func TestMemCapturer_CaptureWithSave(t *testing.T) {
 			return st, nil
 		}}
 
-		err := mc.CaptureWithSave(mockedStorage)
+		err := mc.CaptureAndSave(mockedStorage)
 
 		require.NoError(t, err)
 		callInfo := mockedStorage.UpdateMetricCalls()
@@ -88,7 +88,7 @@ func TestMemCapturer_CaptureWithSave(t *testing.T) {
 
 		mockedStorage := &mocks.StorageMock{UpdateMetricFunc: failOnceFn()}
 
-		err := mc.CaptureWithSave(mockedStorage)
+		err := mc.CaptureAndSave(mockedStorage)
 
 		require.Error(t, err)
 		callInfo := mockedStorage.UpdateMetricCalls()
