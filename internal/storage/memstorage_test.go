@@ -11,7 +11,8 @@ import (
 // Some storable that not supported by storage
 type yastorable string
 
-func (ns yastorable) String() string { return "not-supported-storable" }
+func (ys yastorable) String() string { return "not-supported-storable" }
+func (ya yastorable) Type() string   { return "no-supported" }
 
 func updateConcurrently(s *MemStorage, key string, value Storable, count int) {
 	var wg sync.WaitGroup

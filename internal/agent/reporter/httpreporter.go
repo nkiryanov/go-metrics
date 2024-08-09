@@ -18,6 +18,9 @@ func NewHTTPReporter(addr string) *HTTPReporter {
 	}
 }
 
+// Sends a single metric update
+// POST /{baseUrl}/update/{metricType}/{metricName}/{metricValue}
+// If the request encounters an error, it is returned.
 func (rept *HTTPReporter) ReportOnce(m *Metric) error {
 	resp, err := rept.client.R().
 		SetHeader("Content-Type", "text/plain").
@@ -39,6 +42,9 @@ func (rept *HTTPReporter) ReportOnce(m *Metric) error {
 	return nil
 }
 
+// ReportBatch sends concurrent metric update
+// POST /{baseUrl}/update/{metricType}/{metricName}/{metricValue}
+// All errors captured and returned.
 func (rept *HTTPReporter) ReportBatch(ms []*Metric) []error {
 	var wg sync.WaitGroup
 

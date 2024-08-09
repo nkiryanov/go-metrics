@@ -119,13 +119,13 @@ func (s *MemStorage) UpdateMetric(mName string, mValue Storable) (Storable, erro
 func (s *MemStorage) Iterate(fn func(mType string, mName string, mValue Storable)) {
 	s.counters.lock.RLock()
 	for mName, mValue := range s.counters.storage {
-		fn(CounterTypeName, mName, mValue)
+		fn(mValue.Type(), mName, mValue)
 	}
 	s.counters.lock.RUnlock()
 
 	s.gauges.lock.RLock()
 	for mName, mValue := range s.gauges.storage {
-		fn(GaugeTypeName, mName, mValue)
+		fn(mValue.Type(), mName, mValue)
 	}
 	s.gauges.lock.RUnlock()
 }

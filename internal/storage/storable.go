@@ -20,6 +20,7 @@ type (
 // Common interface for types storable in storage
 type Storable interface {
 	String() string
+	Type() string
 }
 
 type StorableParser interface {
@@ -32,6 +33,14 @@ func (c Counter) String() string {
 	return strconv.FormatInt(int64(c), 10)
 }
 
+func (c Counter) Type() string {
+	return CounterTypeName
+}
+
 func (g Gauge) String() string {
 	return strconv.FormatFloat(float64(g), 'f', -1, 64)
+}
+
+func (g Gauge) Type() string {
+	return GaugeTypeName
 }

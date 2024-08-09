@@ -16,6 +16,9 @@ import (
 //			StringFunc: func() string {
 //				panic("mock out the String method")
 //			},
+//			TypeFunc: func() string {
+//				panic("mock out the Type method")
+//			},
 //		}
 //
 //		// use mockedStorable in code that requires storage.Storable
@@ -26,13 +29,20 @@ type StorableMock struct {
 	// StringFunc mocks the String method.
 	StringFunc func() string
 
+	// TypeFunc mocks the Type method.
+	TypeFunc func() string
+
 	// calls tracks calls to the methods.
 	calls struct {
 		// String holds details about calls to the String method.
 		String []struct {
 		}
+		// Type holds details about calls to the Type method.
+		Type []struct {
+		}
 	}
 	lockString sync.RWMutex
+	lockType   sync.RWMutex
 }
 
 // String calls StringFunc.
@@ -59,5 +69,32 @@ func (mock *StorableMock) StringCalls() []struct {
 	mock.lockString.RLock()
 	calls = mock.calls.String
 	mock.lockString.RUnlock()
+	return calls
+}
+
+// Type calls TypeFunc.
+func (mock *StorableMock) Type() string {
+	if mock.TypeFunc == nil {
+		panic("StorableMock.TypeFunc: method is nil but Storable.Type was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockType.Lock()
+	mock.calls.Type = append(mock.calls.Type, callInfo)
+	mock.lockType.Unlock()
+	return mock.TypeFunc()
+}
+
+// TypeCalls gets all the calls that were made to Type.
+// Check the length with:
+//
+//	len(mockedStorable.TypeCalls())
+func (mock *StorableMock) TypeCalls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockType.RLock()
+	calls = mock.calls.Type
+	mock.lockType.RUnlock()
 	return calls
 }
