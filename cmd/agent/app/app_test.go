@@ -7,7 +7,6 @@ import (
 
 	"github.com/nkiryanov/go-metrics/internal/agent/capturer"
 	"github.com/nkiryanov/go-metrics/internal/agent/reporter"
-	"github.com/nkiryanov/go-metrics/internal/storage"
 
 	"github.com/go-resty/resty/v2"
 	"github.com/stretchr/testify/assert"
@@ -27,9 +26,8 @@ func TestAgent_RunStoppedOnSignal(t *testing.T) {
 		PollIntv: 2 * time.Second,
 		ReptIntv: 10 * time.Second,
 
-		Storage: storage.NewMemStorage(),
-		Rept:    reporter.NewHTTPReporter("http://localhost:40010", resty.New()),
-		Capt:    capturer.NewMemCapturer(),
+		Rept: reporter.NewHTTPReporter("http://localhost:40010", resty.New()),
+		Capt: capturer.NewMemCapturer(),
 	}
 
 	err := agent.Run(ctx)

@@ -50,8 +50,8 @@ var (
 )
 
 type MemCapturer struct {
-	mu     sync.Mutex
-	mstats runtime.MemStats
+	mu   sync.Mutex
+	stor []Stat
 }
 
 func NewMemCapturer() *MemCapturer {
@@ -60,42 +60,40 @@ func NewMemCapturer() *MemCapturer {
 
 // Capture mem (mostly) stats
 func (c *MemCapturer) Capture() []Stat {
+	var ms runtime.MemStats
 	var stats = make([]Stat, 0, len(gauges)+len(counters))
 
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	runtime.ReadMemStats(&c.mstats)
+	runtime.ReadMemStats(&ms)
 
 	return append(stats,
 		[]Stat{
-			{Alloc, storage.Gauge(c.mstats.Alloc)},
-			{BuckHashSys, storage.Gauge(c.mstats.BuckHashSys)},
-			{Frees, storage.Gauge(c.mstats.Frees)},
-			{GCCPUFraction, storage.Gauge(c.mstats.GCCPUFraction)},
-			{GCSys, storage.Gauge(c.mstats.GCSys)},
-			{HeapAlloc, storage.Gauge(c.mstats.HeapAlloc)},
-			{HeapIdle, storage.Gauge(c.mstats.HeapIdle)},
-			{HeapInuse, storage.Gauge(c.mstats.HeapInuse)},
-			{HeapObjects, storage.Gauge(c.mstats.HeapObjects)},
-			{HeapReleased, storage.Gauge(c.mstats.HeapReleased)},
-			{HeapSys, storage.Gauge(c.mstats.HeapSys)},
-			{LastGC, storage.Gauge(c.mstats.LastGC)},
-			{Lookups, storage.Gauge(c.mstats.Lookups)},
-			{MCacheInuse, storage.Gauge(c.mstats.MCacheInuse)},
-			{MCacheSys, storage.Gauge(c.mstats.MCacheSys)},
-			{MSpanInuse, storage.Gauge(c.mstats.MSpanInuse)},
-			{MSpanSys, storage.Gauge(c.mstats.MSpanSys)},
-			{Mallocs, storage.Gauge(c.mstats.Mallocs)},
-			{NextGC, storage.Gauge(c.mstats.NextGC)},
-			{NumForcedGC, storage.Gauge(c.mstats.NumForcedGC)},
-			{NumGC, storage.Gauge(c.mstats.NumGC)},
-			{OtherSys, storage.Gauge(c.mstats.OtherSys)},
-			{PauseTotalNs, storage.Gauge(c.mstats.PauseTotalNs)},
-			{StackInuse, storage.Gauge(c.mstats.StackInuse)},
-			{StackSys, storage.Gauge(c.mstats.StackSys)},
-			{Sys, storage.Gauge(c.mstats.Sys)},
-			{TotalAlloc, storage.Gauge(c.mstats.TotalAlloc)},
+			{Alloc, storage.Gauge(ms.Alloc)},
+			{BuckHashSys, storage.Gauge(ms.BuckHashSys)},
+			{Frees, storage.Gauge(ms.Frees)},
+			{GCCPUFraction, storage.Gauge(ms.GCCPUFraction)},
+			{GCSys, storage.Gauge(ms.GCSys)},
+			{HeapAlloc, storage.Gauge(ms.HeapAlloc)},
+			{HeapIdle, storage.Gauge(ms.HeapIdle)},
+			{HeapInuse, storage.Gauge(ms.HeapInuse)},
+			{HeapObjects, storage.Gauge(ms.HeapObjects)},
+			{HeapReleased, storage.Gauge(ms.HeapReleased)},
+			{HeapSys, storage.Gauge(ms.HeapSys)},
+			{LastGC, storage.Gauge(ms.LastGC)},
+			{Lookups, storage.Gauge(ms.Lookups)},
+			{MCacheInuse, storage.Gauge(ms.MCacheInuse)},
+			{MCacheSys, storage.Gauge(ms.MCacheSys)},
+			{MSpanInuse, storage.Gauge(ms.MSpanInuse)},
+			{MSpanSys, storage.Gauge(ms.MSpanSys)},
+			{Mallocs, storage.Gauge(ms.Mallocs)},
+			{NextGC, storage.Gauge(ms.NextGC)},
+			{NumForcedGC, storage.Gauge(ms.NumForcedGC)},
+			{NumGC, storage.Gauge(ms.NumGC)},
+			{OtherSys, storage.Gauge(ms.OtherSys)},
+			{PauseTotalNs, storage.Gauge(ms.PauseTotalNs)},
+			{StackInuse, storage.Gauge(ms.StackInuse)},
+			{StackSys, storage.Gauge(ms.StackSys)},
+			{Sys, storage.Gauge(ms.Sys)},
+			{TotalAlloc, storage.Gauge(ms.TotalAlloc)},
 
 			// Capture random gauge
 			{RandomValue, storage.Gauge(rand.Float64())},
@@ -106,22 +104,20 @@ func (c *MemCapturer) Capture() []Stat {
 	)
 }
 
-func (c *MemCapturer) CaptureAndSave(s storage.Storage) error {
-	var errFirst error
-	stats := c.Capture()
+func (c *MemCapturer) CaptureAndSave() {
+	c.mu.Lock()
+	c.stor = c.Capture()
+	c.mu.Unlock()
 
-	for _, stat := range stats {
-		if _, err := s.UpdateMetric(stat.Name, stat.Value); err != nil {
-			slog.Error("capturer: cant't update storage metric", "error", err.Error())
-			if errFirst == nil {
-				errFirst = err
-			}
-		}
-	}
+	slog.Info("capturer: mem stats saved")
+}
 
-	if errFirst == nil {
-		slog.Info("capturer: mem stats saved")
-	}
+func (c *MemCapturer) Last() []Stat {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 
-	return errFirst
+	last := make([]Stat, len(c.stor))
+	copy(last, c.stor)
+
+	return last
 }

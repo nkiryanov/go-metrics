@@ -11,10 +11,13 @@ type Stat struct {
 
 // Capturer do what the names mean: it capture stats
 type Capturer interface {
-	// Should only capture stats. Should be thread safe
+	// Capture the statistics and returns them as an array of Stat objects.
+	// This method should be thread-safe.
 	Capture() []Stat
 
-	// Should capture (same method as Capture()) and save []Stat in 's storage.Storage'
-	// Return error if storage not support any of stat
-	CaptureAndSave(s storage.Storage) error
+	// Capture and save stats.
+	CaptureAndSave()
+
+	// Return last saved stats
+	Last() []Stat
 }

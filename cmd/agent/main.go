@@ -10,7 +10,6 @@ import (
 
 	"github.com/nkiryanov/go-metrics/internal/agent/capturer"
 	"github.com/nkiryanov/go-metrics/internal/agent/reporter"
-	"github.com/nkiryanov/go-metrics/internal/storage"
 
 	"github.com/go-resty/resty/v2"
 	"github.com/nkiryanov/go-metrics/cmd/agent/app"
@@ -46,9 +45,8 @@ func main() {
 		PollIntv: time.Duration(opts.PollIntv),
 		ReptIntv: time.Duration(opts.ReptIntv),
 
-		Storage: storage.NewMemStorage(),
-		Rept:    reporter.NewHTTPReporter(string(opts.ReptAddr), resty.New()),
-		Capt:    capturer.NewMemCapturer(),
+		Rept: reporter.NewHTTPReporter(string(opts.ReptAddr), resty.New()),
+		Capt: capturer.NewMemCapturer(),
 	}
 
 	if err := agent.Run(ctx); err != app.ErrAgentStopped {
