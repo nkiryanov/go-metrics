@@ -18,7 +18,7 @@ const (
 func TestServerApp_ExitWithSignal(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), HalfSecond)
 	defer cancel()
-	opts := &opts.Options{ListenAddr: opts.NetAddress{Host: "localhost", Port: 39232}}
+	opts := &opts.Options{ListenAddr: "localhost:39232"}
 	srv := ServerApp{Opts: opts, Handler: nil}
 
 	err := srv.Run(ctx)
@@ -29,7 +29,7 @@ func TestServerApp_ExitWithSignal(t *testing.T) {
 
 func TestServerApp_ExitOnServerError(t *testing.T) {
 	ctx := context.Background()
-	opts := &opts.Options{ListenAddr: opts.NetAddress{Host: "19.23.23.999", Port: 8080}} // invalid host
+	opts := &opts.Options{ListenAddr: "19.23.23.999:8080"} // invalid host
 	srv := ServerApp{Opts: opts, Handler: nil}
 
 	err := srv.Run(ctx)

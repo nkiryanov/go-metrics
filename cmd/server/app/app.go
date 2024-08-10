@@ -19,7 +19,7 @@ func (s *ServerApp) Run(ctx context.Context) error {
 	slog.Info("Starting server", "ListenAddr", s.Opts.ListenAddr)
 
 	httpServer := &http.Server{
-		Addr:    s.Opts.ListenAddr.String(),
+		Addr:    s.Opts.ListenAddr,
 		Handler: s.Handler,
 	}
 

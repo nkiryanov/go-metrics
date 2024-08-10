@@ -15,13 +15,12 @@ import (
 )
 
 const (
-	host = "localhost"
-	port = 8080
+	listenAddr = "localhost:8080"
 )
 
 func main() {
 	opts := &opts.Options{
-		ListenAddr: opts.NetAddress{Host: host, Port: port},
+		ListenAddr: listenAddr,
 	}
 
 	opts.Parse()

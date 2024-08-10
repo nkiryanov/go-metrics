@@ -8,41 +8,32 @@ import (
 )
 
 type Options struct {
-	ListenAddr NetAddress
+	ListenAddr string
 }
 
-func (o *Options) Parse() {
-	flag.Var(&o.ListenAddr, "a", "server listen address in format 'host:port'")
+func (opts *Options) Parse() {
+	flag.Func("a", "server listen address in format 'host:port'", parseListenAddr(&opts.ListenAddr))
 	flag.Parse()
 }
 
-type NetAddress struct {
-	Host string
-	Port int
-}
+func parseListenAddr(listenAddr *string) func(string) error {
+	return func(flagValue string) error {
+		hp := strings.Split(flagValue, ":")
 
-func (a NetAddress) String() string {
-	return a.Host + ":" + strconv.Itoa(a.Port)
-}
+		if len(hp) != 2 {
+			return errors.New("need address in a form host:port")
+		}
 
-func (a *NetAddress) Set(s string) error {
-	hp := strings.Split(s, ":")
+		port, err := strconv.Atoi(hp[1])
+		if err != nil {
+			return err
+		}
 
-	if len(hp) != 2 {
-		return errors.New("need address in a form host:port")
+		if port < 0 || port > 65535 {
+			return errors.New("port has to be in range 0-65535")
+		}
+
+		*listenAddr = flagValue
+		return nil
 	}
-
-	port, err := strconv.Atoi(hp[1])
-	if err != nil {
-		return err
-	}
-
-	if port < 0 || port > 65535 {
-		return errors.New("port has to be in range 0-65535")
-	}
-
-	a.Host = hp[0]
-	a.Port = port
-
-	return nil
 }
