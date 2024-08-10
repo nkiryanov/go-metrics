@@ -15,32 +15,14 @@ import (
 //
 //		// make and configure a mocked storage.Storage
 //		mockedStorage := &StorageMock{
-//			GetCounterFunc: func(mName string) (storage.Counter, bool) {
-//				panic("mock out the GetCounter method")
-//			},
-//			GetGaugeFunc: func(mName string) (storage.Gauge, bool) {
-//				panic("mock out the GetGauge method")
-//			},
 //			GetMetricFunc: func(mType string, mName string) (storage.Storable, bool, error) {
 //				panic("mock out the GetMetric method")
 //			},
-//			IterateFunc: func(iterFunc storage.IterFunc)  {
+//			IterateFunc: func(iter storage.IterFunc)  {
 //				panic("mock out the Iterate method")
-//			},
-//			IterateCountersFunc: func(fn func(mName string, value storage.Counter))  {
-//				panic("mock out the IterateCounters method")
-//			},
-//			IterateGaugesFunc: func(fn func(mName string, value storage.Gauge))  {
-//				panic("mock out the IterateGauges method")
 //			},
 //			LenFunc: func() int {
 //				panic("mock out the Len method")
-//			},
-//			UpdateCounterFunc: func(mName string, value storage.Counter) storage.Counter {
-//				panic("mock out the UpdateCounter method")
-//			},
-//			UpdateGaugeFunc: func(mName string, value storage.Gauge) storage.Gauge {
-//				panic("mock out the UpdateGauge method")
 //			},
 //			UpdateMetricFunc: func(mName string, mValue storage.Storable) (storage.Storable, error) {
 //				panic("mock out the UpdateMetric method")
@@ -52,48 +34,20 @@ import (
 //
 //	}
 type StorageMock struct {
-	// GetCounterFunc mocks the GetCounter method.
-	GetCounterFunc func(mName string) (storage.Counter, bool)
-
-	// GetGaugeFunc mocks the GetGauge method.
-	GetGaugeFunc func(mName string) (storage.Gauge, bool)
-
 	// GetMetricFunc mocks the GetMetric method.
 	GetMetricFunc func(mType string, mName string) (storage.Storable, bool, error)
 
 	// IterateFunc mocks the Iterate method.
-	IterateFunc func(iterFunc storage.IterFunc)
-
-	// IterateCountersFunc mocks the IterateCounters method.
-	IterateCountersFunc func(fn func(mName string, value storage.Counter))
-
-	// IterateGaugesFunc mocks the IterateGauges method.
-	IterateGaugesFunc func(fn func(mName string, value storage.Gauge))
+	IterateFunc func(iter storage.IterFunc)
 
 	// LenFunc mocks the Len method.
 	LenFunc func() int
-
-	// UpdateCounterFunc mocks the UpdateCounter method.
-	UpdateCounterFunc func(mName string, value storage.Counter) storage.Counter
-
-	// UpdateGaugeFunc mocks the UpdateGauge method.
-	UpdateGaugeFunc func(mName string, value storage.Gauge) storage.Gauge
 
 	// UpdateMetricFunc mocks the UpdateMetric method.
 	UpdateMetricFunc func(mName string, mValue storage.Storable) (storage.Storable, error)
 
 	// calls tracks calls to the methods.
 	calls struct {
-		// GetCounter holds details about calls to the GetCounter method.
-		GetCounter []struct {
-			// MName is the mName argument value.
-			MName string
-		}
-		// GetGauge holds details about calls to the GetGauge method.
-		GetGauge []struct {
-			// MName is the mName argument value.
-			MName string
-		}
 		// GetMetric holds details about calls to the GetMetric method.
 		GetMetric []struct {
 			// MType is the mType argument value.
@@ -103,35 +57,11 @@ type StorageMock struct {
 		}
 		// Iterate holds details about calls to the Iterate method.
 		Iterate []struct {
-			// IterFunc is the iterFunc argument value.
-			IterFunc storage.IterFunc
-		}
-		// IterateCounters holds details about calls to the IterateCounters method.
-		IterateCounters []struct {
-			// Fn is the fn argument value.
-			Fn func(mName string, value storage.Counter)
-		}
-		// IterateGauges holds details about calls to the IterateGauges method.
-		IterateGauges []struct {
-			// Fn is the fn argument value.
-			Fn func(mName string, value storage.Gauge)
+			// Iter is the iter argument value.
+			Iter storage.IterFunc
 		}
 		// Len holds details about calls to the Len method.
 		Len []struct {
-		}
-		// UpdateCounter holds details about calls to the UpdateCounter method.
-		UpdateCounter []struct {
-			// MName is the mName argument value.
-			MName string
-			// Value is the value argument value.
-			Value storage.Counter
-		}
-		// UpdateGauge holds details about calls to the UpdateGauge method.
-		UpdateGauge []struct {
-			// MName is the mName argument value.
-			MName string
-			// Value is the value argument value.
-			Value storage.Gauge
 		}
 		// UpdateMetric holds details about calls to the UpdateMetric method.
 		UpdateMetric []struct {
@@ -141,80 +71,10 @@ type StorageMock struct {
 			MValue storage.Storable
 		}
 	}
-	lockGetCounter      sync.RWMutex
-	lockGetGauge        sync.RWMutex
-	lockGetMetric       sync.RWMutex
-	lockIterate         sync.RWMutex
-	lockIterateCounters sync.RWMutex
-	lockIterateGauges   sync.RWMutex
-	lockLen             sync.RWMutex
-	lockUpdateCounter   sync.RWMutex
-	lockUpdateGauge     sync.RWMutex
-	lockUpdateMetric    sync.RWMutex
-}
-
-// GetCounter calls GetCounterFunc.
-func (mock *StorageMock) GetCounter(mName string) (storage.Counter, bool) {
-	if mock.GetCounterFunc == nil {
-		panic("StorageMock.GetCounterFunc: method is nil but Storage.GetCounter was just called")
-	}
-	callInfo := struct {
-		MName string
-	}{
-		MName: mName,
-	}
-	mock.lockGetCounter.Lock()
-	mock.calls.GetCounter = append(mock.calls.GetCounter, callInfo)
-	mock.lockGetCounter.Unlock()
-	return mock.GetCounterFunc(mName)
-}
-
-// GetCounterCalls gets all the calls that were made to GetCounter.
-// Check the length with:
-//
-//	len(mockedStorage.GetCounterCalls())
-func (mock *StorageMock) GetCounterCalls() []struct {
-	MName string
-} {
-	var calls []struct {
-		MName string
-	}
-	mock.lockGetCounter.RLock()
-	calls = mock.calls.GetCounter
-	mock.lockGetCounter.RUnlock()
-	return calls
-}
-
-// GetGauge calls GetGaugeFunc.
-func (mock *StorageMock) GetGauge(mName string) (storage.Gauge, bool) {
-	if mock.GetGaugeFunc == nil {
-		panic("StorageMock.GetGaugeFunc: method is nil but Storage.GetGauge was just called")
-	}
-	callInfo := struct {
-		MName string
-	}{
-		MName: mName,
-	}
-	mock.lockGetGauge.Lock()
-	mock.calls.GetGauge = append(mock.calls.GetGauge, callInfo)
-	mock.lockGetGauge.Unlock()
-	return mock.GetGaugeFunc(mName)
-}
-
-// GetGaugeCalls gets all the calls that were made to GetGauge.
-// Check the length with:
-//
-//	len(mockedStorage.GetGaugeCalls())
-func (mock *StorageMock) GetGaugeCalls() []struct {
-	MName string
-} {
-	var calls []struct {
-		MName string
-	}
-	mock.lockGetGauge.RLock()
-	calls = mock.calls.GetGauge
-	mock.lockGetGauge.RUnlock()
-	return calls
+	lockGetMetric    sync.RWMutex
+	lockIterate      sync.RWMutex
+	lockLen          sync.RWMutex
+	lockUpdateMetric sync.RWMutex
 }
 
 // GetMetric calls GetMetricFunc.
@@ -254,19 +114,19 @@ func (mock *StorageMock) GetMetricCalls() []struct {
 }
 
 // Iterate calls IterateFunc.
-func (mock *StorageMock) Iterate(iterFunc storage.IterFunc) {
+func (mock *StorageMock) Iterate(iter storage.IterFunc) {
 	if mock.IterateFunc == nil {
 		panic("StorageMock.IterateFunc: method is nil but Storage.Iterate was just called")
 	}
 	callInfo := struct {
-		IterFunc storage.IterFunc
+		Iter storage.IterFunc
 	}{
-		IterFunc: iterFunc,
+		Iter: iter,
 	}
 	mock.lockIterate.Lock()
 	mock.calls.Iterate = append(mock.calls.Iterate, callInfo)
 	mock.lockIterate.Unlock()
-	mock.IterateFunc(iterFunc)
+	mock.IterateFunc(iter)
 }
 
 // IterateCalls gets all the calls that were made to Iterate.
@@ -274,78 +134,14 @@ func (mock *StorageMock) Iterate(iterFunc storage.IterFunc) {
 //
 //	len(mockedStorage.IterateCalls())
 func (mock *StorageMock) IterateCalls() []struct {
-	IterFunc storage.IterFunc
+	Iter storage.IterFunc
 } {
 	var calls []struct {
-		IterFunc storage.IterFunc
+		Iter storage.IterFunc
 	}
 	mock.lockIterate.RLock()
 	calls = mock.calls.Iterate
 	mock.lockIterate.RUnlock()
-	return calls
-}
-
-// IterateCounters calls IterateCountersFunc.
-func (mock *StorageMock) IterateCounters(fn func(mName string, value storage.Counter)) {
-	if mock.IterateCountersFunc == nil {
-		panic("StorageMock.IterateCountersFunc: method is nil but Storage.IterateCounters was just called")
-	}
-	callInfo := struct {
-		Fn func(mName string, value storage.Counter)
-	}{
-		Fn: fn,
-	}
-	mock.lockIterateCounters.Lock()
-	mock.calls.IterateCounters = append(mock.calls.IterateCounters, callInfo)
-	mock.lockIterateCounters.Unlock()
-	mock.IterateCountersFunc(fn)
-}
-
-// IterateCountersCalls gets all the calls that were made to IterateCounters.
-// Check the length with:
-//
-//	len(mockedStorage.IterateCountersCalls())
-func (mock *StorageMock) IterateCountersCalls() []struct {
-	Fn func(mName string, value storage.Counter)
-} {
-	var calls []struct {
-		Fn func(mName string, value storage.Counter)
-	}
-	mock.lockIterateCounters.RLock()
-	calls = mock.calls.IterateCounters
-	mock.lockIterateCounters.RUnlock()
-	return calls
-}
-
-// IterateGauges calls IterateGaugesFunc.
-func (mock *StorageMock) IterateGauges(fn func(mName string, value storage.Gauge)) {
-	if mock.IterateGaugesFunc == nil {
-		panic("StorageMock.IterateGaugesFunc: method is nil but Storage.IterateGauges was just called")
-	}
-	callInfo := struct {
-		Fn func(mName string, value storage.Gauge)
-	}{
-		Fn: fn,
-	}
-	mock.lockIterateGauges.Lock()
-	mock.calls.IterateGauges = append(mock.calls.IterateGauges, callInfo)
-	mock.lockIterateGauges.Unlock()
-	mock.IterateGaugesFunc(fn)
-}
-
-// IterateGaugesCalls gets all the calls that were made to IterateGauges.
-// Check the length with:
-//
-//	len(mockedStorage.IterateGaugesCalls())
-func (mock *StorageMock) IterateGaugesCalls() []struct {
-	Fn func(mName string, value storage.Gauge)
-} {
-	var calls []struct {
-		Fn func(mName string, value storage.Gauge)
-	}
-	mock.lockIterateGauges.RLock()
-	calls = mock.calls.IterateGauges
-	mock.lockIterateGauges.RUnlock()
 	return calls
 }
 
@@ -373,78 +169,6 @@ func (mock *StorageMock) LenCalls() []struct {
 	mock.lockLen.RLock()
 	calls = mock.calls.Len
 	mock.lockLen.RUnlock()
-	return calls
-}
-
-// UpdateCounter calls UpdateCounterFunc.
-func (mock *StorageMock) UpdateCounter(mName string, value storage.Counter) storage.Counter {
-	if mock.UpdateCounterFunc == nil {
-		panic("StorageMock.UpdateCounterFunc: method is nil but Storage.UpdateCounter was just called")
-	}
-	callInfo := struct {
-		MName string
-		Value storage.Counter
-	}{
-		MName: mName,
-		Value: value,
-	}
-	mock.lockUpdateCounter.Lock()
-	mock.calls.UpdateCounter = append(mock.calls.UpdateCounter, callInfo)
-	mock.lockUpdateCounter.Unlock()
-	return mock.UpdateCounterFunc(mName, value)
-}
-
-// UpdateCounterCalls gets all the calls that were made to UpdateCounter.
-// Check the length with:
-//
-//	len(mockedStorage.UpdateCounterCalls())
-func (mock *StorageMock) UpdateCounterCalls() []struct {
-	MName string
-	Value storage.Counter
-} {
-	var calls []struct {
-		MName string
-		Value storage.Counter
-	}
-	mock.lockUpdateCounter.RLock()
-	calls = mock.calls.UpdateCounter
-	mock.lockUpdateCounter.RUnlock()
-	return calls
-}
-
-// UpdateGauge calls UpdateGaugeFunc.
-func (mock *StorageMock) UpdateGauge(mName string, value storage.Gauge) storage.Gauge {
-	if mock.UpdateGaugeFunc == nil {
-		panic("StorageMock.UpdateGaugeFunc: method is nil but Storage.UpdateGauge was just called")
-	}
-	callInfo := struct {
-		MName string
-		Value storage.Gauge
-	}{
-		MName: mName,
-		Value: value,
-	}
-	mock.lockUpdateGauge.Lock()
-	mock.calls.UpdateGauge = append(mock.calls.UpdateGauge, callInfo)
-	mock.lockUpdateGauge.Unlock()
-	return mock.UpdateGaugeFunc(mName, value)
-}
-
-// UpdateGaugeCalls gets all the calls that were made to UpdateGauge.
-// Check the length with:
-//
-//	len(mockedStorage.UpdateGaugeCalls())
-func (mock *StorageMock) UpdateGaugeCalls() []struct {
-	MName string
-	Value storage.Gauge
-} {
-	var calls []struct {
-		MName string
-		Value storage.Gauge
-	}
-	mock.lockUpdateGauge.RLock()
-	calls = mock.calls.UpdateGauge
-	mock.lockUpdateGauge.RUnlock()
 	return calls
 }
 

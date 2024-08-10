@@ -2,10 +2,34 @@ package storage
 
 import (
 	"fmt"
+	"strconv"
 	"sync"
 )
 
-// go:generate moq -out mocks/storage -pkg mocks -skip-ensure . Storage
+const (
+	CounterTypeName = "counter"
+	GaugeTypeName   = "gauge"
+)
+
+type Counter int64
+
+func (c Counter) String() string {
+	return strconv.FormatInt(int64(c), 10)
+}
+
+func (c Counter) Type() string {
+	return CounterTypeName
+}
+
+type Gauge float64
+
+func (g Gauge) String() string {
+	return strconv.FormatFloat(float64(g), 'f', -1, 64)
+}
+
+func (g Gauge) Type() string {
+	return GaugeTypeName
+}
 
 type counterStore struct {
 	lock    sync.RWMutex

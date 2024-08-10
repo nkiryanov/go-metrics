@@ -18,12 +18,6 @@ import (
 //			ParseFunc: func(mType string, s string) (storage.Storable, error) {
 //				panic("mock out the Parse method")
 //			},
-//			ParseCounterFunc: func(s string) (storage.Counter, error) {
-//				panic("mock out the ParseCounter method")
-//			},
-//			ParseGaugeFunc: func(s string) (storage.Gauge, error) {
-//				panic("mock out the ParseGauge method")
-//			},
 //		}
 //
 //		// use mockedStorableParser in code that requires storage.StorableParser
@@ -34,12 +28,6 @@ type StorableParserMock struct {
 	// ParseFunc mocks the Parse method.
 	ParseFunc func(mType string, s string) (storage.Storable, error)
 
-	// ParseCounterFunc mocks the ParseCounter method.
-	ParseCounterFunc func(s string) (storage.Counter, error)
-
-	// ParseGaugeFunc mocks the ParseGauge method.
-	ParseGaugeFunc func(s string) (storage.Gauge, error)
-
 	// calls tracks calls to the methods.
 	calls struct {
 		// Parse holds details about calls to the Parse method.
@@ -49,20 +37,8 @@ type StorableParserMock struct {
 			// S is the s argument value.
 			S string
 		}
-		// ParseCounter holds details about calls to the ParseCounter method.
-		ParseCounter []struct {
-			// S is the s argument value.
-			S string
-		}
-		// ParseGauge holds details about calls to the ParseGauge method.
-		ParseGauge []struct {
-			// S is the s argument value.
-			S string
-		}
 	}
-	lockParse        sync.RWMutex
-	lockParseCounter sync.RWMutex
-	lockParseGauge   sync.RWMutex
+	lockParse sync.RWMutex
 }
 
 // Parse calls ParseFunc.
@@ -98,69 +74,5 @@ func (mock *StorableParserMock) ParseCalls() []struct {
 	mock.lockParse.RLock()
 	calls = mock.calls.Parse
 	mock.lockParse.RUnlock()
-	return calls
-}
-
-// ParseCounter calls ParseCounterFunc.
-func (mock *StorableParserMock) ParseCounter(s string) (storage.Counter, error) {
-	if mock.ParseCounterFunc == nil {
-		panic("StorableParserMock.ParseCounterFunc: method is nil but StorableParser.ParseCounter was just called")
-	}
-	callInfo := struct {
-		S string
-	}{
-		S: s,
-	}
-	mock.lockParseCounter.Lock()
-	mock.calls.ParseCounter = append(mock.calls.ParseCounter, callInfo)
-	mock.lockParseCounter.Unlock()
-	return mock.ParseCounterFunc(s)
-}
-
-// ParseCounterCalls gets all the calls that were made to ParseCounter.
-// Check the length with:
-//
-//	len(mockedStorableParser.ParseCounterCalls())
-func (mock *StorableParserMock) ParseCounterCalls() []struct {
-	S string
-} {
-	var calls []struct {
-		S string
-	}
-	mock.lockParseCounter.RLock()
-	calls = mock.calls.ParseCounter
-	mock.lockParseCounter.RUnlock()
-	return calls
-}
-
-// ParseGauge calls ParseGaugeFunc.
-func (mock *StorableParserMock) ParseGauge(s string) (storage.Gauge, error) {
-	if mock.ParseGaugeFunc == nil {
-		panic("StorableParserMock.ParseGaugeFunc: method is nil but StorableParser.ParseGauge was just called")
-	}
-	callInfo := struct {
-		S string
-	}{
-		S: s,
-	}
-	mock.lockParseGauge.Lock()
-	mock.calls.ParseGauge = append(mock.calls.ParseGauge, callInfo)
-	mock.lockParseGauge.Unlock()
-	return mock.ParseGaugeFunc(s)
-}
-
-// ParseGaugeCalls gets all the calls that were made to ParseGauge.
-// Check the length with:
-//
-//	len(mockedStorableParser.ParseGaugeCalls())
-func (mock *StorableParserMock) ParseGaugeCalls() []struct {
-	S string
-} {
-	var calls []struct {
-		S string
-	}
-	mock.lockParseGauge.RLock()
-	calls = mock.calls.ParseGauge
-	mock.lockParseGauge.RUnlock()
 	return calls
 }
