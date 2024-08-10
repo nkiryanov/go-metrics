@@ -25,9 +25,9 @@ const (
 
 func main() {
 	opts := &opts.Options{
-		ReptAddr: opts.ReptAddr(ReptAddr),
-		PollIntv: opts.IntvValue(PollIntv),
-		ReptIntv: opts.IntvValue(ReptIntv),
+		ReptAddr: ReptAddr,
+		PollIntv: PollIntv,
+		ReptIntv: ReptIntv,
 	}
 
 	opts.Parse()
@@ -42,10 +42,10 @@ func main() {
 	}()
 
 	agent := &app.Agent{
-		PollIntv: time.Duration(opts.PollIntv),
-		ReptIntv: time.Duration(opts.ReptIntv),
+		PollIntv: opts.PollIntv,
+		ReptIntv: opts.ReptIntv,
 
-		Rept: reporter.NewHTTPReporter(string(opts.ReptAddr), resty.New()),
+		Rept: reporter.NewHTTPReporter(opts.ReptAddr, resty.New()),
 		Capt: capturer.NewMemCapturer(),
 	}
 

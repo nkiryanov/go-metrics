@@ -1,8 +1,6 @@
 package opts
 
 import (
-	"flag"
-	"io"
 	"testing"
 	"time"
 
@@ -10,13 +8,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestReptAddr_Set(t *testing.T) {
-	defaultRa := ReptAddr("https://default.com/update")
+func TestOpts_parseReptAddr(t *testing.T) {
+	defaultRa := "https://default.com/update"
 
 	tests := []struct {
 		name     string
 		input    string
-		expected ReptAddr
+		expected string
 		shouldOk bool
 	}{
 		{
@@ -47,12 +45,10 @@ func TestReptAddr_Set(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			flags := flag.NewFlagSet("test", flag.ContinueOnError)
-			flags.SetOutput(io.Discard)
 			ra := defaultRa
-			flags.Var(&ra, "report-addr", "report address should like https://repor.com/update")
+			parseFn := parseReptAddr(&ra)
 
-			err := flags.Parse([]string{"-report-addr", tc.input})
+			err := parseFn(tc.input)
 
 			if tc.shouldOk {
 				require.Nil(t, err)
@@ -64,7 +60,7 @@ func TestReptAddr_Set(t *testing.T) {
 	}
 }
 
-func TestIntvValue_Set(t *testing.T) {
+func TestOpts_parseIntv(t *testing.T) {
 	defaultIntv := 300 * time.Second
 
 	tests := []struct {
@@ -101,12 +97,10 @@ func TestIntvValue_Set(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			flags := flag.NewFlagSet("test", flag.ContinueOnError)
-			flags.SetOutput(io.Discard)
-			intv := IntvValue(defaultIntv)
-			flags.Var(&intv, "interval", "interval like duration or just not negative num")
+			intv := defaultIntv
+			parseFn := parseIntv(&intv)
 
-			err := flags.Parse([]string{"-interval", tc.input})
+			err := parseFn(tc.input)
 
 			if tc.shouldOk {
 				require.Nil(t, err)

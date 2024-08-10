@@ -10,67 +10,57 @@ import (
 )
 
 type Options struct {
-	ReptAddr ReptAddr
+	ReptAddr string
 
-	PollIntv IntvValue
-	ReptIntv IntvValue
+	PollIntv time.Duration
+	ReptIntv time.Duration
 }
 
 func (opts *Options) Parse() {
-	flag.Var(&opts.ReptAddr, "a", "report address in format http://reports.com")
-	flag.Var(&opts.PollIntv, "p", "capturer polling interval (in seconds by default). Should be positive number like: 10 or 10s or 1m.")
-	flag.Var(&opts.ReptIntv, "r", "report interval (in seconds by default). Should be positive number like: 10 or 10s or 1m.")
+	flag.Func("a", "report address in format http://reports.com", parseReptAddr(&opts.ReptAddr))
+	flag.Func("p", "capturer polling interval (in seconds by default). Should be positive number like: 10 or 10s or 1m.", parseIntv(&opts.PollIntv))
+	flag.Func("r", "report interval (in seconds by default). Should be positive number like: 10 or 10s or 1m.", parseIntv(&opts.ReptIntv))
 	flag.Parse()
 }
 
-type ReptAddr string
+// Return a func to parse and set value for ReportAddr
+func parseReptAddr(ra *string) func(string) error {
+	return func(flagValue string) error {
+		// ReptAddr has to have scheme. Add it manually if not set (cause weird tests use that)
+		if !strings.Contains(flagValue, "://") {
+			flagValue = "http://" + flagValue
+		}
 
-func (ra ReptAddr) String() string {
-	return string(ra)
-}
+		url, err := url.Parse(flagValue)
 
-func (ra *ReptAddr) Set(s string) error {
-	// Add scheme manually if not set. Cause weird tests try that
-	if !strings.Contains(s, "://") {
-		s = "http://" + s
+		if err != nil {
+			return err
+		}
+
+		*ra = url.String()
+		return nil
 	}
-
-	// Just us url parser cause it's the case
-	url, err := url.Parse(s)
-
-	if err != nil {
-		return err
-	}
-
-	if url.Scheme == "" || url.Host == "" {
-		return errors.New("reporter address has to be in format http://valid-net-address")
-	}
-
-	*ra = ReptAddr(url.String())
-	return nil
 }
 
 // Interval for parsing purpose only.
 // Will be converted to duration as soon as parsed
 type IntvValue time.Duration
 
-func (i IntvValue) String() string {
-	return time.Duration(i).String()
-}
+func parseIntv(intv *time.Duration) func(string) error {
+	return func(flagValue string) error {
+		// If no suffix add 's'
+		if _, err := strconv.Atoi(flagValue); err == nil {
+			flagValue += "s"
+		}
 
-func (i *IntvValue) Set(s string) error {
-	// If no suffix add 's'
-	if _, err := strconv.Atoi(s); err == nil {
-		s += "s"
+		d, err := time.ParseDuration(flagValue)
+		if err != nil {
+			return err
+		}
+		if d < 0 {
+			return errors.New("must be positive")
+		}
+		*intv = d
+		return nil
 	}
-
-	d, err := time.ParseDuration(s)
-	if err != nil {
-		return err
-	}
-	if d < 0 {
-		return errors.New("must be positive")
-	}
-	*i = IntvValue(d)
-	return nil
 }
