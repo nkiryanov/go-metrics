@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/nkiryanov/go-metrics/internal/agent/capturer"
 	"github.com/nkiryanov/go-metrics/internal/agent/reporter"
@@ -16,8 +17,21 @@ import (
 	"github.com/nkiryanov/go-metrics/cmd/agent/opts"
 )
 
+const (
+	ReptAddr = "http://localhost:8080"
+
+	PollIntv = 2 * time.Second
+	ReptIntv = 10 * time.Second
+)
+
 func main() {
-	opts := opts.ParseOptions()
+	opts := &opts.Options{
+		ReptAddr: opts.ReptAddr(ReptAddr),
+		PollIntv: opts.IntvValue(PollIntv),
+		ReptIntv: opts.IntvValue(ReptIntv),
+	}
+
+	opts.Parse()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
@@ -29,11 +43,11 @@ func main() {
 	}()
 
 	agent := &app.Agent{
-		PollIntv: opts.PollIntv,
-		ReptIntv: opts.ReptIntv,
+		PollIntv: time.Duration(opts.PollIntv),
+		ReptIntv: time.Duration(opts.ReptIntv),
 
 		Storage: storage.NewMemStorage(),
-		Rept:    reporter.NewHTTPReporter(opts.ReptAddr, resty.New()),
+		Rept:    reporter.NewHTTPReporter(string(opts.ReptAddr), resty.New()),
 		Capt:    capturer.NewMemCapturer(),
 	}
 

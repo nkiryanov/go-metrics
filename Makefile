@@ -14,3 +14,8 @@ lint:
 .PHONE: generate
 generate:
 	go generate ./...
+
+.PHONE: build
+build:
+	cd cmd/server && go build .
+	cd cmd/agent && go build .

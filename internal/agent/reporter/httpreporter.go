@@ -71,5 +71,10 @@ func (rept *HTTPReporter) ReportBatch(ms []*Metric) error {
 	}
 
 	wg.Wait()
+
+	if err == nil {
+		slog.Info("reporter: metrics updated", "count", len(ms))
+	}
+
 	return err
 }
