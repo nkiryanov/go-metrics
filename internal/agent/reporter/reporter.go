@@ -4,8 +4,6 @@ import (
 	"fmt"
 )
 
-//go:generate moq -out mocks/reporter.go -pkg mocks -skip-ensure -fmt goimports . Reporter
-
 type Metric struct {
 	Name  string
 	Type  string

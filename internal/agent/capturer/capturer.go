@@ -4,8 +4,6 @@ import (
 	"github.com/nkiryanov/go-metrics/internal/storage"
 )
 
-//go:generate moq -out mocks/capturer.go -pkg mocks -skip-ensure -fmt goimports . Capturer
-
 type Stat struct {
 	Name  string
 	Value storage.Storable
