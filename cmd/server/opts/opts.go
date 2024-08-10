@@ -3,6 +3,8 @@ package opts
 import (
 	"errors"
 	"flag"
+	"log/slog"
+	"os"
 	"strconv"
 	"strings"
 )
@@ -14,6 +16,24 @@ type Options struct {
 func (opts *Options) Parse() {
 	flag.Func("a", "server listen address in format 'host:port'", parseListenAddr(&opts.ListenAddr))
 	flag.Parse()
+
+	opts.parseEnv()
+}
+
+func (opts *Options) parseEnv() {
+	envMap := map[string]func(string) error{
+		"ADDRESS": parseListenAddr(&opts.ListenAddr),
+	}
+
+	for key, parseFn := range envMap {
+		if envVar := os.Getenv(key); envVar != "" {
+			if err := parseFn(envVar); err != nil {
+				slog.Error("invalid env variable, skipped", key, envVar, "error", err.Error())
+			} else {
+				slog.Info("Set args form env", key, envVar)
+			}
+		}
+	}
 }
 
 func parseListenAddr(listenAddr *string) func(string) error {
