@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"sort"
 	"strconv"
 	"sync"
 )
@@ -12,6 +13,7 @@ type Storage interface {
 	GetGauge(metric MetricName) (Gaugeable, bool)
 	IterateGauges(func(metric MetricName, value Gaugeable))
 	IterateCounters(func(metric MetricName, value Countable))
+	ListMetrics() []MetricRepr
 }
 
 type (
@@ -19,11 +21,16 @@ type (
 	MetricName string
 	Gaugeable  float64
 	Countable  int64
+	MetricRepr struct {
+		MName  string
+		MType  string
+		MValue string
+	}
 )
 
 const (
-	GaugeTypeName   MetricType = "gauge"
 	CounterTypeName MetricType = "counter"
+	GaugeTypeName   MetricType = "gauge"
 )
 
 func (c Countable) String() string {
@@ -55,6 +62,13 @@ type gaugeStore struct {
 type MemStorage struct {
 	gauges   gaugeStore
 	counters counterStore
+}
+
+func NewMemStorage() *MemStorage {
+	return &MemStorage{
+		counters: counterStore{storage: make(map[MetricName]Countable)},
+		gauges:   gaugeStore{storage: make(map[MetricName]Gaugeable)},
+	}
 }
 
 func (s *MemStorage) UpdateCounter(metric MetricName, value Countable) Countable {
@@ -98,6 +112,15 @@ func (s *MemStorage) IterateCounters(fn func(metric MetricName, value Countable)
 	}
 }
 
+func (s *MemStorage) Len() int {
+	s.counters.lock.RLock()
+	defer s.counters.lock.RUnlock()
+	s.gauges.lock.RLock()
+	defer s.gauges.lock.RUnlock()
+
+	return len(s.counters.storage) + len(s.gauges.storage)
+}
+
 func (s *MemStorage) IterateGauges(fn func(metric MetricName, value Gaugeable)) {
 	s.gauges.lock.RLock()
 	defer s.gauges.lock.RUnlock()
@@ -107,9 +130,20 @@ func (s *MemStorage) IterateGauges(fn func(metric MetricName, value Gaugeable)) 
 	}
 }
 
-func NewMemStorage() *MemStorage {
-	return &MemStorage{
-		counters: counterStore{storage: make(map[MetricName]Countable)},
-		gauges:   gaugeStore{storage: make(map[MetricName]Gaugeable)},
-	}
+func (s *MemStorage) ListMetrics() []MetricRepr {
+	metrics := make([]MetricRepr, 0, s.Len())
+
+	s.IterateCounters(func(name MetricName, value Countable) {
+		metrics = append(metrics, MetricRepr{MType: string(CounterTypeName), MName: string(name), MValue: value.String()})
+	})
+
+	s.IterateGauges(func(metric MetricName, value Gaugeable) {
+		metrics = append(metrics, MetricRepr{MType: string(GaugeTypeName), MName: string(metric), MValue: value.String()})
+	})
+
+	sort.Slice(metrics, func(i, j int) bool {
+		return metrics[i].MName < metrics[j].MName
+	})
+
+	return metrics
 }

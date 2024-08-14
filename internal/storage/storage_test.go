@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func updateCounterConcurrently(s *MemStorage, key MetricName, value Countable, count int) {
@@ -155,4 +156,22 @@ func TestMemStorage_IterateGauges(t *testing.T) {
 	}
 
 	// No race condition
+}
+
+func TestMemStorage_ListMetrics(t *testing.T) {
+	storage := NewMemStorage()
+	storage.UpdateCounter("foo", 1)
+	storage.SetGauge("foo", 2.2)
+	storage.UpdateCounter("bar", 3)
+	storage.SetGauge("bar", 4.4)
+	storage.SetGauge("abra", 5.5)
+
+	metrics := storage.ListMetrics()
+
+	require.Len(t, metrics, 5)
+	assert.Equal(t, MetricRepr{MName: "abra", MType: "gauge", MValue: "5.5"}, metrics[0])
+	assert.Equal(t, MetricRepr{MName: "bar", MType: "counter", MValue: "3"}, metrics[1])
+	assert.Equal(t, MetricRepr{MName: "bar", MType: "gauge", MValue: "4.4"}, metrics[2])
+	assert.Equal(t, MetricRepr{MName: "foo", MType: "counter", MValue: "1"}, metrics[3])
+	assert.Equal(t, MetricRepr{MName: "foo", MType: "gauge", MValue: "2.2"}, metrics[4])
 }
