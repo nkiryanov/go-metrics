@@ -3,7 +3,9 @@ package opts
 import (
 	"errors"
 	"flag"
+	"log/slog"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -21,6 +23,26 @@ func (opts *Options) Parse() {
 	flag.Func("p", "capturer polling interval (in seconds by default). Should be positive number like: 10 or 10s or 1m.", parseIntv(&opts.PollIntv))
 	flag.Func("r", "report interval (in seconds by default). Should be positive number like: 10 or 10s or 1m.", parseIntv(&opts.ReptIntv))
 	flag.Parse()
+
+	opts.parseEnv()
+}
+
+func (opts *Options) parseEnv() {
+	envMap := map[string]func(string) error{
+		"ADDRESS":         parseReptAddr(&opts.ReptAddr),
+		"REPORT_INTERVAL": parseIntv(&opts.ReptIntv),
+		"POLL_INTERVAL":   parseIntv(&opts.PollIntv),
+	}
+
+	for key, parseFn := range envMap {
+		if envVar := os.Getenv(key); envVar != "" {
+			if err := parseFn(envVar); err != nil {
+				slog.Error("invalid env variable, skipped", key, envVar, "error", err.Error())
+			} else {
+				slog.Info("Set args form env", key, envVar)
+			}
+		}
+	}
 }
 
 // Return a func to parse and set value for ReportAddr
