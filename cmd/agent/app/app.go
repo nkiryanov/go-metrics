@@ -3,38 +3,38 @@ package app
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 
-	"github.com/nkiryanov/go-metrics/internal/agent/poller"
-	"github.com/nkiryanov/go-metrics/internal/agent/publisher"
-	"github.com/nkiryanov/go-metrics/internal/storage"
+	"github.com/nkiryanov/go-metrics/internal/agent/capturer"
+	"github.com/nkiryanov/go-metrics/internal/agent/reporter"
+	"github.com/nkiryanov/go-metrics/internal/agent/runner"
 )
 
 var ErrAgentStopped = errors.New("agent: Agent stopped")
 
 type Agent struct {
-	storage   storage.Storage
-	publisher publisher.Publisher
-	poller    poller.Poller
-}
+	PollIntv time.Duration
+	ReptIntv time.Duration
 
-func NewAgent(storage storage.Storage, pubAddr string, pollInterval, pubInterval time.Duration) (*Agent, error) {
-	publisher, err := publisher.NewHTTPPublisher(pubAddr, pubInterval, storage)
-	if err != nil {
-		return nil, fmt.Errorf("agent: Failed to create publisher: %w", err)
-	}
-
-	return &Agent{
-		storage:   storage,
-		publisher: *publisher,
-		poller:    poller.NewMemStatsPoller(storage, pollInterval),
-	}, nil
+	Rept reporter.Reporter
+	Capt capturer.Capturer
 }
 
 func (a *Agent) Run(ctx context.Context) error {
-	go a.poller.Run(ctx)    // nolint: errcheck
-	go a.publisher.Run(ctx) // nolint: errcheck
+	// create slice of all stored metrics and run report batch
+	reportFn := func() {
+		stats := a.Capt.Last()
+		ms := make([]*reporter.Metric, 0, len(stats))
+
+		for _, stat := range stats {
+			ms = append(ms, &reporter.Metric{Name: stat.Name, Type: stat.Value.Type(), Value: stat.Value})
+		}
+
+		_ = a.Rept.ReportBatch(ms)
+	}
+
+	go runner.NewIntvRunner(0, a.PollIntv).Run(ctx, a.Capt.CaptureAndSave)
+	go runner.NewIntvRunner(5*time.Second, a.ReptIntv).Run(ctx, reportFn)
 
 	<-ctx.Done()
 	return ErrAgentStopped

@@ -1,149 +1,37 @@
 package storage
 
 import (
-	"sort"
-	"strconv"
-	"sync"
+	"fmt"
 )
+
+//go:generate moq -out mocks/storage.go -pkg mocks -skip-ensure -fmt goimports . Storage
+//go:generate moq -out mocks/storable.go -pkg mocks -skip-ensure -fmt goimports . Storable
+//go:generate moq -out mocks/parser.go -pkg mocks -skip-ensure -fmt goimports . StorableParser
+
+// Common interface for types storable in storage
+type Storable interface {
+	fmt.Stringer
+	Type() string
+}
+
+type StorableParser interface {
+	Parse(mType string, s string) (Storable, error)
+}
+
+type IterFunc func(mType string, mName string, mValue Storable)
 
 type Storage interface {
-	UpdateCounter(metric MetricName, value Countable) Countable
-	GetCounter(metric MetricName) (Countable, bool)
-	SetGauge(metric MetricName, value Gaugeable) Gaugeable
-	GetGauge(metric MetricName) (Gaugeable, bool)
-	IterateGauges(func(metric MetricName, value Gaugeable))
-	IterateCounters(func(metric MetricName, value Countable))
-	ListMetrics() []MetricRepr
-}
+	Len() int
 
-type (
-	MetricType string
-	MetricName string
-	Gaugeable  float64
-	Countable  int64
-	MetricRepr struct {
-		MName  string
-		MType  string
-		MValue string
-	}
-)
+	// Get metric from storage
+	// If metric type is supported by the storage but 'mName' not found, then the 'ok' bool will be false.
+	// If metric type is not supported by the storage, then 'err' will not be nil.
+	GetMetric(mType string, mName string) (value Storable, ok bool, err error)
 
-const (
-	CounterTypeName MetricType = "counter"
-	GaugeTypeName   MetricType = "gauge"
-)
+	// Update metric in storage
+	// May be implementation specific and not support all the types. In that case should return 'err'.
+	UpdateMetric(mName string, mValue Storable) (value Storable, err error)
 
-func (c Countable) String() string {
-	return strconv.FormatInt(int64(c), 10)
-}
-
-func (g Gaugeable) String() string {
-	return strconv.FormatFloat(float64(g), 'f', -1, 64)
-}
-
-type counterStore struct {
-	lock    sync.RWMutex
-	storage map[MetricName]Countable
-}
-
-func (s *counterStore) GetMetric(metric MetricName) (Countable, bool) {
-	s.lock.RLock()
-	defer s.lock.RUnlock()
-
-	value, ok := s.storage[metric]
-	return value, ok
-}
-
-type gaugeStore struct {
-	lock    sync.RWMutex
-	storage map[MetricName]Gaugeable
-}
-
-type MemStorage struct {
-	gauges   gaugeStore
-	counters counterStore
-}
-
-func NewMemStorage() *MemStorage {
-	return &MemStorage{
-		counters: counterStore{storage: make(map[MetricName]Countable)},
-		gauges:   gaugeStore{storage: make(map[MetricName]Gaugeable)},
-	}
-}
-
-func (s *MemStorage) UpdateCounter(metric MetricName, value Countable) Countable {
-	s.counters.lock.Lock()
-	defer s.counters.lock.Unlock()
-
-	s.counters.storage[metric] += value
-	return s.counters.storage[metric]
-}
-
-func (s *MemStorage) GetCounter(metric MetricName) (Countable, bool) {
-	s.counters.lock.RLock()
-	defer s.counters.lock.RUnlock()
-
-	value, ok := s.counters.storage[metric]
-	return value, ok
-}
-
-func (s *MemStorage) SetGauge(metric MetricName, value Gaugeable) Gaugeable {
-	s.gauges.lock.Lock()
-	s.gauges.storage[metric] = value
-	s.gauges.lock.Unlock()
-
-	return value
-}
-
-func (s *MemStorage) GetGauge(metric MetricName) (Gaugeable, bool) {
-	s.gauges.lock.RLock()
-	defer s.gauges.lock.RUnlock()
-
-	value, ok := s.gauges.storage[metric]
-	return value, ok
-}
-
-func (s *MemStorage) IterateCounters(fn func(metric MetricName, value Countable)) {
-	s.counters.lock.RLock()
-	defer s.counters.lock.RUnlock()
-
-	for metric, value := range s.counters.storage {
-		fn(metric, value)
-	}
-}
-
-func (s *MemStorage) Len() int {
-	s.counters.lock.RLock()
-	defer s.counters.lock.RUnlock()
-	s.gauges.lock.RLock()
-	defer s.gauges.lock.RUnlock()
-
-	return len(s.counters.storage) + len(s.gauges.storage)
-}
-
-func (s *MemStorage) IterateGauges(fn func(metric MetricName, value Gaugeable)) {
-	s.gauges.lock.RLock()
-	defer s.gauges.lock.RUnlock()
-
-	for metric, value := range s.gauges.storage {
-		fn(metric, value)
-	}
-}
-
-func (s *MemStorage) ListMetrics() []MetricRepr {
-	metrics := make([]MetricRepr, 0, s.Len())
-
-	s.IterateCounters(func(name MetricName, value Countable) {
-		metrics = append(metrics, MetricRepr{MType: string(CounterTypeName), MName: string(name), MValue: value.String()})
-	})
-
-	s.IterateGauges(func(metric MetricName, value Gaugeable) {
-		metrics = append(metrics, MetricRepr{MType: string(GaugeTypeName), MName: string(metric), MValue: value.String()})
-	})
-
-	sort.Slice(metrics, func(i, j int) bool {
-		return metrics[i].MName < metrics[j].MName
-	})
-
-	return metrics
+	// Iterate over stored values with 'iter' func.
+	Iterate(iter IterFunc)
 }

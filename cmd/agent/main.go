@@ -8,18 +8,30 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/nkiryanov/go-metrics/internal/agent/capturer"
+	"github.com/nkiryanov/go-metrics/internal/agent/reporter"
+
+	"github.com/go-resty/resty/v2"
 	"github.com/nkiryanov/go-metrics/cmd/agent/app"
-	"github.com/nkiryanov/go-metrics/internal/storage"
+	"github.com/nkiryanov/go-metrics/cmd/agent/opts"
 )
 
 const (
-	PollInterval = 2 * time.Second
-	PubInterval  = 10 * time.Second
+	ReptAddr = "http://localhost:8080"
 
-	PubAddr = "http://localhost:8080"
+	PollIntv = 2 * time.Second
+	ReptIntv = 10 * time.Second
 )
 
 func main() {
+	opts := &opts.Options{
+		ReptAddr: ReptAddr,
+		PollIntv: PollIntv,
+		ReptIntv: ReptIntv,
+	}
+
+	opts.Parse()
+
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
 		stop := make(chan os.Signal, 1)
@@ -29,11 +41,12 @@ func main() {
 		cancel()
 	}()
 
-	storage := storage.NewMemStorage()
-	agent, err := app.NewAgent(storage, PubAddr, PollInterval, PubInterval)
-	if err != nil {
-		slog.Error("Failed to create agent", "error", err)
-		os.Exit(1)
+	agent := &app.Agent{
+		PollIntv: opts.PollIntv,
+		ReptIntv: opts.ReptIntv,
+
+		Rept: reporter.NewHTTPReporter(opts.ReptAddr, resty.New()),
+		Capt: capturer.NewMemCapturer(),
 	}
 
 	if err := agent.Run(ctx); err != app.ErrAgentStopped {

@@ -1,6 +1,10 @@
 package templates
 
-const MetricsListTpl = `<!DOCTYPE html>
+import (
+	"html/template"
+)
+
+var MetricList = template.Must(template.New("listTemplate").Parse(`<!DOCTYPE html>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -47,9 +51,9 @@ const MetricsListTpl = `<!DOCTYPE html>
         <tbody>
             {{- range . -}}
             <tr>
-                <td>{{ .MName }}</td>
-                <td>{{ .MValue }}</td>
-                <td>{{ .MType }}</td>
+                <td>{{ .Name }}</td>
+                <td>{{ .Value }}</td>
+                <td>{{ .Type }}</td>
             </tr>
             {{- end -}}
         </tbody>
@@ -59,4 +63,4 @@ const MetricsListTpl = `<!DOCTYPE html>
     {{- end -}}
 </body>
 </html>
-`
+`))
