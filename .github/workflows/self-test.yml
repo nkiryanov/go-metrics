@@ -21,7 +21,7 @@ jobs:
 
       - name: build and test
         run: |
-          make test
+          make test_all
         env:
           TZ: "Europe/Moscow"
 

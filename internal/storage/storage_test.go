@@ -122,3 +122,37 @@ func TestMemStorage_SetGaugeConcurrently(t *testing.T) {
 	value, _ := storage.GetGauge("bar")
 	assert.EqualValues(t, 1.1, value)
 }
+
+func TestMemStorage_IterateCounters(t *testing.T) {
+	storage := NewMemStorage()
+	storage.UpdateCounter("foo", 1)
+	storage.UpdateCounter("bar", 2)
+	var wg sync.WaitGroup
+
+	for range 10 {
+		wg.Add(1)
+		go func() {
+			storage.IterateCounters(func(name MetricName, value Countable) {})
+			wg.Done()
+		}()
+	}
+
+	// No race condition
+}
+
+func TestMemStorage_IterateGauges(t *testing.T) {
+	storage := NewMemStorage()
+	storage.SetGauge("foo", 1.1)
+	storage.SetGauge("bar", 2.2)
+	var wg sync.WaitGroup
+
+	for range 10 {
+		wg.Add(1)
+		go func() {
+			storage.IterateGauges(func(name MetricName, value Gaugeable) {})
+			wg.Done()
+		}()
+	}
+
+	// No race condition
+}
