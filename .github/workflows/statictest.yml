@@ -2,6 +2,22 @@ name: go vet test
 
 on:
   pull_request:
+    branches:
+      - main
+      - iter1
+      - iter2
+      - iter3
+      - iter4
+      - iter5
+      - iter6
+      - iter7
+      - iter8
+      - iter9
+      - iter10
+      - iter11
+      - iter12
+      - iter13
+      - iter14
   push:
     branches:
       - main
@@ -12,7 +28,7 @@ jobs:
     container: golang:1.22
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Download statictest binary
         uses: robinraju/release-downloader@v1.8
