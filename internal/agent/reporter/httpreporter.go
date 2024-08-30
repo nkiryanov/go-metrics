@@ -2,9 +2,10 @@ package reporter
 
 import (
 	"fmt"
-	"log/slog"
 	"net/http"
 	"sync"
+
+	"github.com/nkiryanov/go-metrics/internal/logger"
 
 	"github.com/go-resty/resty/v2"
 )
@@ -35,12 +36,12 @@ func (rept *HTTPReporter) ReportOnce(m *Metric) error {
 		Post(fmt.Sprintf("%s/update/{mType}/{mName}/{mValue}", rept.addr))
 
 	if err != nil {
-		slog.Error("reporter: http client error", "error", err.Error())
+		logger.Slog.Error("reporter: http client error", "error", err.Error())
 		return err
 	}
 
 	if status := resp.StatusCode(); status != http.StatusOK {
-		slog.Error("reporter: server responds with not OK", "code", status, "body", resp.Body())
+		logger.Slog.Error("reporter: server responds with not OK", "code", status, "body", resp.Body())
 		return fmt.Errorf("reporter: metric update error = %s", resp.Body())
 	}
 
@@ -73,7 +74,7 @@ func (rept *HTTPReporter) ReportBatch(ms []*Metric) error {
 	wg.Wait()
 
 	if err == nil {
-		slog.Info("reporter: metrics updated", "count", len(ms))
+		logger.Slog.Info("reporter: metrics updated", "count", len(ms))
 	}
 
 	return err

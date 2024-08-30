@@ -3,10 +3,11 @@ package opts
 import (
 	"errors"
 	"flag"
-	"log/slog"
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/nkiryanov/go-metrics/internal/logger"
 )
 
 type Options struct {
@@ -28,9 +29,9 @@ func (opts *Options) parseEnv() {
 	for key, parseFn := range envMap {
 		if envVar := os.Getenv(key); envVar != "" {
 			if err := parseFn(envVar); err != nil {
-				slog.Error("invalid env variable, skipped", key, envVar, "error", err.Error())
+				logger.Slog.Error("invalid env variable, skipped", key, envVar, "error", err.Error())
 			} else {
-				slog.Info("Set args form env", key, envVar)
+				logger.Slog.Info("Set args form env", key, envVar)
 			}
 		}
 	}

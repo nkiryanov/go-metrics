@@ -10,7 +10,7 @@ import (
 var Log, Slog = Reset()
 
 func Reset() (*zap.Logger, *zap.SugaredLogger) {
-    // Reset logger to default values.
+	// Reset logger to default values.
 	plain := zap.NewNop()
 	sugar := plain.Sugar()
 	return plain, sugar
@@ -32,6 +32,7 @@ func Initialize(level string) error {
 	}
 
 	Log = lgr
+	Slog = lgr.Sugar()
 	return nil
 }
 

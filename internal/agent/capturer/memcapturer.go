@@ -1,11 +1,11 @@
 package capturer
 
 import (
-	"log/slog"
 	"math/rand"
 	"runtime"
 	"sync"
 
+	"github.com/nkiryanov/go-metrics/internal/logger"
 	"github.com/nkiryanov/go-metrics/internal/storage"
 )
 
@@ -109,7 +109,7 @@ func (c *MemCapturer) CaptureAndSave() {
 	c.stor = c.Capture()
 	c.mu.Unlock()
 
-	slog.Info("capturer: mem stats saved")
+	logger.Slog.Info("capturer: mem stats saved")
 }
 
 func (c *MemCapturer) Last() []Stat {

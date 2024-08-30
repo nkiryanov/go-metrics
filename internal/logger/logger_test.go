@@ -15,6 +15,7 @@ import (
 func TestInitialize(t *testing.T) {
 	t.Run("default level noop", func(t *testing.T) {
 		assert.Equal(t, zapcore.InvalidLevel, Log.Level())
+		assert.Equal(t, zapcore.InvalidLevel, Slog.Level())
 	})
 
 	t.Run("info level ok", func(t *testing.T) {
@@ -23,6 +24,7 @@ func TestInitialize(t *testing.T) {
 		Initialize("info")
 
 		assert.Equal(t, zapcore.InfoLevel, Log.Level())
+		assert.Equal(t, zapcore.InfoLevel, Slog.Level())
 	})
 
 	t.Run("error level ok", func(t *testing.T) {
@@ -31,6 +33,7 @@ func TestInitialize(t *testing.T) {
 		Initialize("error")
 
 		assert.Equal(t, zapcore.ErrorLevel, Log.Level())
+		assert.Equal(t, zapcore.ErrorLevel, Slog.Level())
 	})
 }
 

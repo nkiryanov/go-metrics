@@ -2,11 +2,11 @@ package app
 
 import (
 	"context"
-	"log/slog"
 	"net/http"
 	"time"
 
 	"github.com/nkiryanov/go-metrics/cmd/server/opts"
+	"github.com/nkiryanov/go-metrics/internal/logger"
 )
 
 type ServerApp struct {
@@ -16,7 +16,7 @@ type ServerApp struct {
 
 // Run starts http server and closes gracefully on context cancellation
 func (s *ServerApp) Run(ctx context.Context) error {
-	slog.Info("Starting server", "ListenAddr", s.Opts.ListenAddr)
+	logger.Slog.Info("Starting server", "ListenAddr", s.Opts.ListenAddr)
 
 	httpServer := &http.Server{
 		Addr:    s.Opts.ListenAddr,
@@ -34,9 +34,9 @@ func (s *ServerApp) Run(ctx context.Context) error {
 		defer cancel()
 
 		if err := httpServer.Shutdown(timeoutCtx); err == context.DeadlineExceeded {
-			slog.Error("force http server shutdown...")
+			logger.Slog.Error("force http server shutdown...")
 		}
-		slog.Info("HTTP server stopped")
+		logger.Slog.Info("HTTP server stopped")
 		close(idleConnsClosed)
 	}()
 
