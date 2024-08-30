@@ -87,8 +87,10 @@ func listMetrics(s storage.Storage, tpl *template.Template) http.HandlerFunc {
 
 func writeOrInternalError(w http.ResponseWriter, value string) {
 	_, err := w.Write([]byte(value))
+
 	if err != nil {
 		logger.Slog.Error("write response error", "error", err.Error())
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 }

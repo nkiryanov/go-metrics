@@ -7,7 +7,6 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 
 	"github.com/nkiryanov/go-metrics/internal/handlers/templates"
-	"github.com/nkiryanov/go-metrics/internal/logger"
 	"github.com/nkiryanov/go-metrics/internal/storage"
 )
 
@@ -20,7 +19,7 @@ const (
 func NewMetricRouter(stor storage.Storage, parser storage.StorableParser) http.Handler {
 	router := chi.NewRouter()
 
-	router.Use(logger.RequestLogger)
+	router.Use(LoggerMiddleware)
 
 	router.With(middleware.SetHeader("Content-Type", "text/html")).Get("/", listMetrics(stor, templates.MetricList))
 	router.With(middleware.SetHeader("Content-Type", "text/plain")).Get("/value/{mType}/{mName}", getMetric(stor))

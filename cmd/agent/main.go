@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"log"
 	"os"
 	"os/signal"
 	"syscall"
@@ -24,15 +25,16 @@ const (
 )
 
 func main() {
-	logger.Initialize("info")
-
 	opts := &opts.Options{
 		ReptAddr: ReptAddr,
 		PollIntv: PollIntv,
 		ReptIntv: ReptIntv,
 	}
-
 	opts.Parse()
+
+	if err := logger.Initialize(opts.LogLevel); err != nil {
+		log.Fatal("cant initialize logger, %w", err.Error())
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {

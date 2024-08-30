@@ -1,19 +1,14 @@
 package logger
 
 import (
-	"net/http"
-	"time"
-
 	"go.uber.org/zap"
 )
 
-var Log, Slog = Reset()
+var Slog = Reset()
 
-func Reset() (*zap.Logger, *zap.SugaredLogger) {
+func Reset() *zap.SugaredLogger {
 	// Reset logger to default values.
-	plain := zap.NewNop()
-	sugar := plain.Sugar()
-	return plain, sugar
+	return zap.NewNop().Sugar()
 }
 
 func Initialize(level string) error {
@@ -31,22 +26,6 @@ func Initialize(level string) error {
 		return err
 	}
 
-	Log = lgr
 	Slog = lgr.Sugar()
 	return nil
-}
-
-func RequestLogger(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		start := time.Now()
-
-		next.ServeHTTP(w, r)
-
-		Log.Info(
-			"got incoming HTTP request",
-			zap.String("method", r.Method),
-			zap.String("uri", r.RequestURI),
-			zap.Duration("duration", time.Since(start)),
-		)
-	})
 }

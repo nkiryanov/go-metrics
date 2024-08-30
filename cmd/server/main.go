@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -19,14 +20,15 @@ const (
 )
 
 func main() {
-	logger.Initialize("info")
-	defer logger.Log.Sync()
-
 	opts := &opts.Options{
 		ListenAddr: listenAddr,
 	}
-
 	opts.Parse()
+
+	// Initialize logger
+	if err := logger.Initialize(opts.LogLevel); err != nil {
+		log.Fatal("logger could not be initialized, %w", err.Error())
+	}
 
 	s := storage.NewMemStorage()
 
