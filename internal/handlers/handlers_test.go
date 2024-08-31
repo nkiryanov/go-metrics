@@ -15,15 +15,63 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestHandler_UpdateMetric(t *testing.T) {
-	mockedStorable := &mocks.StorableMock{StringFunc: func() string {
-		return "parsed ok"
-	}}
+func TestHandler_parse(t *testing.T) {
+	type expected struct {
+		value   storage.Storable
+		isError bool
+	}
+	type fnArgs struct {
+		mType string
+		value string
+	}
+	tests := []struct {
+		name     string
+		fnArgs   fnArgs
+		expected expected
+	}{
+		{
+			name:     "valid counter",
+			fnArgs:   fnArgs{mType: "counter", value: "20"},
+			expected: expected{storage.Counter(20), false},
+		},
+		{
+			name:     "invalid counter",
+			fnArgs:   fnArgs{mType: "counter", value: "20.123"},
+			expected: expected{storage.Counter(0), true},
+		},
+		{
+			name:     "valid gauge",
+			fnArgs:   fnArgs{mType: "gauge", value: "20.123"},
+			expected: expected{storage.Gauge(20.123), false},
+		},
+		{
+			name:     "invalid gauge",
+			fnArgs:   fnArgs{mType: "gauge", value: "not-valid-gauge"},
+			expected: expected{storage.Gauge(0.0), true},
+		},
+		{
+			name:     "invalid metric type",
+			fnArgs:   fnArgs{mType: "invalid-type", value: "10"},
+			expected: expected{nil, true},
+		},
+	}
 
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := parse(tc.fnArgs.mType, tc.fnArgs.value)
+
+			if tc.expected.isError {
+				require.Error(t, err)
+			}
+			assert.Equal(t, tc.expected.value, got)
+		})
+	}
+}
+
+func TestHandler_UpdateMetricPlain(t *testing.T) {
 	tests := []struct {
 		name string
 
-		parseError        error
 		updateMetricError error
 
 		method       string
@@ -33,37 +81,33 @@ func TestHandler_UpdateMetric(t *testing.T) {
 	}{
 		{
 			"POST metric, ok",
-			nil, nil,
+			nil,
 			http.MethodPost, "/update/counter/cpu-usage/100", http.StatusOK, "saved-to-store-ok",
 		},
 		{
 			"GET metric, 405-NotAllowed",
-			nil, nil,
+			nil,
 			http.MethodGet, "/update/counter/cpu-usage/100", http.StatusMethodNotAllowed, "",
 		},
 		{
 			"POST metric parse error, 400",
-			errors.New("oh no! parsing error"), nil,
-			http.MethodPost, "/update/counter/cpu-usage/100.23", http.StatusBadRequest, "oh no! parsing error\n",
+			nil,
+			http.MethodPost, "/update/counter/cpu-usage/100.23", http.StatusBadRequest, "strconv.ParseInt: parsing \"100.23\": invalid syntax\n",
 		},
 		{
 			"POST metric storage err, 500",
-			nil, errors.New("oh no! storage failed :("),
+			errors.New("oh no! storage failed :("),
 			http.MethodPost, "/update/counter/cpu-usage/100", http.StatusInternalServerError, "oh no! storage failed :(\n",
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			mockedParser := &mocks.StorableParserMock{ParseFunc: func(mType string, s string) (storage.Storable, error) {
-				return mockedStorable, tc.parseError
-			}}
-
 			mockedStorage := &mocks.StorageMock{UpdateMetricFunc: func(mName string, mValue storage.Storable) (storage.Storable, error) {
 				return &mocks.StorableMock{StringFunc: func() string { return "saved-to-store-ok" }}, tc.updateMetricError
 			}}
 
-			router := NewMetricRouter(mockedStorage, mockedParser)
+			router := NewMetricRouter(mockedStorage)
 			srv := httptest.NewServer(router)
 			defer srv.Close()
 
@@ -81,7 +125,7 @@ func TestHandler_UpdateMetric(t *testing.T) {
 	}
 }
 
-func TestHandlers_GetMetric(t *testing.T) {
+func TestHandlers_GetMetricPlain(t *testing.T) {
 	tests := []struct {
 		name string
 
@@ -127,9 +171,7 @@ func TestHandlers_GetMetric(t *testing.T) {
 				return tc.storReturnValue, tc.storReturnOk, tc.storReturnErr
 			}}
 
-			mockedParser := &mocks.StorableParserMock{}
-
-			router := NewMetricRouter(mockedStorage, mockedParser)
+			router := NewMetricRouter(mockedStorage)
 			srv := httptest.NewServer(router)
 			defer srv.Close()
 
@@ -152,7 +194,7 @@ func TestHandlers_ListMetrics(t *testing.T) {
 	stor.UpdateCounter("bar", 200)
 	stor.UpdateGauge("mem-load", 234.23)
 
-	router := NewMetricRouter(stor, storage.MemParser{})
+	router := NewMetricRouter(stor)
 	srv := httptest.NewServer(router)
 	defer srv.Close()
 

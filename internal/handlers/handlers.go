@@ -5,13 +5,27 @@ import (
 	"html/template"
 	"net/http"
 	"sort"
+	"strconv"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/nkiryanov/go-metrics/internal/logger"
 	"github.com/nkiryanov/go-metrics/internal/storage"
 )
 
-func updateMetric(s storage.Storage, parser storage.StorableParser) http.HandlerFunc {
+func parse(mType string, s string) (storage.Storable, error) {
+	switch mType {
+	case storage.CounterTypeName:
+		counter, err := strconv.ParseInt(s, 10, 64)
+		return storage.Counter(counter), err
+	case storage.GaugeTypeName:
+		gauge, err := strconv.ParseFloat(s, 64)
+		return storage.Gauge(gauge), err
+	default:
+		return nil, fmt.Errorf("not supported metric type: %s", mType)
+	}
+}
+
+func updateMetricPlain(s storage.Storage) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		mType := chi.URLParam(r, URLMetricType)
 		mName := chi.URLParam(r, URLMetricName)
@@ -19,7 +33,7 @@ func updateMetric(s storage.Storage, parser storage.StorableParser) http.Handler
 
 		var err error
 		var storable storage.Storable
-		storable, err = parser.Parse(mType, mValue)
+		storable, err = parse(mType, mValue)
 		if err != nil {
 			logger.Slog.Warn("bad request for update metric", "error", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -38,7 +52,7 @@ func updateMetric(s storage.Storage, parser storage.StorableParser) http.Handler
 	}
 }
 
-func getMetric(s storage.Storage) http.HandlerFunc {
+func getMetricPlain(s storage.Storage) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		mType := r.PathValue("mType")
 		mName := r.PathValue("mName")

@@ -6,16 +6,11 @@ import (
 
 //go:generate moq -out mocks/storage.go -pkg mocks -skip-ensure -fmt goimports . Storage
 //go:generate moq -out mocks/storable.go -pkg mocks -skip-ensure -fmt goimports . Storable
-//go:generate moq -out mocks/parser.go -pkg mocks -skip-ensure -fmt goimports . StorableParser
 
 // Common interface for types storable in storage
 type Storable interface {
 	fmt.Stringer
 	Type() string
-}
-
-type StorableParser interface {
-	Parse(mType string, s string) (Storable, error)
 }
 
 type IterFunc func(mType string, mName string, mValue Storable)
