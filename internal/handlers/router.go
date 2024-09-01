@@ -21,11 +21,18 @@ func NewMetricRouter(stor storage.Storage) http.Handler {
 
 	router.Use(LoggerMiddleware)
 
+	// Always allowed despite the content type
 	router.With(middleware.SetHeader("Content-Type", "text/html")).Get("/", listMetrics(stor, templates.MetricList))
-	router.With(middleware.SetHeader("Content-Type", "text/plain")).Get("/value/{mType}/{mID}", getMetricPlain(stor))
-	router.Route("/update", func(r chi.Router) {
-		r.Use(middleware.SetHeader("Content-Type", "text/plain"))
-		r.Post("/{mType}/{mID}/{mValue}", updateMetricPlain(stor))
+
+	// Routers for /value
+	router.Route("/value", func(router chi.Router) {
+		router.With(middleware.SetHeader("Content-Type", "text/plain")).Get("/{mType}/{mID}", getMetricPlain(stor))
+		router.With(middleware.SetHeader("Content-Type", "application/json")).Post("/", getMetricJSON(stor))
+	})
+
+	// Routers for /update
+	router.Route("/update", func(router chi.Router) {
+		router.With(middleware.SetHeader("Content-Type", "text/plain")).Post("/{mType}/{mID}/{mValue}", updateMetricPlain(stor))
 	})
 
 	return router

@@ -21,40 +21,41 @@ func TestHandler_UpdateMetricPlain(t *testing.T) {
 
 		storageUpdateErr error
 
-		method       string
-		url          string
-		expectedCode int
-		expectedBody string
+		method              string
+		url                 string
+		expectedCode        int
+		expectedContentType string
+		expectedBody        string
 	}{
 		{
 			"POST counter, ok",
 			nil,
-			http.MethodPost, "/update/counter/cpu-usage/100", http.StatusOK, "100",
+			http.MethodPost, "/update/counter/cpu-usage/100", http.StatusOK, "text/plain", "100",
 		},
 		{
 			"POST gauge, ok",
 			nil,
-			http.MethodPost, "/update/gauge/cpu-usage/220.23", http.StatusOK, "220.23",
+			http.MethodPost, "/update/gauge/cpu-usage/220.23", http.StatusOK, "text/plain", "220.23",
 		},
 		{
 			"POST counter parse error, 400",
 			nil,
-			http.MethodPost, "/update/counter/cpu-usage/100.23", http.StatusBadRequest, "bad value to update counter\n",
+			http.MethodPost, "/update/counter/cpu-usage/100.23", http.StatusBadRequest, "text/plain", "bad value to update counter\n",
 		},
 		{
 			"POST gauge parse error, 400",
 			nil,
-			http.MethodPost, "/update/gauge/cpu-usage/some", http.StatusBadRequest, "bad value to update gauge\n",
+			http.MethodPost, "/update/gauge/cpu-usage/some", http.StatusBadRequest, "text/plain", "bad value to update gauge\n",
 		},
 		{
 			"GET metric, 405-NotAllowed",
 			nil,
-			http.MethodGet, "/update/counter/cpu-usage/100", http.StatusMethodNotAllowed, "",
+			http.MethodGet, "/update/counter/cpu-usage/100", http.StatusMethodNotAllowed, "", "",
 		},
 		{
 			"POST metric storage err, 500",
 			errors.New("oh no! storage failed :("),
-			http.MethodPost, "/update/counter/cpu-usage/100", http.StatusInternalServerError, "oh no! storage failed :(\n",
+			http.MethodPost, "/update/counter/cpu-usage/100", http.StatusInternalServerError, "text/plain", "oh no! storage failed :(\n",
 		},
 	}
 
@@ -76,7 +77,7 @@ func TestHandler_UpdateMetricPlain(t *testing.T) {
 			resp, err := req.Send()
 
 			require.NoError(t, err)
-			assert.Contains(t, resp.Header().Get("content-type"), "text/plain")
+			assert.Contains(t, resp.Header().Get("content-type"), tc.expectedContentType)
 			assert.Equal(t, tc.expectedCode, resp.StatusCode())
 			assert.Equal(t, tc.expectedBody, string(resp.Body()))
 		})
@@ -150,15 +151,75 @@ func TestHandlers_GetMetricPlain(t *testing.T) {
 	}
 }
 
+func TestHandlers_GetMetricJSON(t *testing.T) {
+	cpuGauge := models.Metric{ID: "cpu-usage", MType: "gauge", Value: 23.23}
+	emptyCounter := models.Metric{ID: "mem-usage", MType: "counter"}
+	unknownMetric := models.Metric{ID: "mem-usage", MType: "unknown-type"}
+
+	tests := []struct {
+		name string
+
+		storReturnValue models.Metric
+		storReturnOk    bool
+		storReturnErr   error
+
+		method  string
+		request string
+
+		expectedCode int
+		expectedBody string
+	}{
+		{
+			"GET existed, ok",
+			cpuGauge, true, nil,
+			http.MethodGet, `{"id": "cpu-usage", "type": "gauge"}}`,
+			http.StatusOK, `{"id":"cpu-usage","type":"gauge","value":23.23}`,
+		},
+		{
+			"GET not existed, 404",
+			emptyCounter, false, nil,
+			http.MethodGet, `{"id": "mem-usage", "type": "counter"}}`,
+			http.StatusNotFound, "metric not found. type: counter, id: mem-usage\n",
+		},
+		{
+			"GET unknown type, 404",
+			unknownMetric, false, errors.New("storage error: unknown metric type"),
+			http.MethodGet, `{"id": "mem-usage", "type": "unknown-type"}}`,
+			http.StatusNotFound, "storage error: unknown metric type\n",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			mockedStorage := &mocks.StorageMock{GetMetricFunc: func(mID string, mType string) (models.Metric, bool, error) {
+				return tc.storReturnValue, tc.storReturnOk, tc.storReturnErr
+			}}
+
+			router := NewMetricRouter(mockedStorage)
+			srv := httptest.NewServer(router)
+			defer srv.Close()
+
+			resp, err := resty.New().
+				R().
+				SetBody(tc.request).
+				Post(srv.URL + "/value/")
+
+			require.NoError(t, err)
+			assert.Equal(t, tc.expectedCode, resp.StatusCode())
+			assert.Equal(t, tc.expectedBody, string(resp.Body()))
+		})
+	}
+}
+
 func TestHandlers_ListMetrics(t *testing.T) {
 	fooCounter := &models.Metric{ID: "foo", MType: "counter", Delta: 100}
 	barCounter := &models.Metric{ID: "bar", MType: "counter", Delta: 200}
 	memGauge := &models.Metric{ID: "mem-load", MType: "gauge", Value: 234.23}
 
 	stor := storage.NewMemStorage()
-	_, _ = stor.UpdateMetric(fooCounter)
-	_, _ = stor.UpdateMetric(barCounter)
-	_, _ = stor.UpdateMetric(memGauge)
+	stor.UpdateMetric(fooCounter)
+	stor.UpdateMetric(barCounter)
+	stor.UpdateMetric(memGauge)
 
 	router := NewMetricRouter(stor)
 	srv := httptest.NewServer(router)

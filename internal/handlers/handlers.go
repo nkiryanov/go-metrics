@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"html/template"
@@ -50,8 +51,8 @@ func updateMetricPlain(s storage.Storage) http.HandlerFunc {
 			return
 		}
 
-		logger.Slog.Info("Metric updated with", "id", mID, "type", mType, "value", mValue)
-		writeOrInternalError(w, metric.String())
+		logger.Slog.Infow("Metric updated with", "id", mID, "type", mType, "value", mValue)
+		writeOrInternalError(w, []byte(metric.String()))
 	}
 }
 
@@ -72,7 +73,44 @@ func getMetricPlain(s storage.Storage) http.HandlerFunc {
 			return
 		}
 
-		writeOrInternalError(w, metric.String())
+		writeOrInternalError(w, []byte(metric.String()))
+	}
+}
+
+func getMetricJSON(s storage.Storage) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		req := &struct {
+			ID    string `json:"id"`
+			MType string `json:"type"`
+		}{}
+
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			logger.Slog.Error("error while decoding request", "error", err.Error())
+			http.Error(w, "request not in expected format", http.StatusBadRequest)
+			return
+		}
+
+		metric, ok, err := s.GetMetric(req.ID, req.MType)
+		if err != nil {
+			logger.Slog.Error("storage error occurred when metric requested", "error", err.Error())
+			http.Error(w, err.Error(), http.StatusNotFound)
+			return
+		}
+		if !ok {
+			logger.Slog.Info("metic requested, but not found", "type", req.MType, "id", req.ID)
+			http.Error(w, fmt.Sprintf("metric not found. type: %s, id: %s", req.MType, req.ID), http.StatusNotFound)
+			return
+		}
+
+		resp, err := json.Marshal(models.NewMetricJSON(&metric))
+		if err != nil {
+			logger.Slog.Error("error while deserializing metric json", "error", err.Error())
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		writeOrInternalError(w, resp)
 	}
 }
 
@@ -102,8 +140,9 @@ func listMetrics(s storage.Storage, tpl *template.Template) http.HandlerFunc {
 	}
 }
 
-func writeOrInternalError(w http.ResponseWriter, value string) {
-	_, err := w.Write([]byte(value))
+func writeOrInternalError(w http.ResponseWriter, value []byte) {
+	w.WriteHeader(http.StatusOK)
+	_, err := w.Write(value)
 
 	if err != nil {
 		logger.Slog.Error("write response error", "error", err.Error())

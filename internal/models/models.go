@@ -10,10 +10,10 @@ const (
 )
 
 type Metric struct {
-	ID    string
-	MType string
-	Delta int64
-	Value float64
+	ID    string  `json:"id"`
+	MType string  `json:"type"`
+	Delta int64   `json:"delta"`
+	Value float64 `json:"value"`
 }
 
 func (m *Metric) String() string {
@@ -25,4 +25,24 @@ func (m *Metric) String() string {
 	default:
 		return ""
 	}
+}
+
+// The same as Metic, but replaces Delta and Value with pointers to allow for omitempty
+type MetricJSON struct {
+	*Metric
+	Delta *int64   `json:"delta,omitempty"`
+	Value *float64 `json:"value,omitempty"`
+}
+
+func NewMetricJSON(m *Metric) (mJSON *MetricJSON) {
+	mJSON = &MetricJSON{Metric: m}
+
+	switch m.MType {
+	case CounterTypeName:
+		mJSON.Delta = &m.Delta
+	case GaugeTypeName:
+		mJSON.Value = &m.Value
+	}
+
+	return
 }
