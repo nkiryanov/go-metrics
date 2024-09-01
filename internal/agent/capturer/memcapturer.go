@@ -6,7 +6,7 @@ import (
 	"sync"
 
 	"github.com/nkiryanov/go-metrics/internal/logger"
-	"github.com/nkiryanov/go-metrics/internal/storage"
+	"github.com/nkiryanov/go-metrics/internal/models"
 )
 
 const (
@@ -51,7 +51,7 @@ var (
 
 type MemCapturer struct {
 	mu   sync.Mutex
-	stor []Stat
+	stor []models.Metric
 }
 
 func NewMemCapturer() *MemCapturer {
@@ -59,47 +59,47 @@ func NewMemCapturer() *MemCapturer {
 }
 
 // Capture mem (mostly) stats
-func (c *MemCapturer) Capture() []Stat {
+func (c *MemCapturer) Capture() []models.Metric {
 	var ms runtime.MemStats
-	var stats = make([]Stat, 0, len(gauges)+len(counters))
+	var stats = make([]models.Metric, 0, len(gauges)+len(counters))
 
 	runtime.ReadMemStats(&ms)
 
 	return append(stats,
-		[]Stat{
-			{Alloc, storage.Gauge(ms.Alloc)},
-			{BuckHashSys, storage.Gauge(ms.BuckHashSys)},
-			{Frees, storage.Gauge(ms.Frees)},
-			{GCCPUFraction, storage.Gauge(ms.GCCPUFraction)},
-			{GCSys, storage.Gauge(ms.GCSys)},
-			{HeapAlloc, storage.Gauge(ms.HeapAlloc)},
-			{HeapIdle, storage.Gauge(ms.HeapIdle)},
-			{HeapInuse, storage.Gauge(ms.HeapInuse)},
-			{HeapObjects, storage.Gauge(ms.HeapObjects)},
-			{HeapReleased, storage.Gauge(ms.HeapReleased)},
-			{HeapSys, storage.Gauge(ms.HeapSys)},
-			{LastGC, storage.Gauge(ms.LastGC)},
-			{Lookups, storage.Gauge(ms.Lookups)},
-			{MCacheInuse, storage.Gauge(ms.MCacheInuse)},
-			{MCacheSys, storage.Gauge(ms.MCacheSys)},
-			{MSpanInuse, storage.Gauge(ms.MSpanInuse)},
-			{MSpanSys, storage.Gauge(ms.MSpanSys)},
-			{Mallocs, storage.Gauge(ms.Mallocs)},
-			{NextGC, storage.Gauge(ms.NextGC)},
-			{NumForcedGC, storage.Gauge(ms.NumForcedGC)},
-			{NumGC, storage.Gauge(ms.NumGC)},
-			{OtherSys, storage.Gauge(ms.OtherSys)},
-			{PauseTotalNs, storage.Gauge(ms.PauseTotalNs)},
-			{StackInuse, storage.Gauge(ms.StackInuse)},
-			{StackSys, storage.Gauge(ms.StackSys)},
-			{Sys, storage.Gauge(ms.Sys)},
-			{TotalAlloc, storage.Gauge(ms.TotalAlloc)},
+		[]models.Metric{
+			{ID: Alloc, MType: models.GaugeTypeName, Value: float64(ms.Alloc)},
+			{ID: BuckHashSys, MType: models.GaugeTypeName, Value: float64(ms.BuckHashSys)},
+			{ID: Frees, MType: models.GaugeTypeName, Value: float64(ms.Frees)},
+			{ID: GCCPUFraction, MType: models.GaugeTypeName, Value: float64(ms.GCCPUFraction)},
+			{ID: GCSys, MType: models.GaugeTypeName, Value: float64(ms.GCSys)},
+			{ID: HeapAlloc, MType: models.GaugeTypeName, Value: float64(ms.HeapAlloc)},
+			{ID: HeapIdle, MType: models.GaugeTypeName, Value: float64(ms.HeapIdle)},
+			{ID: HeapInuse, MType: models.GaugeTypeName, Value: float64(ms.HeapInuse)},
+			{ID: HeapObjects, MType: models.GaugeTypeName, Value: float64(ms.HeapObjects)},
+			{ID: HeapReleased, MType: models.GaugeTypeName, Value: float64(ms.HeapReleased)},
+			{ID: HeapSys, MType: models.GaugeTypeName, Value: float64(ms.HeapSys)},
+			{ID: LastGC, MType: models.GaugeTypeName, Value: float64(ms.LastGC)},
+			{ID: Lookups, MType: models.GaugeTypeName, Value: float64(ms.Lookups)},
+			{ID: MCacheInuse, MType: models.GaugeTypeName, Value: float64(ms.MCacheInuse)},
+			{ID: MCacheSys, MType: models.GaugeTypeName, Value: float64(ms.MCacheSys)},
+			{ID: MSpanInuse, MType: models.GaugeTypeName, Value: float64(ms.MSpanInuse)},
+			{ID: MSpanSys, MType: models.GaugeTypeName, Value: float64(ms.MSpanSys)},
+			{ID: Mallocs, MType: models.GaugeTypeName, Value: float64(ms.Mallocs)},
+			{ID: NextGC, MType: models.GaugeTypeName, Value: float64(ms.NextGC)},
+			{ID: NumForcedGC, MType: models.GaugeTypeName, Value: float64(ms.NumForcedGC)},
+			{ID: NumGC, MType: models.GaugeTypeName, Value: float64(ms.NumGC)},
+			{ID: OtherSys, MType: models.GaugeTypeName, Value: float64(ms.OtherSys)},
+			{ID: PauseTotalNs, MType: models.GaugeTypeName, Value: float64(ms.PauseTotalNs)},
+			{ID: StackInuse, MType: models.GaugeTypeName, Value: float64(ms.StackInuse)},
+			{ID: StackSys, MType: models.GaugeTypeName, Value: float64(ms.StackSys)},
+			{ID: Sys, MType: models.GaugeTypeName, Value: float64(ms.Sys)},
+			{ID: TotalAlloc, MType: models.GaugeTypeName, Value: float64(ms.TotalAlloc)},
 
 			// Capture random gauge
-			{RandomValue, storage.Gauge(rand.Float64())},
+			{ID: RandomValue, MType: models.GaugeTypeName, Value: rand.Float64()},
 
 			// Capture counter
-			{PollCount, storage.Counter(1)},
+			{ID: PollCount, MType: models.CounterTypeName, Value: 1},
 		}...,
 	)
 }
@@ -112,11 +112,11 @@ func (c *MemCapturer) CaptureAndSave() {
 	logger.Slog.Info("capturer: mem stats saved")
 }
 
-func (c *MemCapturer) Last() []Stat {
+func (c *MemCapturer) Last() []models.Metric {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	last := make([]Stat, len(c.stor))
+	last := make([]models.Metric, len(c.stor))
 	copy(last, c.stor)
 
 	return last

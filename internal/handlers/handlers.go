@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"errors"
 	"fmt"
 	"html/template"
 	"net/http"
@@ -9,86 +10,88 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/nkiryanov/go-metrics/internal/logger"
+	"github.com/nkiryanov/go-metrics/internal/models"
 	"github.com/nkiryanov/go-metrics/internal/storage"
 )
-
-func parse(mType string, s string) (storage.Storable, error) {
-	switch mType {
-	case storage.CounterTypeName:
-		counter, err := strconv.ParseInt(s, 10, 64)
-		return storage.Counter(counter), err
-	case storage.GaugeTypeName:
-		gauge, err := strconv.ParseFloat(s, 64)
-		return storage.Gauge(gauge), err
-	default:
-		return nil, fmt.Errorf("not supported metric type: %s", mType)
-	}
-}
 
 func updateMetricPlain(s storage.Storage) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		mType := chi.URLParam(r, URLMetricType)
-		mName := chi.URLParam(r, URLMetricName)
+		mID := chi.URLParam(r, URLMetricID)
 		mValue := chi.URLParam(r, URLMetricValue)
 
 		var err error
-		var storable storage.Storable
-		storable, err = parse(mType, mValue)
+		var msg string
+		metric := models.Metric{ID: mID, MType: mType}
+
+		switch mType {
+		case models.CounterTypeName:
+			if metric.Delta, err = strconv.ParseInt(mValue, 10, 64); err != nil {
+				msg = "bad value to update counter"
+			}
+		case models.GaugeTypeName:
+			if metric.Value, err = strconv.ParseFloat(mValue, 64); err != nil {
+				msg = "bad value to update gauge"
+			}
+		default:
+			msg = "bad metric type"
+			err = errors.New(msg)
+		}
+
 		if err != nil {
-			logger.Slog.Warn("bad request for update metric", "error", err)
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			logger.Slog.Warn(msg, "error", err)
+			http.Error(w, msg, http.StatusBadRequest)
 			return
 		}
 
-		storable, err = s.UpdateMetric(mName, storable)
-		if err != nil {
+		if metric, err = s.UpdateMetric(&metric); err != nil {
 			logger.Slog.Warn("can't update metric", "error", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
-		logger.Slog.Info("Metric updated", "type", mType, "name", mName, "value", storable)
-		writeOrInternalError(w, storable.String())
+		logger.Slog.Info("Metric updated with", "id", mID, "type", mType, "value", mValue)
+		writeOrInternalError(w, metric.String())
 	}
 }
 
 func getMetricPlain(s storage.Storage) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		mType := r.PathValue("mType")
-		mName := r.PathValue("mName")
+		mID := r.PathValue("mID")
 
-		storable, ok, err := s.GetMetric(mType, mName)
+		metric, ok, err := s.GetMetric(mID, mType)
 		if err != nil {
 			logger.Slog.Error("storage error occurred when metric requested", "error", err.Error())
 			http.Error(w, err.Error(), http.StatusNotFound)
 			return
 		}
 		if !ok {
-			logger.Slog.Info("metic requested, but not found", "type", mType, "name", mName)
-			http.Error(w, fmt.Sprintf("metric not found. type: %s, name: %s", mType, mName), http.StatusNotFound)
+			logger.Slog.Info("metic requested, but not found", "type", mType, "id", mID)
+			http.Error(w, fmt.Sprintf("metric not found. type: %s, id: %s", mType, mID), http.StatusNotFound)
 			return
 		}
 
-		writeOrInternalError(w, storable.String())
+		writeOrInternalError(w, metric.String())
 	}
 }
 
 func listMetrics(s storage.Storage, tpl *template.Template) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		type metric struct {
+			ID    string
 			Type  string
-			Name  string
 			Value string
 		}
 
-		metrics := make([]metric, 0, s.Len())
+		metrics := make([]metric, 0, s.Count())
 
-		s.Iterate(func(mt string, mn string, value storage.Storable) {
-			metrics = append(metrics, metric{mt, mn, value.String()})
+		s.Iterate(func(m models.Metric) {
+			metrics = append(metrics, metric{ID: m.ID, Type: m.MType, Value: m.String()})
 		})
 
 		sort.Slice(metrics, func(i, j int) bool {
-			return metrics[i].Name < metrics[j].Name
+			return metrics[i].ID < metrics[j].ID
 		})
 
 		if err := tpl.Execute(w, metrics); err != nil {

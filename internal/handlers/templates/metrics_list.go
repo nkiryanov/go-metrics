@@ -43,7 +43,7 @@ var MetricList = template.Must(template.New("listTemplate").Parse(`<!DOCTYPE htm
     <table>
         <thead>
             <tr>
-                <th>Name</th>
+                <th>ID</th>
                 <th>Value</th>
                 <th>Type</th>
             </tr>
@@ -51,7 +51,7 @@ var MetricList = template.Must(template.New("listTemplate").Parse(`<!DOCTYPE htm
         <tbody>
             {{- range . -}}
             <tr>
-                <td>{{ .Name }}</td>
+                <td>{{ .ID }}</td>
                 <td>{{ .Value }}</td>
                 <td>{{ .Type }}</td>
             </tr>

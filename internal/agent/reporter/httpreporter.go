@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/nkiryanov/go-metrics/internal/logger"
+	"github.com/nkiryanov/go-metrics/internal/models"
 
 	"github.com/go-resty/resty/v2"
 )
@@ -23,17 +24,17 @@ func NewHTTPReporter(addr string, client *resty.Client) *HTTPReporter {
 }
 
 // Sends a single metric update
-// POST /{baseUrl}/update/{metricType}/{metricName}/{metricValue}
+// POST /{baseUrl}/update/{metricType}/{metricID}/{metricValue}
 // If the request encounters an error, it is returned.
-func (rept *HTTPReporter) ReportOnce(m *Metric) error {
+func (rept *HTTPReporter) ReportOnce(m *models.Metric) error {
 	resp, err := rept.client.R().
 		SetHeader("Content-Type", "text/plain").
 		SetPathParams(map[string]string{
-			"mType":  m.Type,
-			"mName":  m.Name,
-			"mValue": m.Value.String(),
+			"mType":  m.MType,
+			"mID":    m.ID,
+			"mValue": m.String(),
 		}).
-		Post(fmt.Sprintf("%s/update/{mType}/{mName}/{mValue}", rept.addr))
+		Post(fmt.Sprintf("%s/update/{mType}/{mID}/{mValue}", rept.addr))
 
 	if err != nil {
 		logger.Slog.Error("reporter: http client error", "error", err.Error())
@@ -49,18 +50,18 @@ func (rept *HTTPReporter) ReportOnce(m *Metric) error {
 }
 
 // ReportBatch sends concurrent metric update
-// POST /{baseUrl}/update/{metricType}/{metricName}/{metricValue}
+// POST /{baseUrl}/update/{metricType}/{metricID}/{metricValue}
 // If errors while reporting occurred return one of them (randomly chosen)
-func (rept *HTTPReporter) ReportBatch(ms []*Metric) error {
+func (rept *HTTPReporter) ReportBatch(metrics []models.Metric) error {
 	var wg sync.WaitGroup
 	var once sync.Once
 	var err error
 
 	onceBody := func(e error) { err = e }
 
-	for _, m := range ms {
+	for _, metric := range metrics {
 		wg.Add(1)
-		go func(m *Metric) {
+		go func(m *models.Metric) {
 			defer wg.Done()
 
 			if err := rept.ReportOnce(m); err != nil {
@@ -68,13 +69,13 @@ func (rept *HTTPReporter) ReportBatch(ms []*Metric) error {
 					onceBody(err)
 				})
 			}
-		}(m)
+		}(&metric)
 	}
 
 	wg.Wait()
 
 	if err == nil {
-		logger.Slog.Info("reporter: metrics updated", "count", len(ms))
+		logger.Slog.Info("reporter: metrics updated", "count", len(metrics))
 	}
 
 	return err

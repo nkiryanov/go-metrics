@@ -6,6 +6,7 @@ package mocks
 import (
 	"sync"
 
+	"github.com/nkiryanov/go-metrics/internal/models"
 	"github.com/nkiryanov/go-metrics/internal/storage"
 )
 
@@ -15,16 +16,16 @@ import (
 //
 //		// make and configure a mocked storage.Storage
 //		mockedStorage := &StorageMock{
-//			GetMetricFunc: func(mType string, mName string) (storage.Storable, bool, error) {
+//			CountFunc: func() int {
+//				panic("mock out the Count method")
+//			},
+//			GetMetricFunc: func(mID string, mType string) (models.Metric, bool, error) {
 //				panic("mock out the GetMetric method")
 //			},
 //			IterateFunc: func(iter storage.IterFunc)  {
 //				panic("mock out the Iterate method")
 //			},
-//			LenFunc: func() int {
-//				panic("mock out the Len method")
-//			},
-//			UpdateMetricFunc: func(mName string, mValue storage.Storable) (storage.Storable, error) {
+//			UpdateMetricFunc: func(in *models.Metric) (models.Metric, error) {
 //				panic("mock out the UpdateMetric method")
 //			},
 //		}
@@ -34,65 +35,90 @@ import (
 //
 //	}
 type StorageMock struct {
+	// CountFunc mocks the Count method.
+	CountFunc func() int
+
 	// GetMetricFunc mocks the GetMetric method.
-	GetMetricFunc func(mType string, mName string) (storage.Storable, bool, error)
+	GetMetricFunc func(mID string, mType string) (models.Metric, bool, error)
 
 	// IterateFunc mocks the Iterate method.
 	IterateFunc func(iter storage.IterFunc)
 
-	// LenFunc mocks the Len method.
-	LenFunc func() int
-
 	// UpdateMetricFunc mocks the UpdateMetric method.
-	UpdateMetricFunc func(mName string, mValue storage.Storable) (storage.Storable, error)
+	UpdateMetricFunc func(in *models.Metric) (models.Metric, error)
 
 	// calls tracks calls to the methods.
 	calls struct {
+		// Count holds details about calls to the Count method.
+		Count []struct {
+		}
 		// GetMetric holds details about calls to the GetMetric method.
 		GetMetric []struct {
+			// MID is the mID argument value.
+			MID string
 			// MType is the mType argument value.
 			MType string
-			// MName is the mName argument value.
-			MName string
 		}
 		// Iterate holds details about calls to the Iterate method.
 		Iterate []struct {
 			// Iter is the iter argument value.
 			Iter storage.IterFunc
 		}
-		// Len holds details about calls to the Len method.
-		Len []struct {
-		}
 		// UpdateMetric holds details about calls to the UpdateMetric method.
 		UpdateMetric []struct {
-			// MName is the mName argument value.
-			MName string
-			// MValue is the mValue argument value.
-			MValue storage.Storable
+			// In is the in argument value.
+			In *models.Metric
 		}
 	}
+	lockCount        sync.RWMutex
 	lockGetMetric    sync.RWMutex
 	lockIterate      sync.RWMutex
-	lockLen          sync.RWMutex
 	lockUpdateMetric sync.RWMutex
 }
 
+// Count calls CountFunc.
+func (mock *StorageMock) Count() int {
+	if mock.CountFunc == nil {
+		panic("StorageMock.CountFunc: method is nil but Storage.Count was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockCount.Lock()
+	mock.calls.Count = append(mock.calls.Count, callInfo)
+	mock.lockCount.Unlock()
+	return mock.CountFunc()
+}
+
+// CountCalls gets all the calls that were made to Count.
+// Check the length with:
+//
+//	len(mockedStorage.CountCalls())
+func (mock *StorageMock) CountCalls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockCount.RLock()
+	calls = mock.calls.Count
+	mock.lockCount.RUnlock()
+	return calls
+}
+
 // GetMetric calls GetMetricFunc.
-func (mock *StorageMock) GetMetric(mType string, mName string) (storage.Storable, bool, error) {
+func (mock *StorageMock) GetMetric(mID string, mType string) (models.Metric, bool, error) {
 	if mock.GetMetricFunc == nil {
 		panic("StorageMock.GetMetricFunc: method is nil but Storage.GetMetric was just called")
 	}
 	callInfo := struct {
+		MID   string
 		MType string
-		MName string
 	}{
+		MID:   mID,
 		MType: mType,
-		MName: mName,
 	}
 	mock.lockGetMetric.Lock()
 	mock.calls.GetMetric = append(mock.calls.GetMetric, callInfo)
 	mock.lockGetMetric.Unlock()
-	return mock.GetMetricFunc(mType, mName)
+	return mock.GetMetricFunc(mID, mType)
 }
 
 // GetMetricCalls gets all the calls that were made to GetMetric.
@@ -100,12 +126,12 @@ func (mock *StorageMock) GetMetric(mType string, mName string) (storage.Storable
 //
 //	len(mockedStorage.GetMetricCalls())
 func (mock *StorageMock) GetMetricCalls() []struct {
+	MID   string
 	MType string
-	MName string
 } {
 	var calls []struct {
+		MID   string
 		MType string
-		MName string
 	}
 	mock.lockGetMetric.RLock()
 	calls = mock.calls.GetMetric
@@ -145,49 +171,20 @@ func (mock *StorageMock) IterateCalls() []struct {
 	return calls
 }
 
-// Len calls LenFunc.
-func (mock *StorageMock) Len() int {
-	if mock.LenFunc == nil {
-		panic("StorageMock.LenFunc: method is nil but Storage.Len was just called")
-	}
-	callInfo := struct {
-	}{}
-	mock.lockLen.Lock()
-	mock.calls.Len = append(mock.calls.Len, callInfo)
-	mock.lockLen.Unlock()
-	return mock.LenFunc()
-}
-
-// LenCalls gets all the calls that were made to Len.
-// Check the length with:
-//
-//	len(mockedStorage.LenCalls())
-func (mock *StorageMock) LenCalls() []struct {
-} {
-	var calls []struct {
-	}
-	mock.lockLen.RLock()
-	calls = mock.calls.Len
-	mock.lockLen.RUnlock()
-	return calls
-}
-
 // UpdateMetric calls UpdateMetricFunc.
-func (mock *StorageMock) UpdateMetric(mName string, mValue storage.Storable) (storage.Storable, error) {
+func (mock *StorageMock) UpdateMetric(in *models.Metric) (models.Metric, error) {
 	if mock.UpdateMetricFunc == nil {
 		panic("StorageMock.UpdateMetricFunc: method is nil but Storage.UpdateMetric was just called")
 	}
 	callInfo := struct {
-		MName  string
-		MValue storage.Storable
+		In *models.Metric
 	}{
-		MName:  mName,
-		MValue: mValue,
+		In: in,
 	}
 	mock.lockUpdateMetric.Lock()
 	mock.calls.UpdateMetric = append(mock.calls.UpdateMetric, callInfo)
 	mock.lockUpdateMetric.Unlock()
-	return mock.UpdateMetricFunc(mName, mValue)
+	return mock.UpdateMetricFunc(in)
 }
 
 // UpdateMetricCalls gets all the calls that were made to UpdateMetric.
@@ -195,12 +192,10 @@ func (mock *StorageMock) UpdateMetric(mName string, mValue storage.Storable) (st
 //
 //	len(mockedStorage.UpdateMetricCalls())
 func (mock *StorageMock) UpdateMetricCalls() []struct {
-	MName  string
-	MValue storage.Storable
+	In *models.Metric
 } {
 	var calls []struct {
-		MName  string
-		MValue storage.Storable
+		In *models.Metric
 	}
 	mock.lockUpdateMetric.RLock()
 	calls = mock.calls.UpdateMetric

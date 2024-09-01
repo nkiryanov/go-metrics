@@ -22,16 +22,7 @@ type Agent struct {
 
 func (a *Agent) Run(ctx context.Context) error {
 	// create slice of all stored metrics and run report batch
-	reportFn := func() {
-		stats := a.Capt.Last()
-		ms := make([]*reporter.Metric, 0, len(stats))
-
-		for _, stat := range stats {
-			ms = append(ms, &reporter.Metric{Name: stat.Name, Type: stat.Value.Type(), Value: stat.Value})
-		}
-
-		_ = a.Rept.ReportBatch(ms)
-	}
+	reportFn := func() { _ = a.Rept.ReportBatch(a.Capt.Last()) }
 
 	go runner.NewIntvRunner(0, a.PollIntv).Run(ctx, a.Capt.CaptureAndSave)
 	go runner.NewIntvRunner(5*time.Second, a.ReptIntv).Run(ctx, reportFn)
