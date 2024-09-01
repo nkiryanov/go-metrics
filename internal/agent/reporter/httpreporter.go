@@ -24,17 +24,13 @@ func NewHTTPReporter(addr string, client *resty.Client) *HTTPReporter {
 }
 
 // Sends a single metric update
-// POST /{baseUrl}/update/{metricType}/{metricID}/{metricValue}
+// POST /{baseUrl}/update
 // If the request encounters an error, it is returned.
 func (rept *HTTPReporter) ReportOnce(m *models.Metric) error {
 	resp, err := rept.client.R().
-		SetHeader("Content-Type", "text/plain").
-		SetPathParams(map[string]string{
-			"mType":  m.MType,
-			"mID":    m.ID,
-			"mValue": m.String(),
-		}).
-		Post(fmt.Sprintf("%s/update/{mType}/{mID}/{mValue}", rept.addr))
+		SetHeader("Content-Type", "application/json").
+		SetBody(models.NewMetricJSON(m)).
+		Post(fmt.Sprintf("%s/update", rept.addr))
 
 	if err != nil {
 		logger.Slog.Error("reporter: http client error", "error", err.Error())
@@ -50,7 +46,7 @@ func (rept *HTTPReporter) ReportOnce(m *models.Metric) error {
 }
 
 // ReportBatch sends concurrent metric update
-// POST /{baseUrl}/update/{metricType}/{metricID}/{metricValue}
+// POST /{baseUrl}/update
 // If errors while reporting occurred return one of them (randomly chosen)
 func (rept *HTTPReporter) ReportBatch(metrics []models.Metric) error {
 	var wg sync.WaitGroup
@@ -75,7 +71,7 @@ func (rept *HTTPReporter) ReportBatch(metrics []models.Metric) error {
 	wg.Wait()
 
 	if err == nil {
-		logger.Slog.Info("reporter: metrics updated", "count", len(metrics))
+		logger.Slog.Infow("reporter: metrics updated", "count", len(metrics))
 	}
 
 	return err

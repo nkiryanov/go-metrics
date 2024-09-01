@@ -105,7 +105,6 @@ func TestHandlers_UpdateMetricJSON(t *testing.T) {
 	})
 }
 
-
 func TestHandlers_GetMetricPlain(t *testing.T) {
 	cpuGauge := models.Metric{ID: "cpu-usage", MType: "gauge", Value: 23.23}
 	emptyCounter := models.Metric{ID: "mem-usage", MType: "counter"}
@@ -239,9 +238,9 @@ func TestHandlers_ListMetrics(t *testing.T) {
 	memGauge := &models.Metric{ID: "mem-load", MType: "gauge", Value: 234.23}
 
 	stor := storage.NewMemStorage()
-	stor.UpdateMetric(fooCounter)
-	stor.UpdateMetric(barCounter)
-	stor.UpdateMetric(memGauge)
+	stor.UpdateMetric(fooCounter) // nolint:errcheck
+	stor.UpdateMetric(barCounter) // nolint:errcheck
+	stor.UpdateMetric(memGauge)   // nolint:errcheck
 
 	router := NewMetricRouter(stor)
 	srv := httptest.NewServer(router)

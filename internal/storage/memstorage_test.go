@@ -175,8 +175,8 @@ func TestMemStorage_GetMetric(t *testing.T) {
 		for range 10 {
 			wg.Add(1)
 			go func() {
-				storage.GetMetric("foo", models.CounterTypeName)
-				storage.GetMetric("foo", models.GaugeTypeName)
+				storage.GetMetric("foo", models.CounterTypeName) // nolint:errcheck
+				storage.GetMetric("foo", models.GaugeTypeName)   // nolint:errcheck
 				wg.Done()
 			}()
 		}

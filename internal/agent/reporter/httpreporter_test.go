@@ -1,6 +1,8 @@
 package reporter
 
 import (
+	"io"
+	"net/http"
 	"testing"
 
 	"github.com/nkiryanov/go-metrics/internal/models"
@@ -19,59 +21,37 @@ func TestHTTPReporter_ReportOnce(t *testing.T) {
 	defer httpmock.DeactivateAndReset()
 
 	tests := []struct {
-		name        string
-		metric      *models.Metric
-		expectedReq string
-		responder   httpmock.Responder
-		isError     bool
+		name         string
+		metric       *models.Metric
+		expectedBody string
 	}{
 		{
 			"report counter, ok",
 			&models.Metric{ID: "poll-count", MType: "counter", Delta: 213},
-			"POST http://reports.server/update/counter/poll-count/213",
-			httpmock.NewStringResponder(200, "got it!"),
-			false,
+			`{"id": "poll-count", "type": "counter", "delta": 213}`,
 		},
 		{
 			"report gauge, ok",
 			&models.Metric{ID: "mem-usage", MType: "gauge", Value: 239239.3983},
-			"POST http://reports.server/update/gauge/mem-usage/239239.3983",
-			httpmock.NewStringResponder(200, "got it!"),
-			false,
-		},
-		{
-			"report counter, bad",
-			&models.Metric{ID: "poll-count", MType: "counter", Delta: 777},
-			"POST http://reports.server/update/counter/poll-count/777",
-			httpmock.NewStringResponder(500, "go fuck yourself!"),
-			true,
-		},
-		{
-			"report not valid url, bad",
-			&models.Metric{ID: "not-valid", MType: "not-valid"},
-			"requested invalid server",
-			nil,
-			true,
+			`{"id": "mem-usage", "type": "gauge", "value": 239239.3983}`,
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			httpmock.RegisterResponder("POST", `=~^http://reports\.server/[counter|gauge].*`,
-				tc.responder,
-			)
+			var capturedBody string
+			httpmock.RegisterResponder("POST", "http://reports.server/update",
+				func(req *http.Request) (*http.Response, error) {
+					body, _ := io.ReadAll(req.Body)
+					capturedBody = string(body)
+					return httpmock.NewStringResponse(200, "got it!"), nil
+				})
 
 			err := rept.ReportOnce(tc.metric)
 
-			if tc.isError {
-				require.Error(t, err)
-			} else {
-				require.NoError(t, err)
-			}
-			if tc.expectedReq != "requested invalid server" {
-				info := httpmock.GetCallCountInfo()
-				assert.Equal(t, info[tc.expectedReq], 1)
-			}
+			require.NoError(t, err)
+			require.Equal(t, 1, httpmock.GetCallCountInfo()["POST http://reports.server/update"])
+			assert.JSONEq(t, tc.expectedBody, capturedBody)
 		})
 	}
 
@@ -83,18 +63,8 @@ func TestHTTPReporter_ReportBatch(t *testing.T) {
 	httpmock.ActivateNonDefault(rept.client.GetClient())
 	defer httpmock.DeactivateAndReset()
 
-	// Server return ok on counter update
-	httpmock.RegisterResponder("POST", `=~^http://pornhub\.com/update/counter`,
-		httpmock.NewStringResponder(200, "got it!"),
-	)
-
-	// Server return 500 server error on not-valid metric
-	httpmock.RegisterResponder("POST", `=~^http://pornhub\.com/update/not-valid`,
-		httpmock.NewStringResponder(500, "go fuck yourself!"),
-	)
-
 	t.Run("do batch reports", func(t *testing.T) {
-		httpmock.ZeroCallCounters()
+		httpmock.RegisterResponder("POST", `http://pornhub.com/update`, httpmock.NewStringResponder(200, "got it!"))
 
 		err := rept.ReportBatch(
 			[]models.Metric{
@@ -105,12 +75,11 @@ func TestHTTPReporter_ReportBatch(t *testing.T) {
 
 		require.NoError(t, err)
 		info := httpmock.GetCallCountInfo()
-		assert.Equal(t, 1, info["POST http://pornhub.com/update/counter/smth/2"])
-		assert.Equal(t, 1, info["POST http://pornhub.com/update/counter/ya-smth/22"])
+		assert.Equal(t, 2, info["POST http://pornhub.com/update"])
 	})
 
 	t.Run("return any happened error", func(t *testing.T) {
-		httpmock.ZeroCallCounters()
+		httpmock.RegisterResponder("POST", `http://pornhub.com/update`, httpmock.NewStringResponder(500, "go fuck yourself!"))
 
 		err := rept.ReportBatch(
 			[]models.Metric{
@@ -123,9 +92,6 @@ func TestHTTPReporter_ReportBatch(t *testing.T) {
 
 		require.Error(t, err)
 		info := httpmock.GetCallCountInfo()
-		assert.Equal(t, 1, info["POST http://pornhub.com/update/counter/smth/2"])
-		assert.Equal(t, 1, info["POST http://pornhub.com/update/counter/ya-smth/22"])
-		assert.Equal(t, 1, info["POST http://pornhub.com/update/not-valid/smth-invalid/"])
-		assert.Equal(t, 1, info["POST http://pornhub.com/update/not-valid/fuck/"])
+		assert.Equal(t, 4, info["POST http://pornhub.com/update"])
 	})
 }

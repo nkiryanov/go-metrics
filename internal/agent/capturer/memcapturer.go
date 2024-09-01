@@ -99,7 +99,7 @@ func (c *MemCapturer) Capture() []models.Metric {
 			{ID: RandomValue, MType: models.GaugeTypeName, Value: rand.Float64()},
 
 			// Capture counter
-			{ID: PollCount, MType: models.CounterTypeName, Value: 1},
+			{ID: PollCount, MType: models.CounterTypeName, Delta: 1},
 		}...,
 	)
 }

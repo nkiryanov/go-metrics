@@ -34,6 +34,7 @@ func TestMemCapturer(t *testing.T) {
 		mc.CaptureAndSave()
 
 		assert.Equal(t, len(expectedIDs), len(mc.stor))
+		assert.Contains(t, mc.stor, models.Metric{ID: "PollCount", MType: "counter", Delta: 1}, "captured PollCount has to be on first call")
 	})
 
 	t.Run("Last on empty, ok", func(t *testing.T) {
