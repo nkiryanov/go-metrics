@@ -84,6 +84,28 @@ func TestHandler_UpdateMetricPlain(t *testing.T) {
 	}
 }
 
+func TestHandlers_UpdateMetricJSON(t *testing.T) {
+	t.Run("POST ok", func(t *testing.T) {
+		mockedStorage := &mocks.StorageMock{UpdateMetricFunc: func(m *models.Metric) (models.Metric, error) {
+			return *m, nil
+		}}
+		router := NewMetricRouter(mockedStorage)
+		srv := httptest.NewServer(router)
+		defer srv.Close()
+
+		resp, err := resty.New().
+			R().
+			SetBody(`{"id": "cpu-usage", "type": "counter", "delta": 100}`).
+			Post(srv.URL + "/update/")
+
+		require.NoError(t, err)
+		assert.Equal(t, http.StatusOK, resp.StatusCode())
+		assert.Equal(t, "application/json", resp.Header().Get("content-type"))
+		assert.JSONEq(t, `{"id":"cpu-usage","type":"counter","delta":100}`, resp.String())
+	})
+}
+
+
 func TestHandlers_GetMetricPlain(t *testing.T) {
 	cpuGauge := models.Metric{ID: "cpu-usage", MType: "gauge", Value: 23.23}
 	emptyCounter := models.Metric{ID: "mem-usage", MType: "counter"}
@@ -112,19 +134,19 @@ func TestHandlers_GetMetricPlain(t *testing.T) {
 			"GET not existed, 404",
 			emptyCounter, false, nil,
 			http.MethodGet, "/value/counter/mem-usage",
-			http.StatusNotFound, "metric not found. type: counter, id: mem-usage\n",
+			http.StatusNotFound, "metric not found. type: counter, id: mem-usage",
 		},
 		{
 			"GET unknown type, 404",
 			unknownMetric, false, errors.New("storage error: unknown metric type"),
 			http.MethodGet, "/value/unknown-type/mem-usage",
-			http.StatusNotFound, "storage error: unknown metric type\n",
+			http.StatusNotFound, "storage error: unknown metric type",
 		},
 		{
 			"GET invalid url pattern, 404",
 			unknownMetric, true, nil,
 			http.MethodGet, "/value/co",
-			http.StatusNotFound, "404 page not found\n",
+			http.StatusNotFound, "404 page not found",
 		},
 	}
 
@@ -146,7 +168,7 @@ func TestHandlers_GetMetricPlain(t *testing.T) {
 
 			require.NoError(t, err)
 			assert.Equal(t, tc.expectedCode, resp.StatusCode())
-			assert.Equal(t, tc.expectedBody, string(resp.Body()))
+			assert.Equal(t, tc.expectedBody, resp.String())
 		})
 	}
 }
@@ -179,13 +201,13 @@ func TestHandlers_GetMetricJSON(t *testing.T) {
 			"GET not existed, 404",
 			emptyCounter, false, nil,
 			http.MethodGet, `{"id": "mem-usage", "type": "counter"}}`,
-			http.StatusNotFound, "metric not found. type: counter, id: mem-usage\n",
+			http.StatusNotFound, "metric not found. type: counter, id: mem-usage",
 		},
 		{
 			"GET unknown type, 404",
 			unknownMetric, false, errors.New("storage error: unknown metric type"),
 			http.MethodGet, `{"id": "mem-usage", "type": "unknown-type"}}`,
-			http.StatusNotFound, "storage error: unknown metric type\n",
+			http.StatusNotFound, "storage error: unknown metric type",
 		},
 	}
 
@@ -206,7 +228,7 @@ func TestHandlers_GetMetricJSON(t *testing.T) {
 
 			require.NoError(t, err)
 			assert.Equal(t, tc.expectedCode, resp.StatusCode())
-			assert.Equal(t, tc.expectedBody, string(resp.Body()))
+			assert.Equal(t, tc.expectedBody, resp.String())
 		})
 	}
 }
@@ -253,7 +275,7 @@ func TestHandlers_ListMetrics(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, tc.expectedStatus, resp.StatusCode())
 			for _, shouldInBody := range tc.expectedInBody {
-				assert.Contains(t, string(resp.Body()), shouldInBody)
+				assert.Contains(t, resp.String(), shouldInBody)
 			}
 		})
 	}

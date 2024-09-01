@@ -40,19 +40,51 @@ func updateMetricPlain(s storage.Storage) http.HandlerFunc {
 		}
 
 		if err != nil {
-			logger.Slog.Warn(msg, "error", err)
+			logger.Slog.Warnw(msg, "error", err)
 			http.Error(w, msg, http.StatusBadRequest)
 			return
 		}
 
 		if metric, err = s.UpdateMetric(&metric); err != nil {
-			logger.Slog.Warn("can't update metric", "error", err)
+			logger.Slog.Warnw("can't update metric", "error", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
 		logger.Slog.Infow("Metric updated with", "id", mID, "type", mType, "value", mValue)
+		w.Header().Set("Content-Type", "text/plain")
 		writeOrInternalError(w, []byte(metric.String()))
+	}
+}
+
+func updateMetricJSON(s storage.Storage) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var metric models.Metric
+
+		if err := json.NewDecoder(r.Body).Decode(&metric); err != nil {
+			logger.Slog.Warnw("request not expected format", "error", err)
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		metric, err := s.UpdateMetric(&metric)
+		if err != nil {
+			logger.Slog.Warnw("metric could not updated", "error", err)
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		logger.Slog.Infow("Metric updated", "id", metric.ID, "type", metric.MType, "value", metric.String())
+
+		resp, err := json.Marshal(models.NewMetricJSON(&metric))
+		if err != nil {
+			logger.Slog.Error("error while deserializing metric json", "error", err.Error())
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		writeOrInternalError(w, resp)
 	}
 }
 
@@ -73,6 +105,7 @@ func getMetricPlain(s storage.Storage) http.HandlerFunc {
 			return
 		}
 
+		w.Header().Set("Content-Type", "text/plain")
 		writeOrInternalError(w, []byte(metric.String()))
 	}
 }
@@ -85,7 +118,7 @@ func getMetricJSON(s storage.Storage) http.HandlerFunc {
 		}{}
 
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			logger.Slog.Error("error while decoding request", "error", err.Error())
+			logger.Slog.Warnw("error while decoding request", "error", err.Error())
 			http.Error(w, "request not in expected format", http.StatusBadRequest)
 			return
 		}
@@ -137,6 +170,8 @@ func listMetrics(s storage.Storage, tpl *template.Template) http.HandlerFunc {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+
+		w.Header().Set("Content-Type", "text/html")
 	}
 }
 
