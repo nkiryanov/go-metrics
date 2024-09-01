@@ -193,9 +193,9 @@ jobs:
             -server-port=$SERVER_PORT \
             -source-path=.
 
-      # The main branch is disabled until pr iter6 is ready
       - name: "Code increment #6"
         if: |
+          github.ref == 'refs/heads/main' ||
           github.head_ref == 'iter6' ||
           github.head_ref == 'iter7' ||
           github.head_ref == 'iter8' ||
@@ -215,9 +215,9 @@ jobs:
             -server-port=$SERVER_PORT \
             -source-path=.
 
-      # The main branch is disabled until pr iter7 is ready
       - name: "Code increment #7"
         if: |
+          github.ref == 'refs/heads/main' ||
           github.head_ref == 'iter7' ||
           github.head_ref == 'iter8' ||
           github.head_ref == 'iter9' ||
