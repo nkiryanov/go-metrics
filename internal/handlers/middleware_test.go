@@ -1,12 +1,12 @@
 package handlers
 
 import (
+	"bytes"
+	"compress/gzip"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"compress/gzip"
-	"bytes"
-	"io"
 
 	"github.com/nkiryanov/go-metrics/internal/logger"
 
@@ -56,7 +56,6 @@ func TestLoggerMiddleware(t *testing.T) {
 
 	})
 }
-
 
 func TestGzipMiddleWare(t *testing.T) {
 	okHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

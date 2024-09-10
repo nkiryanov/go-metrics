@@ -2,13 +2,13 @@ package app
 
 import (
 	"context"
+	"net/http"
 	"testing"
 	"time"
 
 	"github.com/nkiryanov/go-metrics/internal/agent/capturer"
 	"github.com/nkiryanov/go-metrics/internal/agent/reporter"
 
-	"github.com/go-resty/resty/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -26,7 +26,7 @@ func TestAgent_RunStoppedOnSignal(t *testing.T) {
 		PollIntv: 2 * time.Second,
 		ReptIntv: 10 * time.Second,
 
-		Rept: reporter.NewHTTPReporter("http://localhost:40010", resty.New()),
+		Rept: reporter.NewHTTPReporter("http://localhost:40010", &http.Client{}),
 		Capt: capturer.NewMemCapturer(),
 	}
 

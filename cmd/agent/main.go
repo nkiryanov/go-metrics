@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -12,7 +13,6 @@ import (
 	"github.com/nkiryanov/go-metrics/internal/agent/reporter"
 	"github.com/nkiryanov/go-metrics/internal/logger"
 
-	"github.com/go-resty/resty/v2"
 	"github.com/nkiryanov/go-metrics/cmd/agent/app"
 	"github.com/nkiryanov/go-metrics/cmd/agent/opts"
 )
@@ -49,7 +49,7 @@ func main() {
 		PollIntv: opts.PollIntv,
 		ReptIntv: opts.ReptIntv,
 
-		Rept: reporter.NewHTTPReporter(opts.ReptAddr, resty.New()),
+		Rept: reporter.NewHTTPReporter(opts.ReptAddr, &http.Client{}),
 		Capt: capturer.NewMemCapturer(),
 	}
 

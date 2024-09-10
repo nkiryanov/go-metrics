@@ -1,11 +1,11 @@
 package handlers
 
 import (
-	"net/http"
-	"time"
 	"compress/gzip"
 	"io"
+	"net/http"
 	"strings"
+	"time"
 
 	"github.com/nkiryanov/go-metrics/internal/logger"
 )
@@ -31,7 +31,6 @@ func (r *loggingResponseWriter) WriteHeader(statusCode int) {
 	r.responseData.status = statusCode
 }
 
-
 func LoggerMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
@@ -55,13 +54,13 @@ func LoggerMiddleware(next http.Handler) http.Handler {
 }
 
 type compressWriter struct {
-	w http.ResponseWriter
+	w  http.ResponseWriter
 	cw *gzip.Writer
 }
 
 func newCompressWriter(w http.ResponseWriter) *compressWriter {
 	return &compressWriter{
-		w: w,
+		w:  w,
 		cw: gzip.NewWriter(w),
 	}
 }
@@ -70,15 +69,12 @@ func (c *compressWriter) Header() http.Header {
 	return c.w.Header()
 }
 
-func (c *compressWriter) Write(p []byte) (int, error) {
-	return c.cw.Write(p)
+func (c *compressWriter) Write(b []byte) (int, error) {
+	return c.cw.Write(b)
 }
 
 func (c *compressWriter) WriteHeader(statusCode int) {
-	if statusCode < 300 {
-		c.w.Header().Set("Content-Encoding", "gzip")
-	}
-
+	c.w.Header().Set("Content-Encoding", "gzip")
 	c.w.WriteHeader(statusCode)
 }
 
@@ -87,7 +83,7 @@ func (c *compressWriter) Close() error {
 }
 
 type compressReader struct {
-	r io.ReadCloser
+	r  io.ReadCloser
 	cr *gzip.Reader
 }
 
@@ -98,13 +94,13 @@ func newCompressReader(r io.ReadCloser) (*compressReader, error) {
 	}
 
 	return &compressReader{
-		r: r,
+		r:  r,
 		cr: cr,
 	}, nil
 }
 
-func (c *compressReader) Read(p []byte) (int, error) {
-	return c.cr.Read(p)
+func (c *compressReader) Read(b []byte) (int, error) {
+	return c.cr.Read(b)
 }
 
 func (c *compressReader) Close() error {
@@ -116,6 +112,7 @@ func (c *compressReader) Close() error {
 	return c.cr.Close()
 }
 
+// Naive implementation. Prefer chi.Compressor middleware instead
 func GzipMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// If request gzip encoded replace r.Reader with compressReader

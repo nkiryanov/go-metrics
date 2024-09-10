@@ -1,6 +1,8 @@
 package reporter
 
 import (
+	"bytes"
+	"compress/gzip"
 	"io"
 	"net/http"
 	"testing"
@@ -10,14 +12,20 @@ import (
 	"github.com/jarcoal/httpmock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/go-resty/resty/v2"
 )
 
-func TestHTTPReporter_ReportOnce(t *testing.T) {
-	rept := NewHTTPReporter("http://reports.server", resty.New())
+func decompress(buf *bytes.Buffer) string {
+	decoder, _ := gzip.NewReader(buf)
+	defer decoder.Close()
 
-	httpmock.ActivateNonDefault(rept.client.GetClient())
+	data, _ := io.ReadAll(decoder)
+	return string(data)
+}
+
+func TestHTTPReporter_ReportOnce(t *testing.T) {
+	rept := NewHTTPReporter("http://reports.server", &http.Client{})
+
+	httpmock.ActivateNonDefault(rept.client)
 	defer httpmock.DeactivateAndReset()
 
 	tests := []struct {
@@ -39,11 +47,13 @@ func TestHTTPReporter_ReportOnce(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			var capturedBody string
+			var capturedBody = &bytes.Buffer{}
+			var capturedEncoding string
 			httpmock.RegisterResponder("POST", "http://reports.server/update",
 				func(req *http.Request) (*http.Response, error) {
-					body, _ := io.ReadAll(req.Body)
-					capturedBody = string(body)
+					// body, _ := io.ReadAll(req.Body)
+					_, _ = capturedBody.ReadFrom(req.Body)
+					capturedEncoding = req.Header.Get("Content-Encoding")
 					return httpmock.NewStringResponse(200, "got it!"), nil
 				})
 
@@ -51,16 +61,17 @@ func TestHTTPReporter_ReportOnce(t *testing.T) {
 
 			require.NoError(t, err)
 			require.Equal(t, 1, httpmock.GetCallCountInfo()["POST http://reports.server/update"])
-			assert.JSONEq(t, tc.expectedBody, capturedBody)
+			require.Contains(t, "gzip", capturedEncoding)
+			assert.JSONEq(t, tc.expectedBody, decompress(capturedBody))
 		})
 	}
 
 }
 
 func TestHTTPReporter_ReportBatch(t *testing.T) {
-	rept := NewHTTPReporter("http://pornhub.com", resty.New())
+	rept := NewHTTPReporter("http://pornhub.com", &http.Client{})
 
-	httpmock.ActivateNonDefault(rept.client.GetClient())
+	httpmock.ActivateNonDefault(rept.client)
 	defer httpmock.DeactivateAndReset()
 
 	t.Run("do batch reports", func(t *testing.T) {
