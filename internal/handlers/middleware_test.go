@@ -18,8 +18,11 @@ import (
 )
 
 func TestLoggerMiddleware(t *testing.T) {
+	// Save global Slog and return back on exit
+	prevSlog := logger.Slog
+	defer func() { logger.Slog = prevSlog }()
+
 	// Replace global logger with observed one. Reset to default when finish
-	defer logger.Reset()
 	coreLogger, recorded := observer.New(zapcore.InfoLevel)
 	logger.Slog = zap.New(coreLogger).Sugar()
 

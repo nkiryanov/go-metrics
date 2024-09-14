@@ -13,28 +13,40 @@ import (
 type Options struct {
 	ListenAddr string
 	LogLevel   string
+
+	FilePath string
 }
 
 func (opts *Options) Parse() {
 	flag.Func("a", "server listen address in format 'host:port'", parseListenAddr(&opts.ListenAddr))
-	flag.StringVar(&opts.LogLevel, "l", "info", "log level like info, debug, error, etc.")
-	flag.Parse()
+	flag.StringVar(&opts.LogLevel, "l", opts.LogLevel, "log level like 'info', 'debug', 'error', etc.")
+	flag.StringVar(&opts.FilePath, "f", opts.FilePath, "file storage path, like '/tmp/server_data_json.json")
 
+	flag.Parse()
 	opts.parseEnv()
 }
 
 func (opts *Options) parseEnv() {
+	// Helper to use in envMap with other custom parsers
+	parseString := func(optValue *string) func(string) error {
+		return func(envValue string) error {
+			*optValue = envValue
+			return nil
+		}
+	}
+
 	envMap := map[string]func(string) error{
-		"ADDRESS":   parseListenAddr(&opts.ListenAddr),
-		"LOG_LEVEL": func(value string) error { opts.LogLevel = value; return nil },
+		"ADDRESS":           parseListenAddr(&opts.ListenAddr),
+		"LOG_LEVEL":         parseString(&opts.LogLevel),
+		"FILE_STORAGE_PATH": parseString(&opts.FilePath),
 	}
 
 	for key, parseFn := range envMap {
 		if envVar := os.Getenv(key); envVar != "" {
 			if err := parseFn(envVar); err != nil {
-				logger.Slog.Error("invalid env variable, skipped", key, envVar, "error", err.Error())
+				logger.Slog.Errorw("invalid env variable, skipped", key, envVar, "error", err.Error())
 			} else {
-				logger.Slog.Info("Set args form env", key, envVar)
+				logger.Slog.Infow("Set args form env", key, envVar)
 			}
 		}
 	}

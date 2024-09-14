@@ -1,18 +1,21 @@
 package logger
 
 import (
+	"log"
 	"go.uber.org/zap"
 )
 
-var Slog = Reset()
+// Initialize global Slog with default production logger
+var Slog = func() *zap.SugaredLogger {
+	lgr, err := zap.NewProduction()
+	if err != nil {
+		log.Fatal("global logger initialization failed", err)
+	}
+	return lgr.Sugar()
+}()
 
-func Reset() *zap.SugaredLogger {
-	// Reset logger to default values.
-	return zap.NewNop().Sugar()
-}
-
+// Initialize Slog with given level
 func Initialize(level string) error {
-	// Initialize Log (zap.Logger) and Slog (zap.SugaredLogger) with the given log level
 	lvl, err := zap.ParseAtomicLevel(level)
 	if err != nil {
 		return err
