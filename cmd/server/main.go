@@ -18,15 +18,15 @@ import (
 // Defaults
 const (
 	listenAddr = "localhost:8080"
-	logLevel = "info"
-	filePath = "server_data.json"
+	logLevel   = "info"
+	filePath   = "server_data.json"
 )
 
 func main() {
 	opts := &opts.Options{
 		ListenAddr: listenAddr,
-		LogLevel: logLevel,
-		FilePath: filePath,
+		LogLevel:   logLevel,
+		FilePath:   filePath,
 	}
 	opts.Parse()
 

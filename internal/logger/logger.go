@@ -1,8 +1,8 @@
 package logger
 
 import (
-	"log"
 	"go.uber.org/zap"
+	"log"
 )
 
 // Initialize global Slog with default production logger
