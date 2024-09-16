@@ -1,8 +1,12 @@
 package storage
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
+	"io"
 	"sync"
+	"time"
 
 	"github.com/nkiryanov/go-metrics/internal/models"
 )
@@ -20,13 +24,50 @@ type gaugeStore struct {
 type MemStorage struct {
 	gauges   gaugeStore
 	counters counterStore
+
+	file     *os.File
+	saveSync bool
+	interval time.Duration
 }
 
-func NewMemStorage() *MemStorage {
-	return &MemStorage{
+func NewMemStorage(filePath string, interval time.Duration, restore bool) (*MemStorage, error) {
+	var err error
+	var file *os.File
+
+	// Open file as persistent storage for metrics
+	file, err = os.OpenFile(filePath, os.O_RDWR|os.O_CREATE, 0666)
+	if err != nil {
+		return nil, err
+	}
+
+	storage := &MemStorage{
 		counters: counterStore{storage: make(map[string]int64)},
 		gauges:   gaugeStore{storage: make(map[string]float64)},
+		file:     file,
+		saveSync: func() bool { return interval == 0 }(),
+		interval: interval,
 	}
+
+	if !restore {
+		return storage, nil
+	}
+
+	// Restore storage data from file
+	metrics := make([]*models.Metric, 0)
+	if err = json.NewDecoder(file).Decode(&metrics); err != nil && err != io.EOF {
+		return nil, err
+	}
+	for _, m := range metrics {
+		if _, err = storage.UpdateMetric(m); err != nil {
+			return nil, err
+		}
+	}
+
+	return storage, nil
+}
+
+func (s *MemStorage) Close() error {
+	return s.file.Close()
 }
 
 func (s *MemStorage) Count() int {

@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/nkiryanov/go-metrics/cmd/server/app"
 	"github.com/nkiryanov/go-metrics/cmd/server/opts"
@@ -17,25 +18,33 @@ import (
 
 // Defaults
 const (
-	listenAddr = "localhost:8080"
-	logLevel   = "info"
-	filePath   = "server_data.json"
+	listenAddr    = "localhost:8080"
+	logLevel      = "info"
+	filePath      = "server_data.json"
+	storeInterval = 300 * time.Second
+	restore       = false
 )
 
 func main() {
 	opts := &opts.Options{
-		ListenAddr: listenAddr,
-		LogLevel:   logLevel,
-		FilePath:   filePath,
+		ListenAddr:    listenAddr,
+		LogLevel:      logLevel,
+		FilePath:      filePath,
+		StoreInterval: storeInterval,
+		Restore:       restore,
 	}
 	opts.Parse()
 
-	// Initialize logger
+	// Init logger
 	if err := logger.Initialize(opts.LogLevel); err != nil {
 		log.Fatal("logger could not be initialized, %w", err.Error())
 	}
 
-	s := storage.NewMemStorage()
+	// Initialize storage
+	s, err := storage.NewMemStorage(opts.FilePath, opts.StoreInterval, opts.Restore)
+	if err != nil {
+		logger.Slog.Fatal("storage initialization failed", "error", err.Error())
+	}
 
 	srv := &app.ServerApp{
 		Opts:    opts,

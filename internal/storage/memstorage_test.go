@@ -1,8 +1,10 @@
 package storage
 
 import (
+	"os"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/nkiryanov/go-metrics/internal/models"
 
@@ -10,12 +12,29 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// Test helper. Create storage that store state in temp file.
+// Return *MemStorage and fn to defer on test end
+func storage() (s *MemStorage, deferFn func()) {
+	// Tmp directory for persistent storage
+	tmpDir := os.TempDir()
+
+	s, _ = NewMemStorage(tmpDir+"metrics.json", 3*time.Minute, true)
+
+	deferFn = func() {
+		_ = os.RemoveAll(tmpDir)
+		_ = s.Close()
+	}
+
+	return s, deferFn
+}
+
 func TestMemStorage_UpdateMetric(t *testing.T) {
 	mCounter := models.Metric{ID: "foo", MType: models.CounterTypeName, Delta: 10}
 	mGauge := models.Metric{ID: "foo", MType: models.GaugeTypeName, Value: 500.23}
 
 	t.Run("counter once ok", func(t *testing.T) {
-		storage := NewMemStorage()
+		storage, deferFn := storage()
+		defer deferFn()
 
 		got, err := storage.UpdateMetric(&mCounter)
 
@@ -24,7 +43,8 @@ func TestMemStorage_UpdateMetric(t *testing.T) {
 	})
 
 	t.Run("counter several ok", func(t *testing.T) {
-		storage := NewMemStorage()
+		storage, deferFn := storage()
+		defer deferFn()
 		metric := models.Metric{ID: "foo", MType: models.CounterTypeName, Delta: 10}
 
 		_, _ = storage.UpdateMetric(&metric)
@@ -35,7 +55,8 @@ func TestMemStorage_UpdateMetric(t *testing.T) {
 	})
 
 	t.Run("gauge once ok", func(t *testing.T) {
-		storage := NewMemStorage()
+		storage, deferFn := storage()
+		defer deferFn()
 
 		got, err := storage.UpdateMetric(&mGauge)
 
@@ -44,7 +65,8 @@ func TestMemStorage_UpdateMetric(t *testing.T) {
 	})
 
 	t.Run("gauge several ok", func(t *testing.T) {
-		storage := NewMemStorage()
+		storage, deferFn := storage()
+		defer deferFn()
 		yaGauge := models.Metric{ID: "foo", MType: models.GaugeTypeName, Value: 123.1}
 
 		_, _ = storage.UpdateMetric(&mGauge)
@@ -55,7 +77,8 @@ func TestMemStorage_UpdateMetric(t *testing.T) {
 	})
 
 	t.Run("fail if unknown type", func(t *testing.T) {
-		storage := NewMemStorage()
+		storage, deferFn := storage()
+		defer deferFn()
 		metric := models.Metric{ID: "foo", MType: "unknown", Value: 500.23}
 
 		_, err := storage.UpdateMetric(&metric)
@@ -64,7 +87,8 @@ func TestMemStorage_UpdateMetric(t *testing.T) {
 	})
 
 	t.Run("concurrently ok", func(t *testing.T) {
-		storage := NewMemStorage()
+		storage, deferFn := storage()
+		defer deferFn()
 
 		var wg sync.WaitGroup
 		for range 10 {
@@ -83,7 +107,8 @@ func TestMemStorage_UpdateMetric(t *testing.T) {
 }
 
 func TestMemStorage_Count(t *testing.T) {
-	storage := NewMemStorage()
+	storage, deferFn := storage()
+	defer deferFn()
 	_, _ = storage.UpdateMetric(&models.Metric{ID: "foo", MType: models.CounterTypeName, Delta: 10})
 	_, _ = storage.UpdateMetric(&models.Metric{ID: "bar", MType: models.CounterTypeName, Delta: 200})
 	_, _ = storage.UpdateMetric(&models.Metric{ID: "goo", MType: models.GaugeTypeName, Value: 500.233})
@@ -104,7 +129,8 @@ func TestMemStorage_GetMetric(t *testing.T) {
 	barCounter := models.Metric{ID: "bar", MType: models.CounterTypeName, Delta: 200}
 	fooGauge := models.Metric{ID: "foo", MType: models.GaugeTypeName, Value: 500.233}
 
-	storage := NewMemStorage()
+	storage, deferFn := storage()
+	defer deferFn()
 	_, _ = storage.UpdateMetric(&fooCounter)
 	_, _ = storage.UpdateMetric(&barCounter)
 	_, _ = storage.UpdateMetric(&fooGauge)
@@ -194,7 +220,8 @@ func TestMemStorage_Iterate(t *testing.T) {
 	barCounter := models.Metric{ID: "bar", MType: models.CounterTypeName, Delta: 200}
 	fooGauge := models.Metric{ID: "foo", MType: models.GaugeTypeName, Value: 500.233}
 
-	storage := NewMemStorage()
+	storage, deferFn := storage()
+	defer deferFn()
 	_, _ = storage.UpdateMetric(&fooCounter)
 	_, _ = storage.UpdateMetric(&barCounter)
 	_, _ = storage.UpdateMetric(&fooGauge)
