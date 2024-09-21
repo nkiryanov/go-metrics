@@ -1,6 +1,8 @@
 package storage
 
 import (
+	"errors"
+	"io"
 	"os"
 	"sync"
 	"testing"
@@ -21,8 +23,8 @@ func storage() (s *MemStorage, deferFn func()) {
 	s, _ = NewMemStorage(tmpDir+"metrics.json", 3*time.Minute, true)
 
 	deferFn = func() {
-		_ = os.RemoveAll(tmpDir)
 		_ = s.Close()
+		_ = os.RemoveAll(tmpDir)
 	}
 
 	return s, deferFn
@@ -229,8 +231,9 @@ func TestMemStorage_Iterate(t *testing.T) {
 	t.Run("iterate ok", func(t *testing.T) {
 		metrics := make([]models.Metric, 0)
 
-		storage.Iterate(func(m models.Metric) {
+		_ = storage.Iterate(func(m models.Metric) error {
 			metrics = append(metrics, m)
+			return nil
 		})
 
 		require.Equal(t, 3, len(metrics))
@@ -246,12 +249,81 @@ func TestMemStorage_Iterate(t *testing.T) {
 		for range 10 {
 			wg.Add(1)
 			go func() {
-				storage.Iterate(func(models.Metric) {})
+				_ = storage.Iterate(func(models.Metric) error { return nil })
 				wg.Done()
 			}()
 		}
 
-		storage.Iterate(func(models.Metric) { iterCount++ })
+		_ = storage.Iterate(func(models.Metric) error { iterCount++; return nil })
 		assert.Equal(t, 3, iterCount)
+	})
+
+	t.Run("iterate stop on error", func(t *testing.T) {
+		iterCalled := 0
+		iterFn := func(m models.Metric) error {
+			iterCalled++
+			if iterCalled == 2 {
+				return errors.New("error on iterated function occurred")
+			}
+			return nil
+		}
+
+		err := storage.Iterate(iterFn)
+
+		require.Error(t, err)
+		assert.Equal(t, 2, iterCalled, "Iterate should stop on error")
+	})
+}
+
+func TestMemStorage_save(t *testing.T) {
+	storage, deferFn := storage()
+	defer deferFn()
+
+	_, _ = storage.UpdateMetric(&models.Metric{ID: "foo", MType: models.CounterTypeName, Delta: 10})
+	_, _ = storage.UpdateMetric(&models.Metric{ID: "goo", MType: models.GaugeTypeName, Value: 500.233})
+
+	t.Run("save ok", func(t *testing.T) {
+		err := storage.save()
+		expectedJSON := `[
+			{
+				"id": "foo",
+				"type": "counter",
+				"delta":10,
+				"value": 0.0
+			},
+			{
+				"id": "goo",
+				"type": "gauge",
+				"delta": 0,
+				"value": 500.233
+			}
+		]`
+
+		require.NoError(t, err)
+		_, _ = storage.file.Seek(0, io.SeekStart)
+		data, err := io.ReadAll(storage.file)
+		require.NoError(t, err)
+		content := string(data)
+		assert.JSONEq(t, expectedJSON, content)
+	})
+}
+
+func TestMemStorage_restore(t *testing.T) {
+	tmpDir := os.TempDir()
+	filepath := tmpDir + "metrics_storage.json"
+
+	// On close storage save state to file
+	s, _ := NewMemStorage(filepath, 3*time.Minute, true)
+	_, _ = s.UpdateMetric(&models.Metric{ID: "foo", MType: models.CounterTypeName, Delta: 10})
+	_, _ = s.UpdateMetric(&models.Metric{ID: "goo", MType: models.GaugeTypeName, Value: 500.233})
+	s.Close()
+
+	t.Run("restore ok", func(t *testing.T) {
+		s, _ = NewMemStorage(tmpDir+"metrics_storage.json", 3*time.Minute, true)
+
+		err := s.restore()
+
+		require.NoError(t, err)
+		assert.Equal(t, 2, s.Count())
 	})
 }

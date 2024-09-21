@@ -1,10 +1,11 @@
 package storage
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
-	"os"
 	"io"
+	"os"
 	"sync"
 	"time"
 
@@ -25,9 +26,9 @@ type MemStorage struct {
 	gauges   gaugeStore
 	counters counterStore
 
-	file     *os.File
-	saveSync bool
-	interval time.Duration
+	file         *os.File
+	fileLock     sync.Mutex
+	saveInterval time.Duration
 }
 
 func NewMemStorage(filePath string, interval time.Duration, restore bool) (*MemStorage, error) {
@@ -43,9 +44,9 @@ func NewMemStorage(filePath string, interval time.Duration, restore bool) (*MemS
 	storage := &MemStorage{
 		counters: counterStore{storage: make(map[string]int64)},
 		gauges:   gaugeStore{storage: make(map[string]float64)},
-		file:     file,
-		saveSync: func() bool { return interval == 0 }(),
-		interval: interval,
+
+		file:         file,
+		saveInterval: interval,
 	}
 
 	if !restore {
@@ -53,21 +54,106 @@ func NewMemStorage(filePath string, interval time.Duration, restore bool) (*MemS
 	}
 
 	// Restore storage data from file
-	metrics := make([]*models.Metric, 0)
-	if err = json.NewDecoder(file).Decode(&metrics); err != nil && err != io.EOF {
+	if err = storage.restore(); err != nil {
 		return nil, err
-	}
-	for _, m := range metrics {
-		if _, err = storage.UpdateMetric(m); err != nil {
-			return nil, err
-		}
 	}
 
 	return storage, nil
 }
 
 func (s *MemStorage) Close() error {
+	if err := s.save(); err != nil {
+		return err
+	}
 	return s.file.Close()
+}
+
+func (s *MemStorage) restore() error {
+	s.fileLock.Lock()
+	defer s.fileLock.Unlock()
+	var err error
+
+	// Be sure to read from the beginning of the file
+	if _, err = s.file.Seek(0, io.SeekStart); err != nil {
+		return err
+	}
+
+	buf := bufio.NewReader(s.file)
+	decoder := json.NewDecoder(buf)
+
+	// Read first token. Expecting [ as list of metrics
+	if _, err = decoder.Token(); err != nil {
+		// File may be empty. In that case no metrics to restore and no error
+		if err == io.EOF {
+			return nil
+		}
+		return err
+	}
+
+	// Read and load metrics in storage
+	metric := models.Metric{}
+	for decoder.More() {
+		if err = decoder.Decode(&metric); err != nil {
+			return err
+		}
+
+		if _, err = s.UpdateMetric(&metric); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *MemStorage) save() error {
+	s.fileLock.Lock()
+	defer s.fileLock.Unlock()
+
+	var err error
+	if _, err = s.file.Seek(0, io.SeekStart); err != nil {
+		return err
+	}
+	if err = s.file.Truncate(0); err != nil {
+		return err
+	}
+
+	// Iterate over metrics and write to file
+	len := s.Count()
+	buf := bufio.NewWriter(s.file)
+	encoder := json.NewEncoder(buf)
+
+	// Write the opening of the JSON array manually
+	if _, err = buf.WriteString("[\n"); err != nil {
+		return err
+	}
+
+	// Iterate over metrics and write them as JSON
+	if err = s.Iterate(func(m models.Metric) error {
+		var err error
+
+		if err = encoder.Encode(m); err != nil {
+			return err
+		}
+		len--
+		if len > 0 {
+			if _, err = buf.WriteString(","); err != nil {
+				return err
+			}
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+
+	// Write the closing of the JSON array manually
+	if _, err = buf.WriteString("]"); err != nil {
+		return err
+	}
+
+	if err = buf.Flush(); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (s *MemStorage) Count() int {
@@ -132,24 +218,32 @@ func (s *MemStorage) UpdateMetric(in *models.Metric) (models.Metric, error) {
 	return metric, nil
 }
 
-func (s *MemStorage) Iterate(fn IterFunc) {
+func (s *MemStorage) Iterate(fn IterFunc) error {
+	// Lock counters and gauges to be sure len will not change during iteration
 	s.counters.lock.RLock()
+	defer s.counters.lock.RUnlock()
+	s.gauges.lock.RLock()
+	defer s.gauges.lock.RUnlock()
+
+	var err error
 	for id, counter := range s.counters.storage {
-		fn(models.Metric{
+		if err = fn(models.Metric{
 			ID:    id,
 			MType: models.CounterTypeName,
 			Delta: counter,
-		})
+		}); err != nil {
+			return err
+		}
 	}
-	s.counters.lock.RUnlock()
 
-	s.gauges.lock.RLock()
 	for id, gauge := range s.gauges.storage {
-		fn(models.Metric{
+		if err = fn(models.Metric{
 			ID:    id,
 			MType: models.GaugeTypeName,
 			Value: gauge,
-		})
+		}); err != nil {
+			return err
+		}
 	}
-	s.gauges.lock.RUnlock()
+	return nil
 }

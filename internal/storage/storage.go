@@ -6,7 +6,7 @@ import (
 
 //go:generate moq -out mocks/storage.go -pkg mocks -skip-ensure -fmt goimports . Storage
 
-type IterFunc func(models.Metric)
+type IterFunc func(models.Metric) error
 
 type Storage interface {
 	Count() int
@@ -21,5 +21,5 @@ type Storage interface {
 	UpdateMetric(in *models.Metric) (metric models.Metric, err error)
 
 	// Iterate over stored values with 'iter' func.
-	Iterate(iter IterFunc)
+	Iterate(iter IterFunc) error
 }

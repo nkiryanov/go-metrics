@@ -157,8 +157,9 @@ func listMetrics(s storage.Storage, tpl *template.Template) http.HandlerFunc {
 
 		metrics := make([]metric, 0, s.Count())
 
-		s.Iterate(func(m models.Metric) {
+		_ = s.Iterate(func(m models.Metric) error {
 			metrics = append(metrics, metric{ID: m.ID, Type: m.MType, Value: m.String()})
+			return nil
 		})
 
 		sort.Slice(metrics, func(i, j int) bool {
