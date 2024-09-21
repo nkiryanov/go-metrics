@@ -238,7 +238,7 @@ func TestHandlers_ListMetrics(t *testing.T) {
 	// Mocked storage; behave like it has 3 stored metrics.
 	mockedStorage := &mocks.StorageMock{
 		CountFunc: func() int { return 3 },
-		IterateFunc: func(iter storage.IterFunc) error{
+		IterateFunc: func(iter storage.IterFunc) error {
 			_ = iter(models.Metric{ID: "foo", MType: models.CounterTypeName, Delta: 100})
 			_ = iter(models.Metric{ID: "bar", MType: models.CounterTypeName, Delta: 200})
 			_ = iter(models.Metric{ID: "mem-load", MType: models.GaugeTypeName, Value: 234.23})

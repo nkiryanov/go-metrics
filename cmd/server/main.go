@@ -13,7 +13,7 @@ import (
 	"github.com/nkiryanov/go-metrics/cmd/server/opts"
 	"github.com/nkiryanov/go-metrics/internal/handlers"
 	"github.com/nkiryanov/go-metrics/internal/logger"
-	"github.com/nkiryanov/go-metrics/internal/storage"
+	"github.com/nkiryanov/go-metrics/internal/storage/memstorage"
 )
 
 // Defaults
@@ -41,7 +41,7 @@ func main() {
 	}
 
 	// Initialize storage
-	s, err := storage.NewMemStorage(opts.FilePath, opts.StoreInterval, opts.Restore)
+	s, err := memstorage.New(opts.FilePath, opts.StoreInterval, opts.Restore)
 	if err != nil {
 		logger.Slog.Fatal("storage initialization failed", "error", err.Error())
 	}

@@ -1,4 +1,4 @@
-package storage
+package memstorage
 
 import (
 	"bufio"
@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/nkiryanov/go-metrics/internal/models"
+	"github.com/nkiryanov/go-metrics/internal/storage"
 )
 
 type counterStore struct {
@@ -31,7 +32,7 @@ type MemStorage struct {
 	saveInterval time.Duration
 }
 
-func NewMemStorage(filePath string, interval time.Duration, restore bool) (*MemStorage, error) {
+func New(filePath string, interval time.Duration, restore bool) (*MemStorage, error) {
 	var err error
 	var file *os.File
 
@@ -218,7 +219,7 @@ func (s *MemStorage) UpdateMetric(in *models.Metric) (models.Metric, error) {
 	return metric, nil
 }
 
-func (s *MemStorage) Iterate(fn IterFunc) error {
+func (s *MemStorage) Iterate(fn storage.IterFunc) error {
 	// Lock counters and gauges to be sure len will not change during iteration
 	s.counters.lock.RLock()
 	defer s.counters.lock.RUnlock()

@@ -1,4 +1,4 @@
-package storage
+package memstorage
 
 import (
 	"errors"
@@ -16,11 +16,11 @@ import (
 
 // Test helper. Create storage that store state in temp file.
 // Return *MemStorage and fn to defer on test end
-func storage() (s *MemStorage, deferFn func()) {
+func memstorage() (s *MemStorage, deferFn func()) {
 	// Tmp directory for persistent storage
 	tmpDir := os.TempDir()
 
-	s, _ = NewMemStorage(tmpDir+"metrics.json", 3*time.Minute, true)
+	s, _ = New(tmpDir+"metrics.json", 3*time.Minute, true)
 
 	deferFn = func() {
 		_ = s.Close()
@@ -35,7 +35,7 @@ func TestMemStorage_UpdateMetric(t *testing.T) {
 	mGauge := models.Metric{ID: "foo", MType: models.GaugeTypeName, Value: 500.23}
 
 	t.Run("counter once ok", func(t *testing.T) {
-		storage, deferFn := storage()
+		storage, deferFn := memstorage()
 		defer deferFn()
 
 		got, err := storage.UpdateMetric(&mCounter)
@@ -45,7 +45,7 @@ func TestMemStorage_UpdateMetric(t *testing.T) {
 	})
 
 	t.Run("counter several ok", func(t *testing.T) {
-		storage, deferFn := storage()
+		storage, deferFn := memstorage()
 		defer deferFn()
 		metric := models.Metric{ID: "foo", MType: models.CounterTypeName, Delta: 10}
 
@@ -57,7 +57,7 @@ func TestMemStorage_UpdateMetric(t *testing.T) {
 	})
 
 	t.Run("gauge once ok", func(t *testing.T) {
-		storage, deferFn := storage()
+		storage, deferFn := memstorage()
 		defer deferFn()
 
 		got, err := storage.UpdateMetric(&mGauge)
@@ -67,7 +67,7 @@ func TestMemStorage_UpdateMetric(t *testing.T) {
 	})
 
 	t.Run("gauge several ok", func(t *testing.T) {
-		storage, deferFn := storage()
+		storage, deferFn := memstorage()
 		defer deferFn()
 		yaGauge := models.Metric{ID: "foo", MType: models.GaugeTypeName, Value: 123.1}
 
@@ -79,7 +79,7 @@ func TestMemStorage_UpdateMetric(t *testing.T) {
 	})
 
 	t.Run("fail if unknown type", func(t *testing.T) {
-		storage, deferFn := storage()
+		storage, deferFn := memstorage()
 		defer deferFn()
 		metric := models.Metric{ID: "foo", MType: "unknown", Value: 500.23}
 
@@ -89,7 +89,7 @@ func TestMemStorage_UpdateMetric(t *testing.T) {
 	})
 
 	t.Run("concurrently ok", func(t *testing.T) {
-		storage, deferFn := storage()
+		storage, deferFn := memstorage()
 		defer deferFn()
 
 		var wg sync.WaitGroup
@@ -109,7 +109,7 @@ func TestMemStorage_UpdateMetric(t *testing.T) {
 }
 
 func TestMemStorage_Count(t *testing.T) {
-	storage, deferFn := storage()
+	storage, deferFn := memstorage()
 	defer deferFn()
 	_, _ = storage.UpdateMetric(&models.Metric{ID: "foo", MType: models.CounterTypeName, Delta: 10})
 	_, _ = storage.UpdateMetric(&models.Metric{ID: "bar", MType: models.CounterTypeName, Delta: 200})
@@ -131,7 +131,7 @@ func TestMemStorage_GetMetric(t *testing.T) {
 	barCounter := models.Metric{ID: "bar", MType: models.CounterTypeName, Delta: 200}
 	fooGauge := models.Metric{ID: "foo", MType: models.GaugeTypeName, Value: 500.233}
 
-	storage, deferFn := storage()
+	storage, deferFn := memstorage()
 	defer deferFn()
 	_, _ = storage.UpdateMetric(&fooCounter)
 	_, _ = storage.UpdateMetric(&barCounter)
@@ -222,7 +222,7 @@ func TestMemStorage_Iterate(t *testing.T) {
 	barCounter := models.Metric{ID: "bar", MType: models.CounterTypeName, Delta: 200}
 	fooGauge := models.Metric{ID: "foo", MType: models.GaugeTypeName, Value: 500.233}
 
-	storage, deferFn := storage()
+	storage, deferFn := memstorage()
 	defer deferFn()
 	_, _ = storage.UpdateMetric(&fooCounter)
 	_, _ = storage.UpdateMetric(&barCounter)
@@ -276,7 +276,7 @@ func TestMemStorage_Iterate(t *testing.T) {
 }
 
 func TestMemStorage_save(t *testing.T) {
-	storage, deferFn := storage()
+	storage, deferFn := memstorage()
 	defer deferFn()
 
 	_, _ = storage.UpdateMetric(&models.Metric{ID: "foo", MType: models.CounterTypeName, Delta: 10})
@@ -313,17 +313,17 @@ func TestMemStorage_restore(t *testing.T) {
 	filepath := tmpDir + "metrics_storage.json"
 
 	// On close storage save state to file
-	s, _ := NewMemStorage(filepath, 3*time.Minute, true)
-	_, _ = s.UpdateMetric(&models.Metric{ID: "foo", MType: models.CounterTypeName, Delta: 10})
-	_, _ = s.UpdateMetric(&models.Metric{ID: "goo", MType: models.GaugeTypeName, Value: 500.233})
-	s.Close()
+	mems, _ := New(filepath, 3*time.Minute, true)
+	_, _ = mems.UpdateMetric(&models.Metric{ID: "foo", MType: models.CounterTypeName, Delta: 10})
+	_, _ = mems.UpdateMetric(&models.Metric{ID: "goo", MType: models.GaugeTypeName, Value: 500.233})
+	mems.Close()
 
 	t.Run("restore ok", func(t *testing.T) {
-		s, _ = NewMemStorage(tmpDir+"metrics_storage.json", 3*time.Minute, true)
+		mems, _ = New(tmpDir+"metrics_storage.json", 3*time.Minute, true)
 
-		err := s.restore()
+		err := mems.restore()
 
 		require.NoError(t, err)
-		assert.Equal(t, 2, s.Count())
+		assert.Equal(t, 2, mems.Count())
 	})
 }
