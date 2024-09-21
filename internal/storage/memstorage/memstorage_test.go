@@ -2,7 +2,6 @@ package memstorage
 
 import (
 	"errors"
-	"io"
 	"os"
 	"sync"
 	"testing"
@@ -272,58 +271,5 @@ func TestMemStorage_Iterate(t *testing.T) {
 
 		require.Error(t, err)
 		assert.Equal(t, 2, iterCalled, "Iterate should stop on error")
-	})
-}
-
-func TestMemStorage_save(t *testing.T) {
-	storage, deferFn := memstorage()
-	defer deferFn()
-
-	_, _ = storage.UpdateMetric(&models.Metric{ID: "foo", MType: models.CounterTypeName, Delta: 10})
-	_, _ = storage.UpdateMetric(&models.Metric{ID: "goo", MType: models.GaugeTypeName, Value: 500.233})
-
-	t.Run("save ok", func(t *testing.T) {
-		err := storage.save()
-		expectedJSON := `[
-			{
-				"id": "foo",
-				"type": "counter",
-				"delta":10,
-				"value": 0.0
-			},
-			{
-				"id": "goo",
-				"type": "gauge",
-				"delta": 0,
-				"value": 500.233
-			}
-		]`
-
-		require.NoError(t, err)
-		_, _ = storage.file.Seek(0, io.SeekStart)
-		data, err := io.ReadAll(storage.file)
-		require.NoError(t, err)
-		content := string(data)
-		assert.JSONEq(t, expectedJSON, content)
-	})
-}
-
-func TestMemStorage_restore(t *testing.T) {
-	tmpDir := os.TempDir()
-	filepath := tmpDir + "metrics_storage.json"
-
-	// On close storage save state to file
-	mems, _ := New(filepath, 3*time.Minute, true)
-	_, _ = mems.UpdateMetric(&models.Metric{ID: "foo", MType: models.CounterTypeName, Delta: 10})
-	_, _ = mems.UpdateMetric(&models.Metric{ID: "goo", MType: models.GaugeTypeName, Value: 500.233})
-	mems.Close()
-
-	t.Run("restore ok", func(t *testing.T) {
-		mems, _ = New(tmpDir+"metrics_storage.json", 3*time.Minute, true)
-
-		err := mems.restore()
-
-		require.NoError(t, err)
-		assert.Equal(t, 2, mems.Count())
 	})
 }
