@@ -1,7 +1,6 @@
 package memstorage
 
 import (
-	"io"
 	"os"
 	"testing"
 	"time"
@@ -13,21 +12,20 @@ import (
 )
 
 // Test helper. Create temp directory and defer fn that delete it.
-func tmpFilename() (filename string, deferFn func()) {
+func tmpFilename(t *testing.T) (filename string, deferFn func()) {
 	// Tmp directory for persistent storage
-	tmpDir := os.TempDir()
-	filename = tmpDir + "metrics_storage.json"
+	file, err := os.CreateTemp("", "save_restore_tests")
+	require.NoError(t, err)
 
 	deferFn = func() {
-		_ = os.RemoveAll(tmpDir)
+		_ = os.Remove(file.Name())
 	}
 
-	return filename, deferFn
+	return file.Name(), deferFn
 }
 
-
 func TestMemStorage_save(t *testing.T) {
-	filename, deferFn := tmpFilename()
+	filename, deferFn := tmpFilename(t)
 	defer deferFn()
 
 	// Create storage and add some metrics
@@ -54,8 +52,7 @@ func TestMemStorage_save(t *testing.T) {
 		]`
 
 		require.NoError(t, err)
-		_, _ = mems.file.Seek(0, io.SeekStart)
-		data, err := io.ReadAll(mems.file)
+		data, err := os.ReadFile(mems.file.Name())
 		require.NoError(t, err)
 		content := string(data)
 		assert.JSONEq(t, expectedJSON, content)
@@ -63,21 +60,29 @@ func TestMemStorage_save(t *testing.T) {
 }
 
 func TestMemStorage_restore(t *testing.T) {
-	tmpDir := os.TempDir()
-	filepath := tmpDir + "metrics_storage.json"
+	filename, deferFn := tmpFilename(t)
+	defer deferFn()
 
-	// On close storage save state to file
-	mems, _ := New(filepath, 3*time.Minute, true)
-	_, _ = mems.UpdateMetric(&models.Metric{ID: "foo", MType: models.CounterTypeName, Delta: 10})
-	_, _ = mems.UpdateMetric(&models.Metric{ID: "goo", MType: models.GaugeTypeName, Value: 500.233})
-	mems.Close()
+	// Write some metrics to file
+	metricsJSON := `[
+		{
+			"id": "foo",
+			"type": "counter",
+			"delta": 10,
+			"value": 0.0
+		}
+	]`
+	err := os.WriteFile(filename, []byte(metricsJSON), 0644)
+	require.NoError(t, err)
 
-	t.Run("restore ok", func(t *testing.T) {
-		mems, _ = New(tmpDir+"metrics_storage.json", 3*time.Minute, true)
+	t.Run("restore func ok", func(t *testing.T) {
+		mems, err := New(filename, 3*time.Minute, false) // Restore = false
+		require.NoError(t, err)
+		defer mems.Close()
 
-		err := mems.restore()
+		err = mems.restore()
 
 		require.NoError(t, err)
-		assert.Equal(t, 2, mems.Count())
+		assert.Equal(t, 1, mems.Count())
 	})
 }

@@ -1,14 +1,15 @@
 package memstorage
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"sync"
 	"time"
 
+	"github.com/nkiryanov/go-metrics/internal/logger"
 	"github.com/nkiryanov/go-metrics/internal/models"
 	"github.com/nkiryanov/go-metrics/internal/storage"
-	"github.com/nkiryanov/go-metrics/internal/logger"
 )
 
 type counterStore struct {
@@ -22,12 +23,19 @@ type gaugeStore struct {
 }
 
 type MemStorage struct {
+	// Metric storages
 	gauges   gaugeStore
 	counters counterStore
 
+	// File as a persistent storage
+	// Save interval means how often metrics should be saved (0 — should saved synchronously, on each update)
 	file         *os.File
 	fileLock     sync.Mutex
 	saveInterval time.Duration
+
+	// MemStorage context. Should be cancelled when Close() is called
+	ctx    context.Context
+	cancel context.CancelFunc
 }
 
 func New(filePath string, interval time.Duration, restore bool) (*MemStorage, error) {
@@ -40,27 +48,39 @@ func New(filePath string, interval time.Duration, restore bool) (*MemStorage, er
 		return nil, err
 	}
 
+	// Initialize context with cancel function
+	ctx, cancel := context.WithCancel(context.Background())
+
 	storage := &MemStorage{
 		counters: counterStore{storage: make(map[string]int64)},
 		gauges:   gaugeStore{storage: make(map[string]float64)},
 
 		file:         file,
 		saveInterval: interval,
+
+		ctx:    ctx,
+		cancel: cancel,
 	}
 
-	if !restore {
-		return storage, nil
+	// Restore storage data from file if needed
+	if restore {
+		if err = storage.restore(); err != nil {
+			return nil, err
+		}
+		logger.Slog.Info("storage: restored from file")
 	}
 
-	// Restore storage data from file
-	if err = storage.restore(); err != nil {
-		return nil, err
+	// Run interval saver if needed
+	if storage.saveInterval > 0 {
+		go intervalSaver(storage)
+		logger.Slog.Infow("storage: interval saver started", "interval", storage.saveInterval.String())
 	}
 
 	return storage, nil
 }
 
 func (s *MemStorage) Close() error {
+	s.cancel()
 	if err := s.save(); err != nil {
 		return err
 	}
@@ -129,7 +149,9 @@ func (s *MemStorage) UpdateMetric(in *models.Metric) (models.Metric, error) {
 	if s.isSaveSync() {
 		go func() {
 			if err := s.save(); err != nil {
-				logger.Slog.Error("fail saving failed", "error", err.Error())
+				logger.Slog.Errorw("fail saving failed", "error", err.Error())
+			} else {
+				logger.Slog.Debugw("memstorage: metrics saved", "metric", "in")
 			}
 		}()
 	}

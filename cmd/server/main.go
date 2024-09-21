@@ -35,7 +35,7 @@ func main() {
 	}
 	opts.Parse()
 
-	// Init logger
+	// Initialize logger
 	if err := logger.Initialize(opts.LogLevel); err != nil {
 		log.Fatal("logger could not be initialized, %w", err.Error())
 	}
@@ -45,12 +45,14 @@ func main() {
 	if err != nil {
 		logger.Slog.Fatal("storage initialization failed", "error", err.Error())
 	}
+	defer s.Close()
 
 	srv := &app.ServerApp{
 		Opts:    opts,
 		Handler: handlers.NewMetricRouter(s),
 	}
 
+	// Initialize context that cancelled on SIGTERM
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
 		stop := make(chan os.Signal, 1)

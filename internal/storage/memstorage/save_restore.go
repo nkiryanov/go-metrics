@@ -4,7 +4,9 @@ import (
 	"bufio"
 	"encoding/json"
 	"io"
+	"time"
 
+	"github.com/nkiryanov/go-metrics/internal/logger"
 	"github.com/nkiryanov/go-metrics/internal/models"
 )
 
@@ -100,4 +102,24 @@ func (s *MemStorage) restore() error {
 		}
 	}
 	return nil
+}
+
+// Initialize and run intervalSaver per interval
+// Should be stopped when MemStorage ctx cancelled
+func intervalSaver(s *MemStorage) {
+	ticker := time.NewTicker(s.saveInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			if err := s.save(); err != nil {
+				logger.Slog.Errorw("storage: save failed", "error", err.Error())
+			} else {
+				logger.Slog.Debug("storage: saved")
+			}
+		case <-s.ctx.Done():
+			return
+		}
+	}
 }

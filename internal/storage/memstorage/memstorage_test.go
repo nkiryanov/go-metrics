@@ -15,15 +15,20 @@ import (
 
 // Test helper. Create storage that store state in temp file.
 // Return *MemStorage and fn to defer on test end
-func memstorage() (s *MemStorage, deferFn func()) {
-	// Tmp directory for persistent storage
-	tmpDir := os.TempDir()
+func memstorage(t *testing.T, interval time.Duration) (s *MemStorage, deferFn func()) {
+	var err error
 
-	s, _ = New(tmpDir+"metrics.json", 3*time.Minute, true)
+	// Tmp directory for persistent storage
+	tmpFile, err := os.CreateTemp("", "metrics.json")
+	require.NoError(t, err)
+
+	s, err = New(tmpFile.Name(), interval, true)
+	require.NoError(t, err)
 
 	deferFn = func() {
-		_ = s.Close()
-		_ = os.RemoveAll(tmpDir)
+		err = s.Close()
+		require.NoError(t, err)
+		_ = os.Remove(tmpFile.Name())
 	}
 
 	return s, deferFn
@@ -34,7 +39,7 @@ func TestMemStorage_UpdateMetric(t *testing.T) {
 	mGauge := models.Metric{ID: "foo", MType: models.GaugeTypeName, Value: 500.23}
 
 	t.Run("counter once ok", func(t *testing.T) {
-		storage, deferFn := memstorage()
+		storage, deferFn := memstorage(t, 3*time.Minute)
 		defer deferFn()
 
 		got, err := storage.UpdateMetric(&mCounter)
@@ -44,7 +49,7 @@ func TestMemStorage_UpdateMetric(t *testing.T) {
 	})
 
 	t.Run("counter several ok", func(t *testing.T) {
-		storage, deferFn := memstorage()
+		storage, deferFn := memstorage(t, 3*time.Minute)
 		defer deferFn()
 		metric := models.Metric{ID: "foo", MType: models.CounterTypeName, Delta: 10}
 
@@ -56,7 +61,7 @@ func TestMemStorage_UpdateMetric(t *testing.T) {
 	})
 
 	t.Run("gauge once ok", func(t *testing.T) {
-		storage, deferFn := memstorage()
+		storage, deferFn := memstorage(t, 3*time.Minute)
 		defer deferFn()
 
 		got, err := storage.UpdateMetric(&mGauge)
@@ -66,7 +71,7 @@ func TestMemStorage_UpdateMetric(t *testing.T) {
 	})
 
 	t.Run("gauge several ok", func(t *testing.T) {
-		storage, deferFn := memstorage()
+		storage, deferFn := memstorage(t, 3*time.Minute)
 		defer deferFn()
 		yaGauge := models.Metric{ID: "foo", MType: models.GaugeTypeName, Value: 123.1}
 
@@ -78,7 +83,7 @@ func TestMemStorage_UpdateMetric(t *testing.T) {
 	})
 
 	t.Run("fail if unknown type", func(t *testing.T) {
-		storage, deferFn := memstorage()
+		storage, deferFn := memstorage(t, 3*time.Minute)
 		defer deferFn()
 		metric := models.Metric{ID: "foo", MType: "unknown", Value: 500.23}
 
@@ -88,7 +93,7 @@ func TestMemStorage_UpdateMetric(t *testing.T) {
 	})
 
 	t.Run("concurrently ok", func(t *testing.T) {
-		storage, deferFn := memstorage()
+		storage, deferFn := memstorage(t, 3*time.Minute)
 		defer deferFn()
 
 		var wg sync.WaitGroup
@@ -107,11 +112,8 @@ func TestMemStorage_UpdateMetric(t *testing.T) {
 	})
 
 	t.Run("call save if isSaveSync", func(t *testing.T) {
-		storage, deferFn := memstorage()
+		storage, deferFn := memstorage(t, 0*time.Second)
 		defer deferFn()
-
-		// Set save interval to 0 to call save immediately; isSaveSync = true
-		storage.saveInterval = 0 * time.Second
 
 		_, _ = storage.UpdateMetric(&mCounter)
 		time.Sleep(100 * time.Millisecond)
@@ -123,11 +125,8 @@ func TestMemStorage_UpdateMetric(t *testing.T) {
 	})
 
 	t.Run("do not write to file if not isSaveSync", func(t *testing.T) {
-		storage, deferFn := memstorage()
+		storage, deferFn := memstorage(t, 10*time.Second)
 		defer deferFn()
-
-		// Set save interval to 10s to not call save immediately; isSaveSync = false
-		storage.saveInterval = 10 * time.Second
 
 		_, _ = storage.UpdateMetric(&mCounter)
 		time.Sleep(100 * time.Millisecond)
@@ -139,7 +138,7 @@ func TestMemStorage_UpdateMetric(t *testing.T) {
 }
 
 func TestMemStorage_Count(t *testing.T) {
-	storage, deferFn := memstorage()
+	storage, deferFn := memstorage(t, 3*time.Minute)
 	defer deferFn()
 	_, _ = storage.UpdateMetric(&models.Metric{ID: "foo", MType: models.CounterTypeName, Delta: 10})
 	_, _ = storage.UpdateMetric(&models.Metric{ID: "bar", MType: models.CounterTypeName, Delta: 200})
@@ -161,7 +160,7 @@ func TestMemStorage_GetMetric(t *testing.T) {
 	barCounter := models.Metric{ID: "bar", MType: models.CounterTypeName, Delta: 200}
 	fooGauge := models.Metric{ID: "foo", MType: models.GaugeTypeName, Value: 500.233}
 
-	storage, deferFn := memstorage()
+	storage, deferFn := memstorage(t, 3*time.Minute)
 	defer deferFn()
 	_, _ = storage.UpdateMetric(&fooCounter)
 	_, _ = storage.UpdateMetric(&barCounter)
@@ -252,7 +251,7 @@ func TestMemStorage_Iterate(t *testing.T) {
 	barCounter := models.Metric{ID: "bar", MType: models.CounterTypeName, Delta: 200}
 	fooGauge := models.Metric{ID: "foo", MType: models.GaugeTypeName, Value: 500.233}
 
-	storage, deferFn := memstorage()
+	storage, deferFn := memstorage(t, 3*time.Minute)
 	defer deferFn()
 	_, _ = storage.UpdateMetric(&fooCounter)
 	_, _ = storage.UpdateMetric(&barCounter)
