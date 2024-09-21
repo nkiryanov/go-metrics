@@ -105,6 +105,37 @@ func TestMemStorage_UpdateMetric(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, mGauge, got)
 	})
+
+	t.Run("call save if isSaveSync", func(t *testing.T) {
+		storage, deferFn := memstorage()
+		defer deferFn()
+
+		// Set save interval to 0 to call save immediately; isSaveSync = true
+		storage.saveInterval = 0 * time.Second
+
+		_, _ = storage.UpdateMetric(&mCounter)
+		time.Sleep(100 * time.Millisecond)
+
+		data, err := os.ReadFile(storage.file.Name())
+		require.NoError(t, err)
+		require.NotEmpty(t, data)
+		assert.JSONEq(t, `[{"id":"foo","type":"counter","delta":10,"value":0}]`, string(data))
+	})
+
+	t.Run("do not write to file if not isSaveSync", func(t *testing.T) {
+		storage, deferFn := memstorage()
+		defer deferFn()
+
+		// Set save interval to 10s to not call save immediately; isSaveSync = false
+		storage.saveInterval = 10 * time.Second
+
+		_, _ = storage.UpdateMetric(&mCounter)
+		time.Sleep(100 * time.Millisecond)
+
+		data, err := os.ReadFile(storage.file.Name())
+		require.NoError(t, err)
+		require.Empty(t, data)
+	})
 }
 
 func TestMemStorage_Count(t *testing.T) {

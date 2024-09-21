@@ -25,6 +25,7 @@ func tmpFilename() (filename string, deferFn func()) {
 	return filename, deferFn
 }
 
+
 func TestMemStorage_save(t *testing.T) {
 	filename, deferFn := tmpFilename()
 	defer deferFn()

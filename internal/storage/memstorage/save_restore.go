@@ -8,6 +8,12 @@ import (
 	"github.com/nkiryanov/go-metrics/internal/models"
 )
 
+// Whether save should be synchronous, on every update
+func (s *MemStorage) isSaveSync() bool {
+	return s.saveInterval == 0
+}
+
+// Save the metrics to the file
 func (s *MemStorage) save() error {
 	s.fileLock.Lock()
 	defer s.fileLock.Unlock()
@@ -59,6 +65,7 @@ func (s *MemStorage) save() error {
 	return nil
 }
 
+// Restore the metrics from the file
 func (s *MemStorage) restore() error {
 	s.fileLock.Lock()
 	defer s.fileLock.Unlock()

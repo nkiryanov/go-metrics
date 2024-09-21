@@ -8,6 +8,7 @@ import (
 
 	"github.com/nkiryanov/go-metrics/internal/models"
 	"github.com/nkiryanov/go-metrics/internal/storage"
+	"github.com/nkiryanov/go-metrics/internal/logger"
 )
 
 type counterStore struct {
@@ -123,6 +124,14 @@ func (s *MemStorage) UpdateMetric(in *models.Metric) (models.Metric, error) {
 		metric.Value = gauge
 	default:
 		return metric, fmt.Errorf("unknown metric type: %s", metric.MType)
+	}
+
+	if s.isSaveSync() {
+		go func() {
+			if err := s.save(); err != nil {
+				logger.Slog.Error("fail saving failed", "error", err.Error())
+			}
+		}()
 	}
 
 	return metric, nil
