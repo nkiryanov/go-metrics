@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -14,33 +15,34 @@ import (
 )
 
 // Test helper. Create storage that store state in temp file.
-// Return *MemStorage and fn to defer on test end
-func memstorage(t *testing.T, interval time.Duration) (s *MemStorage, deferFn func()) {
+// Return *MemStorage and close func. The close should be run on end of the test, to release resources
+func memstorage(t *testing.T, interval time.Duration) (*MemStorage, func()) {
 	var err error
 
 	// Tmp directory for persistent storage
-	tmpFile, err := os.CreateTemp("", "metrics.json")
+	tmpFile, err := os.CreateTemp("", "metrics_*.json")
+	require.NoError(t, err)
+	filename := tmpFile.Name()
+
+	storage, err := New(filename, interval, true)
 	require.NoError(t, err)
 
-	s, err = New(tmpFile.Name(), interval, true)
-	require.NoError(t, err)
-
-	deferFn = func() {
-		err = s.Close()
+	closeFn := func() {
+		err = storage.Close()
 		require.NoError(t, err)
-		_ = os.Remove(tmpFile.Name())
+		_ = os.Remove(filename)
 	}
 
-	return s, deferFn
+	return storage, closeFn
 }
 
 func TestMemStorage_UpdateMetric(t *testing.T) {
 	mCounter := models.Metric{ID: "foo", MType: models.CounterTypeName, Delta: 10}
 	mGauge := models.Metric{ID: "foo", MType: models.GaugeTypeName, Value: 500.23}
 
-	t.Run("counter once ok", func(t *testing.T) {
-		storage, deferFn := memstorage(t, 3*time.Minute)
-		defer deferFn()
+	t.Run("counter update once ok", func(t *testing.T) {
+		storage, close := memstorage(t, 3*time.Minute)
+		defer close()
 
 		got, err := storage.UpdateMetric(&mCounter)
 
@@ -48,9 +50,9 @@ func TestMemStorage_UpdateMetric(t *testing.T) {
 		assert.Equal(t, mCounter, got)
 	})
 
-	t.Run("counter several ok", func(t *testing.T) {
-		storage, deferFn := memstorage(t, 3*time.Minute)
-		defer deferFn()
+	t.Run("counter update several ok", func(t *testing.T) {
+		storage, close := memstorage(t, 3*time.Minute)
+		defer close()
 		metric := models.Metric{ID: "foo", MType: models.CounterTypeName, Delta: 10}
 
 		_, _ = storage.UpdateMetric(&metric)
@@ -60,9 +62,9 @@ func TestMemStorage_UpdateMetric(t *testing.T) {
 		assert.Equal(t, models.Metric{ID: "foo", MType: models.CounterTypeName, Delta: 20}, got, "counter should increase")
 	})
 
-	t.Run("gauge once ok", func(t *testing.T) {
-		storage, deferFn := memstorage(t, 3*time.Minute)
-		defer deferFn()
+	t.Run("gauge update once ok", func(t *testing.T) {
+		storage, close := memstorage(t, 3*time.Minute)
+		defer close()
 
 		got, err := storage.UpdateMetric(&mGauge)
 
@@ -70,9 +72,9 @@ func TestMemStorage_UpdateMetric(t *testing.T) {
 		assert.Equal(t, mGauge, got)
 	})
 
-	t.Run("gauge several ok", func(t *testing.T) {
-		storage, deferFn := memstorage(t, 3*time.Minute)
-		defer deferFn()
+	t.Run("gauge update several ok", func(t *testing.T) {
+		storage, close := memstorage(t, 3*time.Minute)
+		defer close()
 		yaGauge := models.Metric{ID: "foo", MType: models.GaugeTypeName, Value: 123.1}
 
 		_, _ = storage.UpdateMetric(&mGauge)
@@ -83,8 +85,8 @@ func TestMemStorage_UpdateMetric(t *testing.T) {
 	})
 
 	t.Run("fail if unknown type", func(t *testing.T) {
-		storage, deferFn := memstorage(t, 3*time.Minute)
-		defer deferFn()
+		storage, close := memstorage(t, 3*time.Minute)
+		defer close()
 		metric := models.Metric{ID: "foo", MType: "unknown", Value: 500.23}
 
 		_, err := storage.UpdateMetric(&metric)
@@ -93,8 +95,8 @@ func TestMemStorage_UpdateMetric(t *testing.T) {
 	})
 
 	t.Run("concurrently ok", func(t *testing.T) {
-		storage, deferFn := memstorage(t, 3*time.Minute)
-		defer deferFn()
+		storage, close := memstorage(t, 3*time.Minute)
+		defer close()
 
 		var wg sync.WaitGroup
 		for range 10 {
@@ -111,29 +113,41 @@ func TestMemStorage_UpdateMetric(t *testing.T) {
 		assert.Equal(t, mGauge, got)
 	})
 
-	t.Run("call save if isSaveSync", func(t *testing.T) {
-		storage, deferFn := memstorage(t, 0*time.Second)
-		defer deferFn()
+	t.Run("call saver ok", func(t *testing.T) {
+		tests := []struct {
+			name         string
+			interval     time.Duration
+			expectCalled bool
+		}{
+			{
+				"call if interval zero",
+				0 * time.Second,
+				true,
+			},
+			{
+				"not call if interval > zero",
+				1 * time.Second,
+				false,
+			},
+		}
 
-		_, _ = storage.UpdateMetric(&mCounter)
-		time.Sleep(100 * time.Millisecond)
+		for _, tc := range tests {
+			t.Run(tc.name, func(t *testing.T) {
+				storage, close := memstorage(t, tc.interval)
+				defer close()
 
-		data, err := os.ReadFile(storage.file.Name())
-		require.NoError(t, err)
-		require.NotEmpty(t, data)
-		assert.JSONEq(t, `[{"id":"foo","type":"counter","delta":10,"value":0}]`, string(data))
-	})
+				// Mock memstorage saver
+				var saverCalled atomic.Bool
+				storage.saver = func(s *MemStorage) error { saverCalled.Store(true); return nil }
 
-	t.Run("do not write to file if not isSaveSync", func(t *testing.T) {
-		storage, deferFn := memstorage(t, 10*time.Second)
-		defer deferFn()
+				// Update metric and give enough time to run goroutine
+				_, err := storage.UpdateMetric(&mCounter)
+				require.NoError(t, err)
+				time.Sleep(100 * time.Millisecond)
 
-		_, _ = storage.UpdateMetric(&mCounter)
-		time.Sleep(100 * time.Millisecond)
-
-		data, err := os.ReadFile(storage.file.Name())
-		require.NoError(t, err)
-		require.Empty(t, data)
+				assert.Equal(t, tc.expectCalled, saverCalled.Load())
+			})
+		}
 	})
 }
 

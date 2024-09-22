@@ -22,6 +22,9 @@ type gaugeStore struct {
 	storage map[string]float64
 }
 
+type saveFunc func(s *MemStorage) error
+type restoreFunc func(s *MemStorage) error
+
 type MemStorage struct {
 	// Metric storages
 	gauges   gaugeStore
@@ -32,6 +35,8 @@ type MemStorage struct {
 	file         *os.File
 	fileLock     sync.Mutex
 	saveInterval time.Duration
+	saver        saveFunc
+	restorer     restoreFunc
 
 	// MemStorage context. Should be cancelled when Close() is called
 	ctx    context.Context
@@ -57,6 +62,8 @@ func New(filePath string, interval time.Duration, restore bool) (*MemStorage, er
 
 		file:         file,
 		saveInterval: interval,
+		saver:        memSave,
+		restorer:     memRestore,
 
 		ctx:    ctx,
 		cancel: cancel,
@@ -72,11 +79,35 @@ func New(filePath string, interval time.Duration, restore bool) (*MemStorage, er
 
 	// Run interval saver if needed
 	if storage.saveInterval > 0 {
-		go intervalSaver(storage)
+		go func(s *MemStorage) {
+			ticker := time.NewTicker(s.saveInterval)
+			defer ticker.Stop()
+
+			for {
+				select {
+				case <-ticker.C:
+					if err := s.save(); err != nil {
+						logger.Slog.Errorw("storage: save failed", "error", err.Error())
+					} else {
+						logger.Slog.Debug("storage: saved")
+					}
+				case <-s.ctx.Done():
+					return
+				}
+			}
+		}(storage)
 		logger.Slog.Infow("storage: interval saver started", "interval", storage.saveInterval.String())
 	}
 
 	return storage, nil
+}
+
+func (s *MemStorage) save() error {
+	return s.saver(s)
+}
+
+func (s *MemStorage) restore() error {
+	return s.restorer(s)
 }
 
 func (s *MemStorage) Close() error {
@@ -146,12 +177,12 @@ func (s *MemStorage) UpdateMetric(in *models.Metric) (models.Metric, error) {
 		return metric, fmt.Errorf("unknown metric type: %s", metric.MType)
 	}
 
-	if s.isSaveSync() {
+	if s.saveInterval == 0 {
 		go func() {
 			if err := s.save(); err != nil {
-				logger.Slog.Errorw("fail saving failed", "error", err.Error())
+				logger.Slog.Errorw("metrics saving failed", "error", err.Error())
 			} else {
-				logger.Slog.Debugw("memstorage: metrics saved", "metric", "in")
+				logger.Slog.Debugw("metrics saved", "metric", in)
 			}
 		}()
 	}
