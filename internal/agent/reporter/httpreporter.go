@@ -41,7 +41,7 @@ func (rept *HTTPReporter) ReportOnce(m *models.Metric) error {
 
 	encoder := json.NewEncoder(gz)
 	if err := encoder.Encode(models.NewMetricJSON(m)); err != nil {
-		logger.Slog.Error("reporter: request error", "error", err.Error())
+		logger.Slog.Errorw("reporter: request error", "error", err.Error())
 		return err
 	}
 
@@ -51,7 +51,7 @@ func (rept *HTTPReporter) ReportOnce(m *models.Metric) error {
 
 	request, err := http.NewRequest(http.MethodPost, rept.addr+"/update", body)
 	if err != nil {
-		logger.Slog.Error("reporter: error when create request", "error", err.Error())
+		logger.Slog.Errorw("reporter: error when create request", "error", err.Error())
 		return err
 	}
 
@@ -60,13 +60,13 @@ func (rept *HTTPReporter) ReportOnce(m *models.Metric) error {
 
 	resp, err := rept.client.Do(request)
 	if err != nil {
-		logger.Slog.Error("reporter: http client error", "error", err.Error())
+		logger.Slog.Errorw("reporter: http client error", "error", err.Error())
 		return err
 	}
 	defer resp.Body.Close()
 
 	if status := resp.StatusCode; status != http.StatusOK {
-		logger.Slog.Error("reporter: server responds with not OK", "code", status, "body", resp.Body)
+		logger.Slog.Errorw("reporter: server responds with not OK", "code", status, "body", resp.Body)
 		return fmt.Errorf("reporter: metric update error = %s", resp.Body)
 	}
 

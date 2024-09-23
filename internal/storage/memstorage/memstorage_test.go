@@ -1,8 +1,12 @@
-package storage
+package memstorage
 
 import (
+	"errors"
+	"os"
 	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/nkiryanov/go-metrics/internal/models"
 
@@ -10,12 +14,35 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// Test helper. Create storage that store state in temp file.
+// Return *MemStorage and close func. The close should be run on end of the test, to release resources
+func memstorage(t *testing.T, interval time.Duration) (*MemStorage, func()) {
+	var err error
+
+	// Tmp directory for persistent storage
+	tmpFile, err := os.CreateTemp("", "metrics_*.json")
+	require.NoError(t, err)
+	filename := tmpFile.Name()
+
+	storage, err := New(filename, interval, true)
+	require.NoError(t, err)
+
+	closeFn := func() {
+		err = storage.Close()
+		require.NoError(t, err)
+		_ = os.Remove(filename)
+	}
+
+	return storage, closeFn
+}
+
 func TestMemStorage_UpdateMetric(t *testing.T) {
 	mCounter := models.Metric{ID: "foo", MType: models.CounterTypeName, Delta: 10}
 	mGauge := models.Metric{ID: "foo", MType: models.GaugeTypeName, Value: 500.23}
 
-	t.Run("counter once ok", func(t *testing.T) {
-		storage := NewMemStorage()
+	t.Run("counter update once ok", func(t *testing.T) {
+		storage, close := memstorage(t, 3*time.Minute)
+		defer close()
 
 		got, err := storage.UpdateMetric(&mCounter)
 
@@ -23,8 +50,9 @@ func TestMemStorage_UpdateMetric(t *testing.T) {
 		assert.Equal(t, mCounter, got)
 	})
 
-	t.Run("counter several ok", func(t *testing.T) {
-		storage := NewMemStorage()
+	t.Run("counter update several ok", func(t *testing.T) {
+		storage, close := memstorage(t, 3*time.Minute)
+		defer close()
 		metric := models.Metric{ID: "foo", MType: models.CounterTypeName, Delta: 10}
 
 		_, _ = storage.UpdateMetric(&metric)
@@ -34,8 +62,9 @@ func TestMemStorage_UpdateMetric(t *testing.T) {
 		assert.Equal(t, models.Metric{ID: "foo", MType: models.CounterTypeName, Delta: 20}, got, "counter should increase")
 	})
 
-	t.Run("gauge once ok", func(t *testing.T) {
-		storage := NewMemStorage()
+	t.Run("gauge update once ok", func(t *testing.T) {
+		storage, close := memstorage(t, 3*time.Minute)
+		defer close()
 
 		got, err := storage.UpdateMetric(&mGauge)
 
@@ -43,8 +72,9 @@ func TestMemStorage_UpdateMetric(t *testing.T) {
 		assert.Equal(t, mGauge, got)
 	})
 
-	t.Run("gauge several ok", func(t *testing.T) {
-		storage := NewMemStorage()
+	t.Run("gauge update several ok", func(t *testing.T) {
+		storage, close := memstorage(t, 3*time.Minute)
+		defer close()
 		yaGauge := models.Metric{ID: "foo", MType: models.GaugeTypeName, Value: 123.1}
 
 		_, _ = storage.UpdateMetric(&mGauge)
@@ -55,7 +85,8 @@ func TestMemStorage_UpdateMetric(t *testing.T) {
 	})
 
 	t.Run("fail if unknown type", func(t *testing.T) {
-		storage := NewMemStorage()
+		storage, close := memstorage(t, 3*time.Minute)
+		defer close()
 		metric := models.Metric{ID: "foo", MType: "unknown", Value: 500.23}
 
 		_, err := storage.UpdateMetric(&metric)
@@ -64,7 +95,8 @@ func TestMemStorage_UpdateMetric(t *testing.T) {
 	})
 
 	t.Run("concurrently ok", func(t *testing.T) {
-		storage := NewMemStorage()
+		storage, close := memstorage(t, 3*time.Minute)
+		defer close()
 
 		var wg sync.WaitGroup
 		for range 10 {
@@ -80,10 +112,48 @@ func TestMemStorage_UpdateMetric(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, mGauge, got)
 	})
+
+	t.Run("call saver ok", func(t *testing.T) {
+		tests := []struct {
+			name         string
+			interval     time.Duration
+			expectCalled bool
+		}{
+			{
+				"call if interval zero",
+				0 * time.Second,
+				true,
+			},
+			{
+				"not call if interval > zero",
+				1 * time.Second,
+				false,
+			},
+		}
+
+		for _, tc := range tests {
+			t.Run(tc.name, func(t *testing.T) {
+				storage, close := memstorage(t, tc.interval)
+				defer close()
+
+				// Mock memstorage saver
+				var saverCalled atomic.Bool
+				storage.saver = func(s *MemStorage) error { saverCalled.Store(true); return nil }
+
+				// Update metric and give enough time to run goroutine
+				_, err := storage.UpdateMetric(&mCounter)
+				require.NoError(t, err)
+				time.Sleep(100 * time.Millisecond)
+
+				assert.Equal(t, tc.expectCalled, saverCalled.Load())
+			})
+		}
+	})
 }
 
 func TestMemStorage_Count(t *testing.T) {
-	storage := NewMemStorage()
+	storage, deferFn := memstorage(t, 3*time.Minute)
+	defer deferFn()
 	_, _ = storage.UpdateMetric(&models.Metric{ID: "foo", MType: models.CounterTypeName, Delta: 10})
 	_, _ = storage.UpdateMetric(&models.Metric{ID: "bar", MType: models.CounterTypeName, Delta: 200})
 	_, _ = storage.UpdateMetric(&models.Metric{ID: "goo", MType: models.GaugeTypeName, Value: 500.233})
@@ -104,7 +174,8 @@ func TestMemStorage_GetMetric(t *testing.T) {
 	barCounter := models.Metric{ID: "bar", MType: models.CounterTypeName, Delta: 200}
 	fooGauge := models.Metric{ID: "foo", MType: models.GaugeTypeName, Value: 500.233}
 
-	storage := NewMemStorage()
+	storage, deferFn := memstorage(t, 3*time.Minute)
+	defer deferFn()
 	_, _ = storage.UpdateMetric(&fooCounter)
 	_, _ = storage.UpdateMetric(&barCounter)
 	_, _ = storage.UpdateMetric(&fooGauge)
@@ -194,7 +265,8 @@ func TestMemStorage_Iterate(t *testing.T) {
 	barCounter := models.Metric{ID: "bar", MType: models.CounterTypeName, Delta: 200}
 	fooGauge := models.Metric{ID: "foo", MType: models.GaugeTypeName, Value: 500.233}
 
-	storage := NewMemStorage()
+	storage, deferFn := memstorage(t, 3*time.Minute)
+	defer deferFn()
 	_, _ = storage.UpdateMetric(&fooCounter)
 	_, _ = storage.UpdateMetric(&barCounter)
 	_, _ = storage.UpdateMetric(&fooGauge)
@@ -202,8 +274,9 @@ func TestMemStorage_Iterate(t *testing.T) {
 	t.Run("iterate ok", func(t *testing.T) {
 		metrics := make([]models.Metric, 0)
 
-		storage.Iterate(func(m models.Metric) {
+		_ = storage.Iterate(func(m models.Metric) error {
 			metrics = append(metrics, m)
+			return nil
 		})
 
 		require.Equal(t, 3, len(metrics))
@@ -219,12 +292,28 @@ func TestMemStorage_Iterate(t *testing.T) {
 		for range 10 {
 			wg.Add(1)
 			go func() {
-				storage.Iterate(func(models.Metric) {})
+				_ = storage.Iterate(func(models.Metric) error { return nil })
 				wg.Done()
 			}()
 		}
 
-		storage.Iterate(func(models.Metric) { iterCount++ })
+		_ = storage.Iterate(func(models.Metric) error { iterCount++; return nil })
 		assert.Equal(t, 3, iterCount)
+	})
+
+	t.Run("iterate stop on error", func(t *testing.T) {
+		iterCalled := 0
+		iterFn := func(m models.Metric) error {
+			iterCalled++
+			if iterCalled == 2 {
+				return errors.New("error on iterated function occurred")
+			}
+			return nil
+		}
+
+		err := storage.Iterate(iterFn)
+
+		require.Error(t, err)
+		assert.Equal(t, 2, iterCalled, "Iterate should stop on error")
 	})
 }

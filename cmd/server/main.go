@@ -7,21 +7,31 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/nkiryanov/go-metrics/cmd/server/app"
 	"github.com/nkiryanov/go-metrics/cmd/server/opts"
 	"github.com/nkiryanov/go-metrics/internal/handlers"
 	"github.com/nkiryanov/go-metrics/internal/logger"
-	"github.com/nkiryanov/go-metrics/internal/storage"
+	"github.com/nkiryanov/go-metrics/internal/storage/memstorage"
 )
 
+// Defaults
 const (
-	listenAddr = "localhost:8080"
+	listenAddr    = "localhost:8080"
+	logLevel      = "info"
+	filePath      = "server_data.json"
+	storeInterval = 300 * time.Second
+	restore       = false
 )
 
 func main() {
 	opts := &opts.Options{
-		ListenAddr: listenAddr,
+		ListenAddr:    listenAddr,
+		LogLevel:      logLevel,
+		FilePath:      filePath,
+		StoreInterval: storeInterval,
+		Restore:       restore,
 	}
 	opts.Parse()
 
@@ -30,13 +40,19 @@ func main() {
 		log.Fatal("logger could not be initialized, %w", err.Error())
 	}
 
-	s := storage.NewMemStorage()
+	// Initialize storage
+	s, err := memstorage.New(opts.FilePath, opts.StoreInterval, opts.Restore)
+	if err != nil {
+		logger.Slog.Fatal("storage initialization failed", "error", err.Error())
+	}
+	defer s.Close()
 
 	srv := &app.ServerApp{
 		Opts:    opts,
 		Handler: handlers.NewMetricRouter(s),
 	}
 
+	// Initialize context that cancelled on SIGTERM
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
 		stop := make(chan os.Signal, 1)

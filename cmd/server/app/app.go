@@ -16,7 +16,7 @@ type ServerApp struct {
 
 // Run starts http server and closes gracefully on context cancellation
 func (s *ServerApp) Run(ctx context.Context) error {
-	logger.Slog.Info("Starting server", "ListenAddr", s.Opts.ListenAddr)
+	logger.Slog.Infow("Starting server", "ListenAddr", s.Opts.ListenAddr)
 
 	httpServer := &http.Server{
 		Addr:    s.Opts.ListenAddr,
@@ -36,7 +36,7 @@ func (s *ServerApp) Run(ctx context.Context) error {
 		if err := httpServer.Shutdown(timeoutCtx); err == context.DeadlineExceeded {
 			logger.Slog.Error("force http server shutdown...")
 		}
-		logger.Slog.Info("HTTP server stopped")
+		logger.Slog.Infow("HTTP server stopped")
 		close(idleConnsClosed)
 	}()
 

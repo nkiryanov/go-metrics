@@ -69,10 +69,8 @@ func parseReptAddr(ra *string) func(string) error {
 	}
 }
 
-// Interval for parsing purpose only.
-// Will be converted to duration as soon as parsed
-type IntvValue time.Duration
-
+// Parse interval to time.Duration
+// The behavior is the same as time.Duration, but if units not specified than 'seconds' is used.
 func parseIntv(intv *time.Duration) func(string) error {
 	return func(flagValue string) error {
 		// If no suffix add 's'
@@ -84,7 +82,7 @@ func parseIntv(intv *time.Duration) func(string) error {
 		if err != nil {
 			return err
 		}
-		if d < 0 {
+		if d <= 0 {
 			return errors.New("must be positive")
 		}
 		*intv = d

@@ -235,16 +235,18 @@ func TestHandlers_GetMetricJSON(t *testing.T) {
 }
 
 func TestHandlers_ListMetrics(t *testing.T) {
-	fooCounter := &models.Metric{ID: "foo", MType: "counter", Delta: 100}
-	barCounter := &models.Metric{ID: "bar", MType: "counter", Delta: 200}
-	memGauge := &models.Metric{ID: "mem-load", MType: "gauge", Value: 234.23}
+	// Mocked storage; behave like it has 3 stored metrics.
+	mockedStorage := &mocks.StorageMock{
+		CountFunc: func() int { return 3 },
+		IterateFunc: func(iter storage.IterFunc) error {
+			_ = iter(models.Metric{ID: "foo", MType: models.CounterTypeName, Delta: 100})
+			_ = iter(models.Metric{ID: "bar", MType: models.CounterTypeName, Delta: 200})
+			_ = iter(models.Metric{ID: "mem-load", MType: models.GaugeTypeName, Value: 234.23})
+			return nil
+		},
+	}
 
-	stor := storage.NewMemStorage()
-	stor.UpdateMetric(fooCounter) // nolint:errcheck
-	stor.UpdateMetric(barCounter) // nolint:errcheck
-	stor.UpdateMetric(memGauge)   // nolint:errcheck
-
-	router := NewMetricRouter(stor)
+	router := NewMetricRouter(mockedStorage)
 	srv := httptest.NewServer(router)
 	defer srv.Close()
 

@@ -22,7 +22,7 @@ import (
 //			GetMetricFunc: func(mID string, mType string) (models.Metric, bool, error) {
 //				panic("mock out the GetMetric method")
 //			},
-//			IterateFunc: func(iter storage.IterFunc)  {
+//			IterateFunc: func(iter storage.IterFunc) error {
 //				panic("mock out the Iterate method")
 //			},
 //			UpdateMetricFunc: func(in *models.Metric) (models.Metric, error) {
@@ -42,7 +42,7 @@ type StorageMock struct {
 	GetMetricFunc func(mID string, mType string) (models.Metric, bool, error)
 
 	// IterateFunc mocks the Iterate method.
-	IterateFunc func(iter storage.IterFunc)
+	IterateFunc func(iter storage.IterFunc) error
 
 	// UpdateMetricFunc mocks the UpdateMetric method.
 	UpdateMetricFunc func(in *models.Metric) (models.Metric, error)
@@ -140,7 +140,7 @@ func (mock *StorageMock) GetMetricCalls() []struct {
 }
 
 // Iterate calls IterateFunc.
-func (mock *StorageMock) Iterate(iter storage.IterFunc) {
+func (mock *StorageMock) Iterate(iter storage.IterFunc) error {
 	if mock.IterateFunc == nil {
 		panic("StorageMock.IterateFunc: method is nil but Storage.Iterate was just called")
 	}
@@ -152,7 +152,7 @@ func (mock *StorageMock) Iterate(iter storage.IterFunc) {
 	mock.lockIterate.Lock()
 	mock.calls.Iterate = append(mock.calls.Iterate, callInfo)
 	mock.lockIterate.Unlock()
-	mock.IterateFunc(iter)
+	return mock.IterateFunc(iter)
 }
 
 // IterateCalls gets all the calls that were made to Iterate.
