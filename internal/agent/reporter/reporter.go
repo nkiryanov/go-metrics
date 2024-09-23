@@ -1,20 +1,14 @@
 package reporter
 
 import (
-	"fmt"
+	"github.com/nkiryanov/go-metrics/internal/models"
 )
-
-type Metric struct {
-	Name  string
-	Type  string
-	Value fmt.Stringer
-}
 
 type Reporter interface {
 	// Should report metric
 	// Return error if any error occurs
-	ReportOnce(m *Metric) error
+	ReportOnce(m *models.Metric) error
 
 	// Should iterate ms and report all of them
-	ReportBatch(ms []*Metric) error
+	ReportBatch(ms []models.Metric) error
 }

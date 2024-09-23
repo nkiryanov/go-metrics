@@ -34,7 +34,7 @@ func main() {
 
 	srv := &app.ServerApp{
 		Opts:    opts,
-		Handler: handlers.NewMetricRouter(s, storage.MemParser{}),
+		Handler: handlers.NewMetricRouter(s),
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())

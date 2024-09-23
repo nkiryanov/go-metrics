@@ -4,28 +4,35 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
 
 	"github.com/nkiryanov/go-metrics/internal/handlers/templates"
 	"github.com/nkiryanov/go-metrics/internal/storage"
 )
 
 const (
+	URLMetricID    string = "mID"
 	URLMetricType  string = "mType"
-	URLMetricName  string = "mName"
 	URLMetricValue string = "mValue"
 )
 
-func NewMetricRouter(stor storage.Storage, parser storage.StorableParser) http.Handler {
+func NewMetricRouter(stor storage.Storage) http.Handler {
 	router := chi.NewRouter()
 
 	router.Use(LoggerMiddleware)
 
-	router.With(middleware.SetHeader("Content-Type", "text/html")).Get("/", listMetrics(stor, templates.MetricList))
-	router.With(middleware.SetHeader("Content-Type", "text/plain")).Get("/value/{mType}/{mName}", getMetric(stor))
-	router.Route("/update", func(r chi.Router) {
-		r.Use(middleware.SetHeader("Content-Type", "text/plain"))
-		r.Post("/{mType}/{mName}/{mValue}", updateMetric(stor, parser))
+	// Root level
+	router.Get("/", listMetrics(stor, templates.MetricList))
+
+	// Routers for /value
+	router.Route("/value", func(router chi.Router) {
+		router.Get("/{mType}/{mID}", getMetricPlain(stor))
+		router.Post("/", getMetricJSON(stor))
+	})
+
+	// Routers for /update
+	router.Route("/update", func(router chi.Router) {
+		router.Post("/", updateMetricJSON(stor))
+		router.Post("/{mType}/{mID}/{mValue}", updateMetricPlain(stor))
 	})
 
 	return router

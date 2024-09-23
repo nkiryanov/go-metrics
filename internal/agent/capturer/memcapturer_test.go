@@ -4,27 +4,28 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/nkiryanov/go-metrics/internal/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func getStatNames(stats []Stat) []string {
-	names := make([]string, 0, len(stats))
-	for _, stat := range stats {
-		names = append(names, stat.Name)
+func getMetricIDs(metrics []models.Metric) []string {
+	ids := make([]string, 0, len(metrics))
+	for _, metric := range metrics {
+		ids = append(ids, metric.ID)
 	}
-	return names
+	return ids
 }
 
 func TestMemCapturer(t *testing.T) {
-	expectedNames := append(gauges, counters...)
+	expectedIDs := append(gauges, counters...)
 
 	t.Run("capture return all stats", func(t *testing.T) {
 		mc := NewMemCapturer()
 
 		stats := mc.Capture()
 
-		assert.EqualValues(t, expectedNames, getStatNames(stats))
+		assert.EqualValues(t, expectedIDs, getMetricIDs(stats))
 	})
 
 	t.Run("CaptureAndSave actually save, ok", func(t *testing.T) {
@@ -32,25 +33,26 @@ func TestMemCapturer(t *testing.T) {
 
 		mc.CaptureAndSave()
 
-		assert.Equal(t, len(expectedNames), len(mc.stor))
+		assert.Equal(t, len(expectedIDs), len(mc.stor))
+		assert.Contains(t, mc.stor, models.Metric{ID: "PollCount", MType: "counter", Delta: 1}, "captured PollCount has to be on first call")
 	})
 
 	t.Run("Last on empty, ok", func(t *testing.T) {
 		mc := NewMemCapturer()
 
-		stats := mc.Last()
+		metrics := mc.Last()
 
-		assert.Equal(t, 0, len(stats), "it stats not saved yet should return empty slice")
+		assert.Equal(t, 0, len(metrics), "should return empty slice if metrics not saved yet")
 	})
 
 	t.Run("Last when captured", func(t *testing.T) {
 		mc := NewMemCapturer()
 		mc.CaptureAndSave()
 
-		stats := mc.Last()
+		metrics := mc.Last()
 
-		require.Equal(t, len(expectedNames), len(stats))
-		assert.EqualValues(t, expectedNames, getStatNames(stats))
+		require.Equal(t, len(expectedIDs), len(metrics))
+		assert.EqualValues(t, expectedIDs, getMetricIDs(metrics))
 	})
 
 	t.Run("save and read not race", func(t *testing.T) {
@@ -65,8 +67,8 @@ func TestMemCapturer(t *testing.T) {
 		}
 
 		wg.Wait()
-		stats := mc.Last()
+		metrics := mc.Last()
 
-		assert.Equal(t, len(expectedNames), len(stats))
+		assert.Equal(t, len(expectedIDs), len(metrics))
 	})
 }
