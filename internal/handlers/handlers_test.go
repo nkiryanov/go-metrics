@@ -70,7 +70,7 @@ func TestHandler_UpdateMetricPlain(t *testing.T) {
 			srv := httptest.NewServer(router)
 			defer srv.Close()
 
-			req := resty.New().R()
+			req := resty.New().R().SetHeader("Accept-Encoding", "")
 			req.Method = tc.method
 			req.URL = srv.URL + tc.url
 
@@ -95,6 +95,7 @@ func TestHandlers_UpdateMetricJSON(t *testing.T) {
 
 		resp, err := resty.New().
 			R().
+			SetHeader("Accept-Encoding", "").
 			SetBody(`{"id": "cpu-usage", "type": "counter", "delta": 100}`).
 			Post(srv.URL + "/update/")
 
@@ -159,7 +160,7 @@ func TestHandlers_GetMetricPlain(t *testing.T) {
 			srv := httptest.NewServer(router)
 			defer srv.Close()
 
-			req := resty.New().R()
+			req := resty.New().R().SetHeader("Accept-Encoding", "")
 			req.Method = tc.method
 			req.URL = srv.URL + tc.url
 
@@ -222,6 +223,7 @@ func TestHandlers_GetMetricJSON(t *testing.T) {
 
 			resp, err := resty.New().
 				R().
+				SetHeader("Accept-Encoding", "").
 				SetBody(tc.request).
 				Post(srv.URL + "/value/")
 
@@ -266,6 +268,7 @@ func TestHandlers_ListMetrics(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			req := resty.New().R()
+			req.SetHeader("Accept-Encoding", "")
 			req.Method = tc.method
 			req.URL = srv.URL + tc.url
 

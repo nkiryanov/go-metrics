@@ -236,9 +236,9 @@ jobs:
             -server-port=$SERVER_PORT \
             -source-path=.
 
-      # The main branch is disabled until pr iter8 is ready
       - name: "Code increment #8"
         if: |
+          github.ref == 'refs/heads/main' ||
           github.head_ref == 'iter8' ||
           github.head_ref == 'iter9' ||
           github.head_ref == 'iter10' ||

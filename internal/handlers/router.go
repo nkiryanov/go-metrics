@@ -18,7 +18,7 @@ const (
 func NewMetricRouter(stor storage.Storage) http.Handler {
 	router := chi.NewRouter()
 
-	router.Use(LoggerMiddleware)
+	router.Use(LoggerMiddleware, GzipMiddleware)
 
 	// Root level
 	router.Get("/", listMetrics(stor, templates.MetricList))

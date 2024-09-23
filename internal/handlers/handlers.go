@@ -165,13 +165,14 @@ func listMetrics(s storage.Storage, tpl *template.Template) http.HandlerFunc {
 			return metrics[i].ID < metrics[j].ID
 		})
 
+		w.Header().Set("Content-Type", "text/html")
+		w.WriteHeader(http.StatusOK)
+
 		if err := tpl.Execute(w, metrics); err != nil {
 			logger.Slog.Error("list metric templated generation failed", "error", err.Error())
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-
-		w.Header().Set("Content-Type", "text/html")
 	}
 }
 

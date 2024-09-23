@@ -1,6 +1,9 @@
 package handlers
 
 import (
+	"bytes"
+	"compress/gzip"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -15,7 +18,10 @@ import (
 )
 
 func TestLoggerMiddleware(t *testing.T) {
+	// Replace global logger with observed one. Reset to default when finish
 	defer logger.Reset()
+	coreLogger, recorded := observer.New(zapcore.InfoLevel)
+	logger.Slog = zap.New(coreLogger).Sugar()
 
 	// Define a dummy handler for testing
 	dumbHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -31,10 +37,6 @@ func TestLoggerMiddleware(t *testing.T) {
 		}
 		return keys
 	}
-
-	//
-	core, recorded := observer.New(zapcore.InfoLevel)
-	logger.Slog = zap.New(core).Sugar()
 
 	lgrHandler := LoggerMiddleware(dumbHandler)
 
@@ -52,5 +54,64 @@ func TestLoggerMiddleware(t *testing.T) {
 		assert.Equal(t, "got HTTP request", logEntry.Message)
 		assert.ElementsMatch(t, []string{"method", "uri", "duration", "size", "status"}, loggedKeys(logEntry))
 
+	})
+}
+
+func TestGzipMiddleWare(t *testing.T) {
+	okHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("OK"))
+	})
+
+	gzipCompress := func(data string) io.Reader {
+		var buf bytes.Buffer
+		w := gzip.NewWriter(&buf)
+		_, _ = w.Write([]byte(data))
+		w.Close()
+		return &buf
+	}
+
+	gzipHandler := GzipMiddleware(okHandler)
+
+	t.Run("compressed request ok", func(t *testing.T) {
+		r := httptest.NewRequest(http.MethodPost, "/test-uri", gzipCompress(`{"some": "data"`))
+		r.Header.Set("Content-Encoding", "gzip")
+		r.Header.Set("Accept-Encoding", "")
+		w := httptest.NewRecorder()
+
+		gzipHandler.ServeHTTP(w, r)
+
+		response := w.Result()
+		defer response.Body.Close()
+
+		body, err := io.ReadAll(response.Body)
+		require.NoError(t, err)
+
+		require.Equal(t, http.StatusOK, response.StatusCode)
+		assert.Equal(t, "OK", string(body))
+	})
+
+	t.Run("send compressed request ok", func(t *testing.T) {
+		r := httptest.NewRequest(http.MethodGet, "/test-uri", nil)
+		r.Header.Set("Accept-Encoding", "gzip")
+		w := httptest.NewRecorder()
+
+		gzipHandler.ServeHTTP(w, r)
+
+		response := w.Result()
+		defer response.Body.Close()
+
+		require.Equal(t, "gzip", response.Header.Get("Content-Encoding"))
+
+		// Read and decompress body
+		gzipReader, err := gzip.NewReader(response.Body)
+		require.NoError(t, err)
+		defer gzipReader.Close()
+
+		body, err := io.ReadAll(gzipReader)
+		require.NoError(t, err)
+
+		require.Equal(t, http.StatusOK, response.StatusCode)
+		assert.Equal(t, "OK", string(body))
 	})
 }
