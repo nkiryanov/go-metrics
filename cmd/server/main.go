@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"log/slog"
+	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -11,6 +11,7 @@ import (
 	"github.com/nkiryanov/go-metrics/cmd/server/app"
 	"github.com/nkiryanov/go-metrics/cmd/server/opts"
 	"github.com/nkiryanov/go-metrics/internal/handlers"
+	"github.com/nkiryanov/go-metrics/internal/logger"
 	"github.com/nkiryanov/go-metrics/internal/storage"
 )
 
@@ -22,8 +23,12 @@ func main() {
 	opts := &opts.Options{
 		ListenAddr: listenAddr,
 	}
-
 	opts.Parse()
+
+	// Initialize logger
+	if err := logger.Initialize(opts.LogLevel); err != nil {
+		log.Fatal("logger could not be initialized, %w", err.Error())
+	}
 
 	s := storage.NewMemStorage()
 
@@ -37,12 +42,12 @@ func main() {
 		stop := make(chan os.Signal, 1)
 		signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 		<-stop
-		slog.Warn("Interrupt signal")
+		logger.Slog.Warn("Interrupt signal")
 		cancel()
 	}()
 
 	if err := srv.Run(ctx); err != http.ErrServerClosed {
-		slog.Error("HTTP server Shutdown", "error", err.Error())
+		logger.Slog.Error("HTTP server Shutdown", "error", err.Error())
 		os.Exit(1)
 	}
 }

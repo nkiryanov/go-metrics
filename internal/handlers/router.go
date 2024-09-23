@@ -19,6 +19,8 @@ const (
 func NewMetricRouter(stor storage.Storage, parser storage.StorableParser) http.Handler {
 	router := chi.NewRouter()
 
+	router.Use(LoggerMiddleware)
+
 	router.With(middleware.SetHeader("Content-Type", "text/html")).Get("/", listMetrics(stor, templates.MetricList))
 	router.With(middleware.SetHeader("Content-Type", "text/plain")).Get("/value/{mType}/{mName}", getMetric(stor))
 	router.Route("/update", func(r chi.Router) {

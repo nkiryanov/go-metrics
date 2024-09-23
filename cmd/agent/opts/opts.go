@@ -13,6 +13,7 @@ import (
 
 type Options struct {
 	ReptAddr string
+	LogLevel string
 
 	PollIntv time.Duration
 	ReptIntv time.Duration
@@ -22,6 +23,9 @@ func (opts *Options) Parse() {
 	flag.Func("a", "report address in format http://reports.com", parseReptAddr(&opts.ReptAddr))
 	flag.Func("p", "capturer polling interval (in seconds by default). Should be positive number like: 10 or 10s or 1m.", parseIntv(&opts.PollIntv))
 	flag.Func("r", "report interval (in seconds by default). Should be positive number like: 10 or 10s or 1m.", parseIntv(&opts.ReptIntv))
+
+	flag.StringVar(&opts.LogLevel, "l", "info", "log level like info, debug, error, etc.")
+
 	flag.Parse()
 
 	opts.parseEnv()
@@ -32,6 +36,7 @@ func (opts *Options) parseEnv() {
 		"ADDRESS":         parseReptAddr(&opts.ReptAddr),
 		"REPORT_INTERVAL": parseIntv(&opts.ReptIntv),
 		"POLL_INTERVAL":   parseIntv(&opts.PollIntv),
+		"LOG_LEVEL":       func(value string) error { opts.LogLevel = value; return nil },
 	}
 
 	for key, parseFn := range envMap {

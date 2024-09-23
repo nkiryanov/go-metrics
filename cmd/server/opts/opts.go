@@ -3,18 +3,21 @@ package opts
 import (
 	"errors"
 	"flag"
-	"log/slog"
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/nkiryanov/go-metrics/internal/logger"
 )
 
 type Options struct {
 	ListenAddr string
+	LogLevel   string
 }
 
 func (opts *Options) Parse() {
 	flag.Func("a", "server listen address in format 'host:port'", parseListenAddr(&opts.ListenAddr))
+	flag.StringVar(&opts.LogLevel, "l", "info", "log level like info, debug, error, etc.")
 	flag.Parse()
 
 	opts.parseEnv()
@@ -22,15 +25,16 @@ func (opts *Options) Parse() {
 
 func (opts *Options) parseEnv() {
 	envMap := map[string]func(string) error{
-		"ADDRESS": parseListenAddr(&opts.ListenAddr),
+		"ADDRESS":   parseListenAddr(&opts.ListenAddr),
+		"LOG_LEVEL": func(value string) error { opts.LogLevel = value; return nil },
 	}
 
 	for key, parseFn := range envMap {
 		if envVar := os.Getenv(key); envVar != "" {
 			if err := parseFn(envVar); err != nil {
-				slog.Error("invalid env variable, skipped", key, envVar, "error", err.Error())
+				logger.Slog.Error("invalid env variable, skipped", key, envVar, "error", err.Error())
 			} else {
-				slog.Info("Set args form env", key, envVar)
+				logger.Slog.Info("Set args form env", key, envVar)
 			}
 		}
 	}

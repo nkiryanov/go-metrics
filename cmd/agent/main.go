@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"log/slog"
+	"log"
 	"os"
 	"os/signal"
 	"syscall"
@@ -10,6 +10,7 @@ import (
 
 	"github.com/nkiryanov/go-metrics/internal/agent/capturer"
 	"github.com/nkiryanov/go-metrics/internal/agent/reporter"
+	"github.com/nkiryanov/go-metrics/internal/logger"
 
 	"github.com/go-resty/resty/v2"
 	"github.com/nkiryanov/go-metrics/cmd/agent/app"
@@ -29,15 +30,18 @@ func main() {
 		PollIntv: PollIntv,
 		ReptIntv: ReptIntv,
 	}
-
 	opts.Parse()
+
+	if err := logger.Initialize(opts.LogLevel); err != nil {
+		log.Fatal("cant initialize logger, %w", err.Error())
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
 		stop := make(chan os.Signal, 1)
 		signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 		<-stop
-		slog.Warn("Interrupt signal")
+		logger.Slog.Warn("Interrupt signal")
 		cancel()
 	}()
 
@@ -50,7 +54,7 @@ func main() {
 	}
 
 	if err := agent.Run(ctx); err != app.ErrAgentStopped {
-		slog.Error("Something terrible happened", "error", err)
+		logger.Slog.Error("Something terrible happened", "error", err)
 		os.Exit(1)
 	}
 }
