@@ -66,7 +66,7 @@ func TestHandler_UpdateMetricPlain(t *testing.T) {
 				return result, tc.storageUpdateErr
 			}}
 
-			router := NewMetricRouter(mockedStorage)
+			router := NewMetricRouter(mockedStorage, nil)
 			srv := httptest.NewServer(router)
 			defer srv.Close()
 
@@ -89,7 +89,7 @@ func TestHandlers_UpdateMetricJSON(t *testing.T) {
 		mockedStorage := &mocks.StorageMock{UpdateMetricFunc: func(m *models.Metric) (models.Metric, error) {
 			return *m, nil
 		}}
-		router := NewMetricRouter(mockedStorage)
+		router := NewMetricRouter(mockedStorage, nil)
 		srv := httptest.NewServer(router)
 		defer srv.Close()
 
@@ -156,7 +156,7 @@ func TestHandlers_GetMetricPlain(t *testing.T) {
 				return tc.storReturnValue, tc.storReturnOk, tc.storReturnErr
 			}}
 
-			router := NewMetricRouter(mockedStorage)
+			router := NewMetricRouter(mockedStorage, nil)
 			srv := httptest.NewServer(router)
 			defer srv.Close()
 
@@ -217,7 +217,7 @@ func TestHandlers_GetMetricJSON(t *testing.T) {
 				return tc.storReturnValue, tc.storReturnOk, tc.storReturnErr
 			}}
 
-			router := NewMetricRouter(mockedStorage)
+			router := NewMetricRouter(mockedStorage, nil)
 			srv := httptest.NewServer(router)
 			defer srv.Close()
 
@@ -246,7 +246,7 @@ func TestHandlers_ListMetrics(t *testing.T) {
 		},
 	}
 
-	router := NewMetricRouter(mockedStorage)
+	router := NewMetricRouter(mockedStorage, nil)
 	srv := httptest.NewServer(router)
 	defer srv.Close()
 
@@ -283,4 +283,19 @@ func TestHandlers_ListMetrics(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestHandler_dbPing(t *testing.T) {
+	// Just test fail path for now
+	router := NewMetricRouter(nil, nil)
+
+	srv := httptest.NewServer(router)
+	defer srv.Close()
+
+	t.Run("500 if no db", func(t *testing.T) {
+		resp, err := resty.New().R().SetHeader("Accept-Encoding", "").Get(srv.URL + "/ping")
+
+		require.NoError(t, err)
+		assert.Equal(t, 500, resp.StatusCode())
+	})
 }

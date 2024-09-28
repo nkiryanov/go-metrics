@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"database/sql"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -15,7 +16,7 @@ const (
 	URLMetricValue string = "mValue"
 )
 
-func NewMetricRouter(stor storage.Storage) http.Handler {
+func NewMetricRouter(stor storage.Storage, db *sql.DB) http.Handler {
 	router := chi.NewRouter()
 
 	router.Use(LoggerMiddleware, GzipMiddleware)
@@ -34,6 +35,9 @@ func NewMetricRouter(stor storage.Storage) http.Handler {
 		router.Post("/", updateMetricJSON(stor))
 		router.Post("/{mType}/{mID}/{mValue}", updateMetricPlain(stor))
 	})
+
+	// Routers for /ping
+	router.Get("/ping", dbPing(db))
 
 	return router
 }

@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"database/sql"
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"log"
 	"net/http"
 	"os"
@@ -23,6 +25,7 @@ const (
 	filePath      = "server_data.json"
 	storeInterval = 300 * time.Second
 	restore       = false
+	dsn           = "postgres://go-metrics@localhost:5432/go-metrics"
 )
 
 func main() {
@@ -32,6 +35,7 @@ func main() {
 		FilePath:      filePath,
 		StoreInterval: storeInterval,
 		Restore:       restore,
+		Dsn:           dsn,
 	}
 	opts.Parse()
 
@@ -47,9 +51,16 @@ func main() {
 	}
 	defer s.Close()
 
+	// Initialize database
+	db, err := sql.Open("pgx", opts.Dsn)
+	if err != nil {
+		log.Fatal("couldn't initialize DB connection", err.Error())
+	}
+	defer db.Close()
+
 	srv := &app.ServerApp{
 		Opts:    opts,
-		Handler: handlers.NewMetricRouter(s),
+		Handler: handlers.NewMetricRouter(s, db),
 	}
 
 	// Initialize context that cancelled on SIGTERM
