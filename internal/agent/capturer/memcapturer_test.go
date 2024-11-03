@@ -10,11 +10,11 @@ import (
 )
 
 func getMetricIDs(metrics []models.Metric) []string {
-	ids := make([]string, 0, len(metrics))
+	names := make([]string, 0, len(metrics))
 	for _, metric := range metrics {
-		ids = append(ids, metric.ID)
+		names = append(names, metric.Name)
 	}
-	return ids
+	return names
 }
 
 func TestMemCapturer(t *testing.T) {
@@ -34,7 +34,7 @@ func TestMemCapturer(t *testing.T) {
 		mc.CaptureAndSave()
 
 		assert.Equal(t, len(expectedIDs), len(mc.stor))
-		assert.Contains(t, mc.stor, models.Metric{ID: "PollCount", MType: "counter", Delta: 1}, "captured PollCount has to be on first call")
+		assert.Contains(t, mc.stor, models.Metric{Name: "PollCount", Type: "counter", Delta: 1}, "captured PollCount has to be on first call")
 	})
 
 	t.Run("Last on empty, ok", func(t *testing.T) {

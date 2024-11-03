@@ -2,6 +2,9 @@ package models
 
 import (
 	"strconv"
+
+	"encoding/json"
+	"fmt"
 )
 
 const (
@@ -10,14 +13,75 @@ const (
 )
 
 type Metric struct {
-	ID    string  `json:"id"`
-	MType string  `json:"type"`
+	Type string   `json:"type"`
+	Name string   `json:"id"`
 	Delta int64   `json:"delta"`
 	Value float64 `json:"value"`
 }
 
+func (m Metric) MarshalJSON() ([]byte, error) {
+	switch m.Type {
+	case CounterTypeName:
+		return json.Marshal(struct {
+			Type string `json:"type"`
+			ID string   `json:"id"`
+			Delta int64 `json:"delta"`
+		}{
+			Type: m.Type,
+			ID: m.Name,
+			Delta: m.Delta,
+		})
+	case GaugeTypeName:
+		return json.Marshal(struct {
+			Type string `json:"type"`
+			ID string `json:"id"`
+			Value float64 `json:"value"`
+		}{
+			Type: m.Type,
+			ID: m.Name,
+			Value: m.Value,
+		})
+	default:
+		return nil, fmt.Errorf("unsupported metric type: %s", m.Type)
+	}
+}
+
+func (m *Metric) UnmarshalJSON(data []byte) error {
+	temp := struct {
+		Type string `json:"type"`
+		Name string `json:"id"`
+		Delta *int64 `json:"delta,omitempty"`
+		Value *float64 `json:"value,omitempty"`
+	}{}
+
+	if err := json.Unmarshal(data, &temp); err != nil {
+		return err
+	}
+
+	switch temp.Type {
+	case CounterTypeName:
+		if temp.Delta != nil {
+			m.Type = temp.Type
+			m.Name = temp.Name
+			m.Delta = *temp.Delta
+		} else {
+			return fmt.Errorf("missing 'delta' for 'counter' type")
+		}
+	case GaugeTypeName:
+		if temp.Value != nil {
+			m.Type = temp.Type
+			m.Name = temp.Name
+			m.Value = *temp.Value
+		} else {
+			return fmt.Errorf("missing 'value' for 'gauge' type")
+		}
+	}
+	
+	return fmt.Errorf("unsupported type: '%s'", temp.Type)
+}
+
 func (m *Metric) String() string {
-	switch m.MType {
+	switch m.Type {
 	case CounterTypeName:
 		return strconv.FormatInt(m.Delta, 10)
 	case GaugeTypeName:
@@ -25,24 +89,4 @@ func (m *Metric) String() string {
 	default:
 		return ""
 	}
-}
-
-// The same as Metic, but replaces Delta and Value with pointers to allow for omitempty
-type MetricJSON struct {
-	*Metric
-	Delta *int64   `json:"delta,omitempty"`
-	Value *float64 `json:"value,omitempty"`
-}
-
-func NewMetricJSON(m *Metric) (mJSON *MetricJSON) {
-	mJSON = &MetricJSON{Metric: m}
-
-	switch m.MType {
-	case CounterTypeName:
-		mJSON.Delta = &m.Delta
-	case GaugeTypeName:
-		mJSON.Value = &m.Value
-	}
-
-	return
 }

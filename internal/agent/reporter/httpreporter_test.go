@@ -35,12 +35,12 @@ func TestHTTPReporter_ReportOnce(t *testing.T) {
 	}{
 		{
 			"report counter, ok",
-			&models.Metric{ID: "poll-count", MType: "counter", Delta: 213},
+			&models.Metric{Name: "poll-count", Type: "counter", Delta: 213},
 			`{"id": "poll-count", "type": "counter", "delta": 213}`,
 		},
 		{
 			"report gauge, ok",
-			&models.Metric{ID: "mem-usage", MType: "gauge", Value: 239239.3983},
+			&models.Metric{Name: "mem-usage", Type: "gauge", Value: 239239.3983},
 			`{"id": "mem-usage", "type": "gauge", "value": 239239.3983}`,
 		},
 	}
@@ -79,8 +79,8 @@ func TestHTTPReporter_ReportBatch(t *testing.T) {
 
 		err := rept.ReportBatch(
 			[]models.Metric{
-				{ID: "smth", MType: "counter", Delta: 2},     // Valid metric
-				{ID: "ya-smth", MType: "counter", Delta: 22}, // Yet another valid metric
+				{Name: "smth", Type: "counter", Delta: 2},     // Valid metric
+				{Name: "ya-smth", Type: "counter", Delta: 22}, // Yet another valid metric
 			},
 		)
 
@@ -94,10 +94,10 @@ func TestHTTPReporter_ReportBatch(t *testing.T) {
 
 		err := rept.ReportBatch(
 			[]models.Metric{
-				{ID: "smth", MType: "counter", Delta: 2},     // Valid metric
-				{ID: "ya-smth", MType: "counter", Delta: 22}, // Yet another valid metric
-				{ID: "smth-invalid", MType: "not-valid"},     // Invalid
-				{ID: "fuck", MType: "not-valid"},             // Ya invalid
+				{Name: "smth", Type: "counter", Delta: 2},     // Valid metric
+				{Name: "ya-smth", Type: "counter", Delta: 22}, // Yet another valid metric
+				{Name: "smth-invalid", Type: "not-valid"},     // Invalid
+				{Name: "fuck", Type: "not-valid"},             // Ya invalid
 			},
 		)
 

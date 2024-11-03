@@ -37,8 +37,8 @@ func memstorage(t *testing.T, interval time.Duration) (*MemStorage, func()) {
 }
 
 func TestMemStorage_UpdateMetric(t *testing.T) {
-	mCounter := models.Metric{ID: "foo", MType: models.CounterTypeName, Delta: 10}
-	mGauge := models.Metric{ID: "foo", MType: models.GaugeTypeName, Value: 500.23}
+	mCounter := models.Metric{Name: "foo", Type: models.CounterTypeName, Delta: 10}
+	mGauge := models.Metric{Name: "foo", Type: models.GaugeTypeName, Value: 500.23}
 
 	t.Run("counter update once ok", func(t *testing.T) {
 		storage, close := memstorage(t, 3*time.Minute)
@@ -53,13 +53,13 @@ func TestMemStorage_UpdateMetric(t *testing.T) {
 	t.Run("counter update several ok", func(t *testing.T) {
 		storage, close := memstorage(t, 3*time.Minute)
 		defer close()
-		metric := models.Metric{ID: "foo", MType: models.CounterTypeName, Delta: 10}
+		metric := models.Metric{Name: "foo", Type: models.CounterTypeName, Delta: 10}
 
 		_, _ = storage.UpdateMetric(&metric)
 		got, err := storage.UpdateMetric(&metric)
 
 		assert.NoError(t, err)
-		assert.Equal(t, models.Metric{ID: "foo", MType: models.CounterTypeName, Delta: 20}, got, "counter should increase")
+		assert.Equal(t, models.Metric{Name: "foo", Type: models.CounterTypeName, Delta: 20}, got, "counter should increase")
 	})
 
 	t.Run("gauge update once ok", func(t *testing.T) {
@@ -75,7 +75,7 @@ func TestMemStorage_UpdateMetric(t *testing.T) {
 	t.Run("gauge update several ok", func(t *testing.T) {
 		storage, close := memstorage(t, 3*time.Minute)
 		defer close()
-		yaGauge := models.Metric{ID: "foo", MType: models.GaugeTypeName, Value: 123.1}
+		yaGauge := models.Metric{Name: "foo", Type: models.GaugeTypeName, Value: 123.1}
 
 		_, _ = storage.UpdateMetric(&mGauge)
 		got, err := storage.UpdateMetric(&yaGauge)
@@ -87,7 +87,7 @@ func TestMemStorage_UpdateMetric(t *testing.T) {
 	t.Run("fail if unknown type", func(t *testing.T) {
 		storage, close := memstorage(t, 3*time.Minute)
 		defer close()
-		metric := models.Metric{ID: "foo", MType: "unknown", Value: 500.23}
+		metric := models.Metric{Name: "foo", Type: "unknown", Value: 500.23}
 
 		_, err := storage.UpdateMetric(&metric)
 
@@ -154,9 +154,9 @@ func TestMemStorage_UpdateMetric(t *testing.T) {
 func TestMemStorage_Count(t *testing.T) {
 	storage, deferFn := memstorage(t, 3*time.Minute)
 	defer deferFn()
-	_, _ = storage.UpdateMetric(&models.Metric{ID: "foo", MType: models.CounterTypeName, Delta: 10})
-	_, _ = storage.UpdateMetric(&models.Metric{ID: "bar", MType: models.CounterTypeName, Delta: 200})
-	_, _ = storage.UpdateMetric(&models.Metric{ID: "goo", MType: models.GaugeTypeName, Value: 500.233})
+	_, _ = storage.UpdateMetric(&models.Metric{Name: "foo", Type: models.CounterTypeName, Delta: 10})
+	_, _ = storage.UpdateMetric(&models.Metric{Name: "bar", Type: models.CounterTypeName, Delta: 200})
+	_, _ = storage.UpdateMetric(&models.Metric{Name: "goo", Type: models.GaugeTypeName, Value: 500.233})
 
 	var wg sync.WaitGroup
 	for range 10 {
@@ -170,9 +170,9 @@ func TestMemStorage_Count(t *testing.T) {
 }
 
 func TestMemStorage_GetMetric(t *testing.T) {
-	fooCounter := models.Metric{ID: "foo", MType: models.CounterTypeName, Delta: 10}
-	barCounter := models.Metric{ID: "bar", MType: models.CounterTypeName, Delta: 200}
-	fooGauge := models.Metric{ID: "foo", MType: models.GaugeTypeName, Value: 500.233}
+	fooCounter := models.Metric{Name: "foo", Type: models.CounterTypeName, Delta: 10}
+	barCounter := models.Metric{Name: "bar", Type: models.CounterTypeName, Delta: 200}
+	fooGauge := models.Metric{Name: "foo", Type: models.GaugeTypeName, Value: 500.233}
 
 	storage, deferFn := memstorage(t, 3*time.Minute)
 	defer deferFn()
@@ -215,7 +215,7 @@ func TestMemStorage_GetMetric(t *testing.T) {
 				"get counter bad",
 				fnArgs{"unknown", models.CounterTypeName},
 				expected{
-					models.Metric{ID: "unknown", MType: models.CounterTypeName},
+					models.Metric{Name: "unknown", Type: models.CounterTypeName},
 					false,
 				},
 			},
@@ -223,7 +223,7 @@ func TestMemStorage_GetMetric(t *testing.T) {
 				"get gauge bad",
 				fnArgs{"bar", models.GaugeTypeName}, // existed id but for counter only
 				expected{
-					models.Metric{ID: "bar", MType: models.GaugeTypeName},
+					models.Metric{Name: "bar", Type: models.GaugeTypeName},
 					false,
 				},
 			},
@@ -261,9 +261,9 @@ func TestMemStorage_GetMetric(t *testing.T) {
 }
 
 func TestMemStorage_Iterate(t *testing.T) {
-	fooCounter := models.Metric{ID: "foo", MType: models.CounterTypeName, Delta: 10}
-	barCounter := models.Metric{ID: "bar", MType: models.CounterTypeName, Delta: 200}
-	fooGauge := models.Metric{ID: "foo", MType: models.GaugeTypeName, Value: 500.233}
+	fooCounter := models.Metric{Name: "foo", Type: models.CounterTypeName, Delta: 10}
+	barCounter := models.Metric{Name: "bar", Type: models.CounterTypeName, Delta: 200}
+	fooGauge := models.Metric{Name: "foo", Type: models.GaugeTypeName, Value: 500.233}
 
 	storage, deferFn := memstorage(t, 3*time.Minute)
 	defer deferFn()

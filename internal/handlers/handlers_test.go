@@ -107,9 +107,9 @@ func TestHandlers_UpdateMetricJSON(t *testing.T) {
 }
 
 func TestHandlers_GetMetricPlain(t *testing.T) {
-	cpuGauge := models.Metric{ID: "cpu-usage", MType: "gauge", Value: 23.23}
-	emptyCounter := models.Metric{ID: "mem-usage", MType: "counter"}
-	unknownMetric := models.Metric{ID: "mem-usage", MType: "unknown-type"}
+	cpuGauge := models.Metric{Name: "cpu-usage", Type: "gauge", Value: 23.23}
+	emptyCounter := models.Metric{Name: "mem-usage", Type: "counter"}
+	unknownMetric := models.Metric{Name: "mem-usage", Type: "unknown-type"}
 
 	tests := []struct {
 		name string
@@ -174,9 +174,9 @@ func TestHandlers_GetMetricPlain(t *testing.T) {
 }
 
 func TestHandlers_GetMetricJSON(t *testing.T) {
-	cpuGauge := models.Metric{ID: "cpu-usage", MType: "gauge", Value: 23.23}
-	emptyCounter := models.Metric{ID: "mem-usage", MType: "counter"}
-	unknownMetric := models.Metric{ID: "mem-usage", MType: "unknown-type"}
+	cpuGauge := models.Metric{Name: "cpu-usage", Type: "gauge", Value: 23.23}
+	emptyCounter := models.Metric{Name: "mem-usage", Type: "counter"}
+	unknownMetric := models.Metric{Name: "mem-usage", Type: "unknown-type"}
 
 	tests := []struct {
 		name string
@@ -239,9 +239,9 @@ func TestHandlers_ListMetrics(t *testing.T) {
 	mockedStorage := &mocks.StorageMock{
 		CountFunc: func() int { return 3 },
 		IterateFunc: func(iter storage.IterFunc) error {
-			_ = iter(models.Metric{ID: "foo", MType: models.CounterTypeName, Delta: 100})
-			_ = iter(models.Metric{ID: "bar", MType: models.CounterTypeName, Delta: 200})
-			_ = iter(models.Metric{ID: "mem-load", MType: models.GaugeTypeName, Value: 234.23})
+			_ = iter(models.Metric{Name: "foo", Type: models.CounterTypeName, Delta: 100})
+			_ = iter(models.Metric{Name: "bar", Type: models.CounterTypeName, Delta: 200})
+			_ = iter(models.Metric{Name: "mem-load", Type: models.GaugeTypeName, Value: 234.23})
 			return nil
 		},
 	}

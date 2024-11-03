@@ -128,23 +128,23 @@ func (s *MemStorage) Count() int {
 	return len(s.counters.storage) + len(s.gauges.storage)
 }
 
-func (s *MemStorage) GetMetric(mID string, mType string) (models.Metric, bool, error) {
+func (s *MemStorage) GetMetric(mName string, mType string) (models.Metric, bool, error) {
 	var ok bool
 
-	metric := models.Metric{ID: mID, MType: mType}
+	metric := models.Metric{Name: mName, Type: mType}
 
 	switch mType {
 	case models.CounterTypeName:
 		s.counters.lock.RLock()
 		var counter int64
-		counter, ok = s.counters.storage[mID]
+		counter, ok = s.counters.storage[mName]
 		metric.Delta = counter
 
 		s.counters.lock.RUnlock()
 	case models.GaugeTypeName:
 		s.gauges.lock.RLock()
 		var gauge float64
-		gauge, ok = s.gauges.storage[mID]
+		gauge, ok = s.gauges.storage[mName]
 		metric.Value = gauge
 
 		s.gauges.lock.RUnlock()
@@ -156,25 +156,25 @@ func (s *MemStorage) GetMetric(mID string, mType string) (models.Metric, bool, e
 }
 
 func (s *MemStorage) UpdateMetric(in *models.Metric) (models.Metric, error) {
-	metric := models.Metric{ID: in.ID, MType: in.MType}
+	metric := models.Metric{Name: in.Name, Type: in.Type}
 
-	switch metric.MType {
+	switch metric.Type {
 	case models.CounterTypeName:
 		s.counters.lock.Lock()
-		s.counters.storage[in.ID] += in.Delta
-		counter := s.counters.storage[in.ID]
+		s.counters.storage[in.Name] += in.Delta
+		counter := s.counters.storage[in.Name]
 		s.counters.lock.Unlock()
 
 		metric.Delta = counter
 	case models.GaugeTypeName:
 		s.gauges.lock.Lock()
-		s.gauges.storage[in.ID] = in.Value
-		gauge := s.gauges.storage[in.ID]
+		s.gauges.storage[in.Name] = in.Value
+		gauge := s.gauges.storage[in.Name]
 		s.gauges.lock.Unlock()
 
 		metric.Value = gauge
 	default:
-		return metric, fmt.Errorf("unknown metric type: %s", metric.MType)
+		return metric, fmt.Errorf("unknown metric type: %s", metric.Type)
 	}
 
 	if s.saveInterval == 0 {
@@ -200,8 +200,8 @@ func (s *MemStorage) Iterate(fn storage.IterFunc) error {
 	var err error
 	for id, counter := range s.counters.storage {
 		if err = fn(models.Metric{
-			ID:    id,
-			MType: models.CounterTypeName,
+			Name:    id,
+			Type: models.CounterTypeName,
 			Delta: counter,
 		}); err != nil {
 			return err
@@ -210,8 +210,8 @@ func (s *MemStorage) Iterate(fn storage.IterFunc) error {
 
 	for id, gauge := range s.gauges.storage {
 		if err = fn(models.Metric{
-			ID:    id,
-			MType: models.GaugeTypeName,
+			Name:    id,
+			Type: models.GaugeTypeName,
 			Value: gauge,
 		}); err != nil {
 			return err

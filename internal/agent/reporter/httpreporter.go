@@ -40,7 +40,7 @@ func (rept *HTTPReporter) ReportOnce(m *models.Metric) error {
 	gz.Reset(body)
 
 	encoder := json.NewEncoder(gz)
-	if err := encoder.Encode(models.NewMetricJSON(m)); err != nil {
+	if err := encoder.Encode(m); err != nil {
 		logger.Slog.Errorw("reporter: request error", "error", err.Error())
 		return err
 	}

@@ -26,7 +26,7 @@ func updateMetricPlain(s storage.Storage) http.HandlerFunc {
 
 		var err error
 		var msg string
-		metric := models.Metric{ID: mID, MType: mType}
+		metric := models.Metric{Name: mID, Type: mType}
 
 		switch mType {
 		case models.CounterTypeName:
@@ -77,9 +77,9 @@ func updateMetricJSON(s storage.Storage) http.HandlerFunc {
 			return
 		}
 
-		logger.Slog.Infow("Metric updated", "id", metric.ID, "type", metric.MType, "value", metric.String())
+		logger.Slog.Infow("Metric updated", "name", metric.Name, "type", metric.Type, "value", metric.String())
 
-		resp, err := json.Marshal(models.NewMetricJSON(&metric))
+		resp, err := json.Marshal(metric)
 		if err != nil {
 			logger.Slog.Error("error while deserializing metric json", "error", err.Error())
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -117,7 +117,7 @@ func getMetricJSON(s storage.Storage) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		req := &struct {
 			ID    string `json:"id"`
-			MType string `json:"type"`
+			Type string `json:"type"`
 		}{}
 
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -126,19 +126,19 @@ func getMetricJSON(s storage.Storage) http.HandlerFunc {
 			return
 		}
 
-		metric, ok, err := s.GetMetric(req.ID, req.MType)
+		metric, ok, err := s.GetMetric(req.ID, req.Type)
 		if err != nil {
 			logger.Slog.Errorw("storage error occurred when metric requested", "error", err.Error())
 			http.Error(w, err.Error(), http.StatusNotFound)
 			return
 		}
 		if !ok {
-			logger.Slog.Infow("metic requested, but not found", "type", req.MType, "id", req.ID)
-			http.Error(w, fmt.Sprintf("metric not found. type: %s, id: %s", req.MType, req.ID), http.StatusNotFound)
+			logger.Slog.Infow("metic requested, but not found", "type", req.Type, "id", req.ID)
+			http.Error(w, fmt.Sprintf("metric not found. type: %s, id: %s", req.Type, req.ID), http.StatusNotFound)
 			return
 		}
 
-		resp, err := json.Marshal(models.NewMetricJSON(&metric))
+		resp, err := json.Marshal(metric)
 		if err != nil {
 			logger.Slog.Errorw("error while deserializing metric json", "error", err.Error())
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -161,7 +161,7 @@ func listMetrics(s storage.Storage, tpl *template.Template) http.HandlerFunc {
 		metrics := make([]metric, 0, s.Count())
 
 		_ = s.Iterate(func(m models.Metric) error {
-			metrics = append(metrics, metric{ID: m.ID, Type: m.MType, Value: m.String()})
+			metrics = append(metrics, metric{ID: m.Name, Type: m.Type, Value: m.String()})
 			return nil
 		})
 
