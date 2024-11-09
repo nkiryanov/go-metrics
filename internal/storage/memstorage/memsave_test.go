@@ -29,13 +29,11 @@ func Test_memSave(t *testing.T) {
 			{
 				"id": "foo",
 				"type": "counter",
-				"delta":10,
-				"value": 0.0
+				"delta":10
 			},
 			{
 				"id": "goo",
 				"type": "gauge",
-				"delta": 0,
 				"value": 500.233
 			}
 		]`

@@ -94,15 +94,13 @@ func TestHTTPReporter_ReportBatch(t *testing.T) {
 
 		err := rept.ReportBatch(
 			[]models.Metric{
-				{Name: "smth", Type: "counter", Delta: 2},     // Valid metric
-				{Name: "ya-smth", Type: "counter", Delta: 22}, // Yet another valid metric
-				{Name: "smth-invalid", Type: "not-valid"},     // Invalid
-				{Name: "fuck", Type: "not-valid"},             // Ya invalid
+				{Name: "smth", Type: "counter", Delta: 2},     // Valid metric, but response 500 on update
+				{Name: "ya-smth", Type: "counter", Delta: 22}, // Ya valid metric, but also 500 returned
 			},
 		)
 
 		require.Error(t, err)
 		info := httpmock.GetCallCountInfo()
-		assert.Equal(t, 4, info["POST http://pornhub.com/update"])
+		assert.Equal(t, 2, info["POST http://pornhub.com/update"])
 	})
 }
