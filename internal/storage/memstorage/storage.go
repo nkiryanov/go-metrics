@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"sort"
 	"sync"
 	"time"
 
@@ -118,45 +119,43 @@ func (s *MemStorage) Close() error {
 	return s.file.Close()
 }
 
-func (s *MemStorage) Count() int {
+func (s *MemStorage) CountMetric() int {
 	s.counters.lock.RLock()
-	defer s.counters.lock.RUnlock()
-
 	s.gauges.lock.RLock()
+	defer s.counters.lock.RUnlock()
 	defer s.gauges.lock.RUnlock()
 
 	return len(s.counters.storage) + len(s.gauges.storage)
 }
 
-func (s *MemStorage) GetMetric(mName string, mType string) (models.Metric, bool, error) {
-	var ok bool
-
-	metric := models.Metric{Name: mName, Type: mType}
+func (s *MemStorage) GetMetric(mType string, mName string) (models.Metric, error) {
+	var err = storage.ErrNoMetric
+	metric := models.Metric{Type: mType, Name: mName}
 
 	switch mType {
 	case models.CounterTypeName:
 		s.counters.lock.RLock()
-		var counter int64
-		counter, ok = s.counters.storage[mName]
-		metric.Delta = counter
-
-		s.counters.lock.RUnlock()
+		defer s.counters.lock.RUnlock()
+		var ok bool
+		metric.Delta, ok = s.counters.storage[mName]
+		if ok {
+			return metric, nil
+		}
 	case models.GaugeTypeName:
 		s.gauges.lock.RLock()
-		var gauge float64
-		gauge, ok = s.gauges.storage[mName]
-		metric.Value = gauge
-
-		s.gauges.lock.RUnlock()
-	default:
-		return metric, false, fmt.Errorf("unknown metric type: %s", mType)
+		defer s.gauges.lock.RUnlock()
+		var ok bool
+		metric.Value, ok = s.gauges.storage[mName]
+		if ok {
+			return metric, nil
+		}
 	}
 
-	return metric, ok, nil
+	return metric, err
 }
 
 func (s *MemStorage) UpdateMetric(in *models.Metric) (models.Metric, error) {
-	metric := models.Metric{Name: in.Name, Type: in.Type}
+	metric := models.Metric{Type: in.Type, Name: in.Name}
 
 	switch metric.Type {
 	case models.CounterTypeName:
@@ -177,45 +176,37 @@ func (s *MemStorage) UpdateMetric(in *models.Metric) (models.Metric, error) {
 		return metric, fmt.Errorf("unknown metric type: %s", metric.Type)
 	}
 
+	// is saveInterval = 0, than save metrics in synchronously
 	if s.saveInterval == 0 {
-		go func() {
-			if err := s.save(); err != nil {
-				logger.Slog.Errorw("metrics saving failed", "error", err.Error())
-			} else {
-				logger.Slog.Debugw("metrics saved", "metric", in)
-			}
-		}()
+		if err := s.save(); err != nil {
+			logger.Slog.Errorw("metrics saving failed", "error", err.Error())
+			return metric, err
+		}
+		logger.Slog.Debugw("metrics saved", "metric", in)
 	}
 
 	return metric, nil
 }
 
-func (s *MemStorage) Iterate(fn storage.IterFunc) error {
-	// Lock counters and gauges to be sure len will not change during iteration
+func (s *MemStorage) ListMetric() ([]models.Metric, error) {
 	s.counters.lock.RLock()
 	defer s.counters.lock.RUnlock()
 	s.gauges.lock.RLock()
 	defer s.gauges.lock.RUnlock()
 
-	var err error
-	for id, counter := range s.counters.storage {
-		if err = fn(models.Metric{
-			Name:    id,
-			Type: models.CounterTypeName,
-			Delta: counter,
-		}); err != nil {
-			return err
-		}
+	metrics := make([]models.Metric, 0, len(s.counters.storage)+len(s.gauges.storage))
+
+	for name, counter := range s.counters.storage {
+		metrics = append(metrics, models.Metric{Name: name, Type: models.CounterTypeName, Delta: counter})
 	}
 
-	for id, gauge := range s.gauges.storage {
-		if err = fn(models.Metric{
-			Name:    id,
-			Type: models.GaugeTypeName,
-			Value: gauge,
-		}); err != nil {
-			return err
-		}
+	for name, gauge := range s.gauges.storage {
+		metrics = append(metrics, models.Metric{Name: name, Type: models.GaugeTypeName, Value: gauge})
 	}
-	return nil
+
+	sort.Slice(metrics, func(i, j int) bool {
+		return metrics[i].Name < metrics[j].Name
+	})
+
+	return metrics, nil
 }

@@ -7,7 +7,6 @@ import (
 	"sync"
 
 	"github.com/nkiryanov/go-metrics/internal/models"
-	"github.com/nkiryanov/go-metrics/internal/storage"
 )
 
 // StorageMock is a mock implementation of storage.Storage.
@@ -16,14 +15,14 @@ import (
 //
 //		// make and configure a mocked storage.Storage
 //		mockedStorage := &StorageMock{
-//			CountFunc: func() int {
-//				panic("mock out the Count method")
+//			CountMetricFunc: func() int {
+//				panic("mock out the CountMetric method")
 //			},
-//			GetMetricFunc: func(mID string, mType string) (models.Metric, bool, error) {
+//			GetMetricFunc: func(mType string, mName string) (models.Metric, error) {
 //				panic("mock out the GetMetric method")
 //			},
-//			IterateFunc: func(iter storage.IterFunc) error {
-//				panic("mock out the Iterate method")
+//			ListMetricFunc: func() ([]models.Metric, error) {
+//				panic("mock out the ListMetric method")
 //			},
 //			UpdateMetricFunc: func(in *models.Metric) (models.Metric, error) {
 //				panic("mock out the UpdateMetric method")
@@ -35,34 +34,32 @@ import (
 //
 //	}
 type StorageMock struct {
-	// CountFunc mocks the Count method.
-	CountFunc func() int
+	// CountMetricFunc mocks the CountMetric method.
+	CountMetricFunc func() int
 
 	// GetMetricFunc mocks the GetMetric method.
-	GetMetricFunc func(mID string, mType string) (models.Metric, bool, error)
+	GetMetricFunc func(mType string, mName string) (models.Metric, error)
 
-	// IterateFunc mocks the Iterate method.
-	IterateFunc func(iter storage.IterFunc) error
+	// ListMetricFunc mocks the ListMetric method.
+	ListMetricFunc func() ([]models.Metric, error)
 
 	// UpdateMetricFunc mocks the UpdateMetric method.
 	UpdateMetricFunc func(in *models.Metric) (models.Metric, error)
 
 	// calls tracks calls to the methods.
 	calls struct {
-		// Count holds details about calls to the Count method.
-		Count []struct {
+		// CountMetric holds details about calls to the CountMetric method.
+		CountMetric []struct {
 		}
 		// GetMetric holds details about calls to the GetMetric method.
 		GetMetric []struct {
-			// MID is the mID argument value.
-			MID string
 			// MType is the mType argument value.
 			MType string
+			// MName is the mName argument value.
+			MName string
 		}
-		// Iterate holds details about calls to the Iterate method.
-		Iterate []struct {
-			// Iter is the iter argument value.
-			Iter storage.IterFunc
+		// ListMetric holds details about calls to the ListMetric method.
+		ListMetric []struct {
 		}
 		// UpdateMetric holds details about calls to the UpdateMetric method.
 		UpdateMetric []struct {
@@ -70,55 +67,55 @@ type StorageMock struct {
 			In *models.Metric
 		}
 	}
-	lockCount        sync.RWMutex
+	lockCountMetric  sync.RWMutex
 	lockGetMetric    sync.RWMutex
-	lockIterate      sync.RWMutex
+	lockListMetric   sync.RWMutex
 	lockUpdateMetric sync.RWMutex
 }
 
-// Count calls CountFunc.
-func (mock *StorageMock) Count() int {
-	if mock.CountFunc == nil {
-		panic("StorageMock.CountFunc: method is nil but Storage.Count was just called")
+// CountMetric calls CountMetricFunc.
+func (mock *StorageMock) CountMetric() int {
+	if mock.CountMetricFunc == nil {
+		panic("StorageMock.CountMetricFunc: method is nil but Storage.CountMetric was just called")
 	}
 	callInfo := struct {
 	}{}
-	mock.lockCount.Lock()
-	mock.calls.Count = append(mock.calls.Count, callInfo)
-	mock.lockCount.Unlock()
-	return mock.CountFunc()
+	mock.lockCountMetric.Lock()
+	mock.calls.CountMetric = append(mock.calls.CountMetric, callInfo)
+	mock.lockCountMetric.Unlock()
+	return mock.CountMetricFunc()
 }
 
-// CountCalls gets all the calls that were made to Count.
+// CountMetricCalls gets all the calls that were made to CountMetric.
 // Check the length with:
 //
-//	len(mockedStorage.CountCalls())
-func (mock *StorageMock) CountCalls() []struct {
+//	len(mockedStorage.CountMetricCalls())
+func (mock *StorageMock) CountMetricCalls() []struct {
 } {
 	var calls []struct {
 	}
-	mock.lockCount.RLock()
-	calls = mock.calls.Count
-	mock.lockCount.RUnlock()
+	mock.lockCountMetric.RLock()
+	calls = mock.calls.CountMetric
+	mock.lockCountMetric.RUnlock()
 	return calls
 }
 
 // GetMetric calls GetMetricFunc.
-func (mock *StorageMock) GetMetric(mID string, mType string) (models.Metric, bool, error) {
+func (mock *StorageMock) GetMetric(mType string, mName string) (models.Metric, error) {
 	if mock.GetMetricFunc == nil {
 		panic("StorageMock.GetMetricFunc: method is nil but Storage.GetMetric was just called")
 	}
 	callInfo := struct {
-		MID   string
 		MType string
+		MName string
 	}{
-		MID:   mID,
 		MType: mType,
+		MName: mName,
 	}
 	mock.lockGetMetric.Lock()
 	mock.calls.GetMetric = append(mock.calls.GetMetric, callInfo)
 	mock.lockGetMetric.Unlock()
-	return mock.GetMetricFunc(mID, mType)
+	return mock.GetMetricFunc(mType, mName)
 }
 
 // GetMetricCalls gets all the calls that were made to GetMetric.
@@ -126,12 +123,12 @@ func (mock *StorageMock) GetMetric(mID string, mType string) (models.Metric, boo
 //
 //	len(mockedStorage.GetMetricCalls())
 func (mock *StorageMock) GetMetricCalls() []struct {
-	MID   string
 	MType string
+	MName string
 } {
 	var calls []struct {
-		MID   string
 		MType string
+		MName string
 	}
 	mock.lockGetMetric.RLock()
 	calls = mock.calls.GetMetric
@@ -139,35 +136,30 @@ func (mock *StorageMock) GetMetricCalls() []struct {
 	return calls
 }
 
-// Iterate calls IterateFunc.
-func (mock *StorageMock) Iterate(iter storage.IterFunc) error {
-	if mock.IterateFunc == nil {
-		panic("StorageMock.IterateFunc: method is nil but Storage.Iterate was just called")
+// ListMetric calls ListMetricFunc.
+func (mock *StorageMock) ListMetric() ([]models.Metric, error) {
+	if mock.ListMetricFunc == nil {
+		panic("StorageMock.ListMetricFunc: method is nil but Storage.ListMetric was just called")
 	}
 	callInfo := struct {
-		Iter storage.IterFunc
-	}{
-		Iter: iter,
-	}
-	mock.lockIterate.Lock()
-	mock.calls.Iterate = append(mock.calls.Iterate, callInfo)
-	mock.lockIterate.Unlock()
-	return mock.IterateFunc(iter)
+	}{}
+	mock.lockListMetric.Lock()
+	mock.calls.ListMetric = append(mock.calls.ListMetric, callInfo)
+	mock.lockListMetric.Unlock()
+	return mock.ListMetricFunc()
 }
 
-// IterateCalls gets all the calls that were made to Iterate.
+// ListMetricCalls gets all the calls that were made to ListMetric.
 // Check the length with:
 //
-//	len(mockedStorage.IterateCalls())
-func (mock *StorageMock) IterateCalls() []struct {
-	Iter storage.IterFunc
+//	len(mockedStorage.ListMetricCalls())
+func (mock *StorageMock) ListMetricCalls() []struct {
 } {
 	var calls []struct {
-		Iter storage.IterFunc
 	}
-	mock.lockIterate.RLock()
-	calls = mock.calls.Iterate
-	mock.lockIterate.RUnlock()
+	mock.lockListMetric.RLock()
+	calls = mock.calls.ListMetric
+	mock.lockListMetric.RUnlock()
 	return calls
 }
 

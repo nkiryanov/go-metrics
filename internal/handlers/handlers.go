@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
-	"sort"
 	"strconv"
 	"time"
 
@@ -94,17 +93,12 @@ func updateMetricJSON(s storage.Storage) http.HandlerFunc {
 func getMetricPlain(s storage.Storage) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		mType := r.PathValue("mType")
-		mID := r.PathValue("mID")
+		mName := r.PathValue("mID")
 
-		metric, ok, err := s.GetMetric(mID, mType)
+		metric, err := s.GetMetric(mType, mName)
 		if err != nil {
-			logger.Slog.Error("storage error occurred when metric requested", "error", err.Error())
-			http.Error(w, err.Error(), http.StatusNotFound)
-			return
-		}
-		if !ok {
-			logger.Slog.Info("metic requested, but not found", "type", mType, "id", mID)
-			http.Error(w, fmt.Sprintf("metric not found. type: %s, id: %s", mType, mID), http.StatusNotFound)
+			logger.Slog.Info("metic requested, but not found", "type", mType, "name", mName)
+			http.Error(w, fmt.Sprintf("metric not found. type: %s, id: %s", mType, mName), http.StatusNotFound)
 			return
 		}
 
@@ -116,8 +110,8 @@ func getMetricPlain(s storage.Storage) http.HandlerFunc {
 func getMetricJSON(s storage.Storage) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		req := &struct {
-			ID    string `json:"id"`
 			Type string `json:"type"`
+			Name string `json:"id"`
 		}{}
 
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -126,15 +120,10 @@ func getMetricJSON(s storage.Storage) http.HandlerFunc {
 			return
 		}
 
-		metric, ok, err := s.GetMetric(req.ID, req.Type)
+		metric, err := s.GetMetric(req.Type, req.Name)
 		if err != nil {
-			logger.Slog.Errorw("storage error occurred when metric requested", "error", err.Error())
-			http.Error(w, err.Error(), http.StatusNotFound)
-			return
-		}
-		if !ok {
-			logger.Slog.Infow("metic requested, but not found", "type", req.Type, "id", req.ID)
-			http.Error(w, fmt.Sprintf("metric not found. type: %s, id: %s", req.Type, req.ID), http.StatusNotFound)
+			logger.Slog.Infow("metic requested, but not found", "type", req.Type, "id", req.Name)
+			http.Error(w, fmt.Sprintf("metric not found. type: %s, id: %s", req.Type, req.Name), http.StatusNotFound)
 			return
 		}
 
@@ -152,27 +141,26 @@ func getMetricJSON(s storage.Storage) http.HandlerFunc {
 
 func listMetrics(s storage.Storage, tpl *template.Template) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		type metric struct {
+		type templateEntry struct {
 			ID    string
 			Type  string
 			Value string
 		}
 
-		metrics := make([]metric, 0, s.Count())
+		metrics, err := s.ListMetric()
+		if err != nil {
+			logger.Slog.Infow("list metric failed", "error", err.Error())
+		}
 
-		_ = s.Iterate(func(m models.Metric) error {
-			metrics = append(metrics, metric{ID: m.Name, Type: m.Type, Value: m.String()})
-			return nil
-		})
-
-		sort.Slice(metrics, func(i, j int) bool {
-			return metrics[i].ID < metrics[j].ID
-		})
+		entries := make([]templateEntry, 0, len(metrics))
+		for _, m := range metrics {
+			entries = append(entries, templateEntry{ID: m.Name, Type: m.Type, Value: m.String()})
+		}
 
 		w.Header().Set("Content-Type", "text/html")
 		w.WriteHeader(http.StatusOK)
 
-		if err := tpl.Execute(w, metrics); err != nil {
+		if err := tpl.Execute(w, entries); err != nil {
 			logger.Slog.Errorw("list metric templated generation failed", "error", err.Error())
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return

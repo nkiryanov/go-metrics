@@ -34,4 +34,7 @@ func main() {
 			fmt.Printf("%#v\n", updated)
 		}
 	}
+
+	count, err := s.Count(ctx)
+	fmt.Printf("count = %d, err = %s", count, err)
 }

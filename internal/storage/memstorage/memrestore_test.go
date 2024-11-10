@@ -35,6 +35,6 @@ func Test_memRestore(t *testing.T) {
 		err = memRestore(s)
 
 		require.NoError(t, err)
-		assert.Equal(t, 1, s.Count())
+		assert.Equal(t, 1, s.CountMetric())
 	})
 }

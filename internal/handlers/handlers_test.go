@@ -115,7 +115,6 @@ func TestHandlers_GetMetricPlain(t *testing.T) {
 		name string
 
 		storReturnValue models.Metric
-		storReturnOk    bool
 		storReturnErr   error
 
 		method string
@@ -126,25 +125,25 @@ func TestHandlers_GetMetricPlain(t *testing.T) {
 	}{
 		{
 			"GET existed, ok",
-			cpuGauge, true, nil,
+			cpuGauge, nil,
 			http.MethodGet, "/value/gauge/cpu-usage",
 			http.StatusOK, "23.23",
 		},
 		{
 			"GET not existed, 404",
-			emptyCounter, false, nil,
+			emptyCounter, storage.ErrNoMetric,
 			http.MethodGet, "/value/counter/mem-usage",
 			http.StatusNotFound, "metric not found. type: counter, id: mem-usage",
 		},
 		{
 			"GET unknown type, 404",
-			unknownMetric, false, errors.New("storage error: unknown metric type"),
+			unknownMetric, storage.ErrNoMetric,
 			http.MethodGet, "/value/unknown-type/mem-usage",
-			http.StatusNotFound, "storage error: unknown metric type",
+			http.StatusNotFound, "metric not found. type: unknown-type, id: mem-usage",
 		},
 		{
 			"GET invalid url pattern, 404",
-			unknownMetric, true, nil,
+			unknownMetric, storage.ErrNoMetric,
 			http.MethodGet, "/value/co",
 			http.StatusNotFound, "404 page not found",
 		},
@@ -152,8 +151,8 @@ func TestHandlers_GetMetricPlain(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			mockedStorage := &mocks.StorageMock{GetMetricFunc: func(mID string, mType string) (models.Metric, bool, error) {
-				return tc.storReturnValue, tc.storReturnOk, tc.storReturnErr
+			mockedStorage := &mocks.StorageMock{GetMetricFunc: func(mType string, mName string) (models.Metric, error) {
+				return tc.storReturnValue, tc.storReturnErr
 			}}
 
 			router := NewMetricRouter(mockedStorage, nil)
@@ -176,13 +175,11 @@ func TestHandlers_GetMetricPlain(t *testing.T) {
 func TestHandlers_GetMetricJSON(t *testing.T) {
 	cpuGauge := models.Metric{Name: "cpu-usage", Type: "gauge", Value: 23.23}
 	emptyCounter := models.Metric{Name: "mem-usage", Type: "counter"}
-	unknownMetric := models.Metric{Name: "mem-usage", Type: "unknown-type"}
 
 	tests := []struct {
 		name string
 
 		storReturnValue models.Metric
-		storReturnOk    bool
 		storReturnErr   error
 
 		method  string
@@ -193,28 +190,22 @@ func TestHandlers_GetMetricJSON(t *testing.T) {
 	}{
 		{
 			"GET existed, ok",
-			cpuGauge, true, nil,
+			cpuGauge, nil,
 			http.MethodGet, `{"id": "cpu-usage", "type": "gauge"}}`,
 			http.StatusOK, `{"id":"cpu-usage","type":"gauge","value":23.23}`,
 		},
 		{
 			"GET not existed, 404",
-			emptyCounter, false, nil,
+			emptyCounter, storage.ErrNoMetric,
 			http.MethodGet, `{"id": "mem-usage", "type": "counter"}}`,
 			http.StatusNotFound, "metric not found. type: counter, id: mem-usage",
-		},
-		{
-			"GET unknown type, 404",
-			unknownMetric, false, errors.New("storage error: unknown metric type"),
-			http.MethodGet, `{"id": "mem-usage", "type": "unknown-type"}}`,
-			http.StatusNotFound, "storage error: unknown metric type",
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			mockedStorage := &mocks.StorageMock{GetMetricFunc: func(mID string, mType string) (models.Metric, bool, error) {
-				return tc.storReturnValue, tc.storReturnOk, tc.storReturnErr
+			mockedStorage := &mocks.StorageMock{GetMetricFunc: func(mType string, mName string) (models.Metric, error) {
+				return tc.storReturnValue, tc.storReturnErr
 			}}
 
 			router := NewMetricRouter(mockedStorage, nil)
@@ -237,12 +228,13 @@ func TestHandlers_GetMetricJSON(t *testing.T) {
 func TestHandlers_ListMetrics(t *testing.T) {
 	// Mocked storage; behave like it has 3 stored metrics.
 	mockedStorage := &mocks.StorageMock{
-		CountFunc: func() int { return 3 },
-		IterateFunc: func(iter storage.IterFunc) error {
-			_ = iter(models.Metric{Name: "foo", Type: models.CounterTypeName, Delta: 100})
-			_ = iter(models.Metric{Name: "bar", Type: models.CounterTypeName, Delta: 200})
-			_ = iter(models.Metric{Name: "mem-load", Type: models.GaugeTypeName, Value: 234.23})
-			return nil
+		CountMetricFunc: func() int { return 3 },
+		ListMetricFunc: func() ([]models.Metric, error) {
+			return []models.Metric{
+				{Type: models.CounterTypeName, Name: "bar", Delta: 200},
+				{Type: models.CounterTypeName, Name: "foo", Delta: 100},
+				{Type: models.GaugeTypeName, Name: "mem-load", Value: 234.23},
+			}, nil
 		},
 	}
 

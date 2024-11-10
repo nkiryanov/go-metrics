@@ -4,8 +4,6 @@ import (
 	"bufio"
 	"encoding/json"
 	"io"
-
-	"github.com/nkiryanov/go-metrics/internal/models"
 )
 
 // Save func for MemStorage
@@ -23,34 +21,10 @@ func memSave(s *MemStorage) error {
 	}
 
 	buf := bufio.NewWriter(s.file)
-	encoder := json.NewEncoder(buf)
+	metrics, _ := s.ListMetric()
 
-	// Write the opening of the JSON array manually
-	if _, err = buf.WriteString("[\n"); err != nil {
-		return err
-	}
-
-	// Iterate over metrics and write them as JSON
-	len := s.Count()
-	if err = s.Iterate(func(m models.Metric) error {
-		var err error
-
-		if err = encoder.Encode(m); err != nil {
-			return err
-		}
-		len--
-		if len > 0 {
-			if _, err = buf.WriteString(","); err != nil {
-				return err
-			}
-		}
-		return nil
-	}); err != nil {
-		return err
-	}
-
-	// Write the closing of the JSON array manually
-	if _, err = buf.WriteString("]"); err != nil {
+	err = json.NewEncoder(buf).Encode(metrics)
+	if err != nil {
 		return err
 	}
 
@@ -58,5 +32,5 @@ func memSave(s *MemStorage) error {
 		return err
 	}
 
-	return nil
+	return err
 }

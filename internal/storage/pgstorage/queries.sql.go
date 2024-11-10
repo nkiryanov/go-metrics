@@ -2,11 +2,13 @@ package pgstorage
 
 import (
 	"context"
+	"errors"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
-	
+
 	"github.com/nkiryanov/go-metrics/internal/models"
+	"github.com/nkiryanov/go-metrics/internal/storage"
 )
 
 func rowToMetric(row pgx.CollectableRow) (models.Metric, error) {
@@ -24,15 +26,14 @@ func rowToMetric(row pgx.CollectableRow) (models.Metric, error) {
 	return m, nil
 }
 
-const listMetric = `
-	SELECT "type", "name", "delta", "value"
+const countMetric = `
+	SELECT count(*) AS count
 	FROM "metric"
-	ORDER BY "name", "type"
 	`
 
-func (q *Queries) ListMetric(ctx context.Context) ([]models.Metric, error) {
-	rows, _ := q.db.Query(ctx, listMetric)
-	return pgx.CollectRows(rows, rowToMetric)
+func (q *Queries) Count(ctx context.Context) (int, error) {
+	rows, _ := q.db.Query(ctx, countMetric)
+	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[int])
 }
 
 const getMetric = `
@@ -43,7 +44,13 @@ const getMetric = `
 
 func (q *Queries) GetMetric(ctx context.Context, mType string, mName string) (models.Metric, error) {
 	rows, _ := q.db.Query(ctx, getMetric, mType, mName)
-	return pgx.CollectExactlyOneRow(rows, rowToMetric)
+	metric, err := pgx.CollectExactlyOneRow(rows, rowToMetric)
+
+	if errors.Is(err, pgx.ErrNoRows) {
+		err = storage.ErrNoMetric
+	}
+
+	return metric, err
 }
 
 const insertOrUpdateMetric = `
@@ -70,5 +77,16 @@ func (q *Queries) UpdateMetric(ctx context.Context, m *models.Metric) (models.Me
 	}
 
 	rows, _ := q.db.Query(ctx, insertOrUpdateMetric, m.Type, m.Name, delta, value)
-	return pgx.CollectOneRow(rows, rowToMetric)
+	return pgx.CollectExactlyOneRow(rows, rowToMetric)
+}
+
+const listMetric = `
+	SELECT "type", "name", "delta", "value"
+	FROM "metric"
+	ORDER BY "name", "type"
+	`
+
+func (q *Queries) ListMetric(ctx context.Context) ([]models.Metric, error) {
+	rows, _ := q.db.Query(ctx, listMetric)
+	return pgx.CollectRows(rows, rowToMetric)
 }

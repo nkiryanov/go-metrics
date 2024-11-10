@@ -13,8 +13,8 @@ const (
 )
 
 type Metric struct {
-	Type string   `json:"type"`
-	Name string   `json:"id"`
+	Type  string  `json:"type"`
+	Name  string  `json:"id"`
 	Delta int64   `json:"delta"`
 	Value float64 `json:"value"`
 }
@@ -23,22 +23,22 @@ func (m Metric) MarshalJSON() ([]byte, error) {
 	switch m.Type {
 	case CounterTypeName:
 		return json.Marshal(struct {
-			ID string   `json:"id"`
-			Type string `json:"type"`
-			Delta int64 `json:"delta"`
+			ID    string `json:"id"`
+			Type  string `json:"type"`
+			Delta int64  `json:"delta"`
 		}{
-			ID: m.Name,
-			Type: m.Type,
+			ID:    m.Name,
+			Type:  m.Type,
 			Delta: m.Delta,
 		})
 	case GaugeTypeName:
 		return json.Marshal(struct {
-			ID string `json:"id"`
-			Type string `json:"type"`
+			ID    string  `json:"id"`
+			Type  string  `json:"type"`
 			Value float64 `json:"value"`
 		}{
-			ID: m.Name,
-			Type: m.Type,
+			ID:    m.Name,
+			Type:  m.Type,
 			Value: m.Value,
 		})
 	default:
@@ -48,9 +48,9 @@ func (m Metric) MarshalJSON() ([]byte, error) {
 
 func (m *Metric) UnmarshalJSON(data []byte) error {
 	temp := struct {
-		Type string `json:"type"`
-		Name string `json:"id"`
-		Delta *int64 `json:"delta,omitempty"`
+		Type  string   `json:"type"`
+		Name  string   `json:"id"`
+		Delta *int64   `json:"delta,omitempty"`
 		Value *float64 `json:"value,omitempty"`
 	}{}
 
@@ -78,7 +78,7 @@ func (m *Metric) UnmarshalJSON(data []byte) error {
 	default:
 		return fmt.Errorf("unsupported type: '%s'", temp.Type)
 	}
-	
+
 	return nil
 }
 
