@@ -31,8 +31,8 @@ const countMetric = `
 	FROM "metric"
 	`
 
-func (q *Queries) Count(ctx context.Context) (int, error) {
-	rows, _ := q.db.Query(ctx, countMetric)
+func (s *PgStorage) Count(ctx context.Context) (int, error) {
+	rows, _ := s.db.Query(ctx, countMetric)
 	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[int])
 }
 
@@ -42,8 +42,8 @@ const getMetric = `
 	WHERE "type" = $1, "name" = $2
 	`
 
-func (q *Queries) GetMetric(ctx context.Context, mType string, mName string) (models.Metric, error) {
-	rows, _ := q.db.Query(ctx, getMetric, mType, mName)
+func (s *PgStorage) GetMetric(ctx context.Context, mType string, mName string) (models.Metric, error) {
+	rows, _ := s.db.Query(ctx, getMetric, mType, mName)
 	metric, err := pgx.CollectExactlyOneRow(rows, rowToMetric)
 
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -63,7 +63,7 @@ const insertOrUpdateMetric = `
 	RETURNING "type", "name", "delta", "value"
 	`
 
-func (q *Queries) UpdateMetric(ctx context.Context, m *models.Metric) (models.Metric, error) {
+func (s *PgStorage) UpdateMetric(ctx context.Context, m *models.Metric) (models.Metric, error) {
 	var delta pgtype.Int8
 	var value pgtype.Float8
 
@@ -76,7 +76,7 @@ func (q *Queries) UpdateMetric(ctx context.Context, m *models.Metric) (models.Me
 		value.Valid = true
 	}
 
-	rows, _ := q.db.Query(ctx, insertOrUpdateMetric, m.Type, m.Name, delta, value)
+	rows, _ := s.db.Query(ctx, insertOrUpdateMetric, m.Type, m.Name, delta, value)
 	return pgx.CollectExactlyOneRow(rows, rowToMetric)
 }
 
@@ -86,7 +86,7 @@ const listMetric = `
 	ORDER BY "name", "type"
 	`
 
-func (q *Queries) ListMetric(ctx context.Context) ([]models.Metric, error) {
-	rows, _ := q.db.Query(ctx, listMetric)
+func (s *PgStorage) ListMetric(ctx context.Context) ([]models.Metric, error) {
+	rows, _ := s.db.Query(ctx, listMetric)
 	return pgx.CollectRows(rows, rowToMetric)
 }

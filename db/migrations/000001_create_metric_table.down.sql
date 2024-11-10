@@ -1,3 +1,6 @@
-DROP TABLE "metric";
+BEGIN;
 
+DROP TABLE "metric";
 DROP TYPE metric_type;
+
+COMMIT;

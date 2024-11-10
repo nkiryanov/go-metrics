@@ -1,3 +1,5 @@
+BEGIN;
+
 CREATE TYPE metric_type AS ENUM ('counter', 'gauge');
 
 CREATE TABLE "metric" (
@@ -9,3 +11,5 @@ CREATE TABLE "metric" (
     CONSTRAINT "metric_gauge_has_value_only" CHECK (("type" != 'gauge') OR ("value" IS NOT NULL AND "delta" IS NULL)),
     PRIMARY KEY ("name", "type")
 );
+
+COMMIT;
