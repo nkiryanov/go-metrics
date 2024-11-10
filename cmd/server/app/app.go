@@ -36,7 +36,7 @@ func (s *ServerApp) Run(ctx context.Context) error {
 		if err := httpServer.Shutdown(timeoutCtx); err == context.DeadlineExceeded {
 			logger.Slog.Error("force http server shutdown...")
 		}
-		logger.Slog.Infow("HTTP server stopped")
+		logger.Slog.Info("HTTP server stopped")
 		close(idleConnsClosed)
 	}()
 

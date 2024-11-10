@@ -122,6 +122,7 @@ func TestOptions(t *testing.T) {
 		FilePath:      "/tmp/default_data.json",
 		StoreInterval: 300 * time.Second,
 		Restore:       false,
+		Dsn:           "postgres://go-metrics@localhost:5432/go-metrics",
 	}
 
 	tests := []struct {
@@ -132,24 +133,26 @@ func TestOptions(t *testing.T) {
 	}{
 		{
 			name: "env vars takes precedence",
-			args: []string{"-a", "localhost:1234", "-l", "debug", "-i", "4m", "-f", "/tmp/test.json", "-r", "false"},
+			args: []string{"-a", "localhost:1234", "-l", "debug", "-i", "4m", "-f", "/tmp/test.json", "-r", "false", "-d", "postgres://test@test:5432/test"},
 			envVars: map[string]string{
 				"ADDRESS":           "127.0.0.1:9090",
 				"LOG_LEVEL":         "error",
 				"FILE_STORAGE_PATH": "/tmp/env_test.json",
 				"STORE_INTERVAL":    "1m",
 				"RESTORE":           "TRUE",
+				"DATABASE_DSN":      "postgres://envuser@localhost:5432/envdb",
 			},
 			expectedOptions: Options{
 				ListenAddr:    "127.0.0.1:9090",
 				LogLevel:      "error",
 				FilePath:      "/tmp/env_test.json",
 				StoreInterval: 1 * time.Minute,
+				Dsn:           "postgres://envuser@localhost:5432/envdb",
 			},
 		},
 		{
 			name:    "use cli arguments if set",
-			args:    []string{"-a", "localhost:1234", "-l", "debug", "-i", "4m", "-f", "/tmp/test.json", "-r", "true"},
+			args:    []string{"-a", "localhost:1234", "-l", "debug", "-i", "4m", "-f", "/tmp/test.json", "-r", "true", "-d", "postgres://test@test:5432/test"},
 			envVars: map[string]string{},
 			expectedOptions: Options{
 				ListenAddr:    "localhost:1234",
@@ -157,6 +160,7 @@ func TestOptions(t *testing.T) {
 				StoreInterval: 4 * time.Minute,
 				FilePath:      "/tmp/test.json",
 				Restore:       true,
+				Dsn:           "postgres://test@test:5432/test",
 			},
 		},
 		{

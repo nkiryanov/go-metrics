@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -8,6 +10,7 @@ import (
 	"net/http"
 	"sort"
 	"strconv"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/nkiryanov/go-metrics/internal/logger"
@@ -125,19 +128,19 @@ func getMetricJSON(s storage.Storage) http.HandlerFunc {
 
 		metric, ok, err := s.GetMetric(req.ID, req.MType)
 		if err != nil {
-			logger.Slog.Error("storage error occurred when metric requested", "error", err.Error())
+			logger.Slog.Errorw("storage error occurred when metric requested", "error", err.Error())
 			http.Error(w, err.Error(), http.StatusNotFound)
 			return
 		}
 		if !ok {
-			logger.Slog.Info("metic requested, but not found", "type", req.MType, "id", req.ID)
+			logger.Slog.Infow("metic requested, but not found", "type", req.MType, "id", req.ID)
 			http.Error(w, fmt.Sprintf("metric not found. type: %s, id: %s", req.MType, req.ID), http.StatusNotFound)
 			return
 		}
 
 		resp, err := json.Marshal(models.NewMetricJSON(&metric))
 		if err != nil {
-			logger.Slog.Error("error while deserializing metric json", "error", err.Error())
+			logger.Slog.Errorw("error while deserializing metric json", "error", err.Error())
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -170,10 +173,32 @@ func listMetrics(s storage.Storage, tpl *template.Template) http.HandlerFunc {
 		w.WriteHeader(http.StatusOK)
 
 		if err := tpl.Execute(w, metrics); err != nil {
-			logger.Slog.Error("list metric templated generation failed", "error", err.Error())
+			logger.Slog.Errorw("list metric templated generation failed", "error", err.Error())
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+	}
+}
+
+func dbPing(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if db == nil {
+			err := errors.New("db not initialized")
+			logger.Slog.Errorw("error", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+		defer cancel()
+
+		if err := db.PingContext(ctx); err != nil {
+			logger.Slog.Error("db connection failed", "error", err.Error())
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		writeOrInternalError(w, []byte("OK"))
 	}
 }
 

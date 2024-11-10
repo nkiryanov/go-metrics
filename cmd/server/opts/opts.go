@@ -18,6 +18,8 @@ type Options struct {
 	FilePath      string
 	StoreInterval time.Duration
 	Restore       bool
+
+	Dsn string
 }
 
 func (opts *Options) Parse() {
@@ -25,6 +27,7 @@ func (opts *Options) Parse() {
 	flag.Func("i", "Time interval after which server data are saved to file (value 0 makes writing synchronous)", parseStoreInterval(&opts.StoreInterval))
 	flag.StringVar(&opts.LogLevel, "l", opts.LogLevel, "Log level like 'info', 'debug', 'error', etc.")
 	flag.StringVar(&opts.FilePath, "f", opts.FilePath, "File storage path, like '/tmp/server_data_json.json")
+	flag.StringVar(&opts.Dsn, "d", opts.Dsn, "Database connection string like 'postgres://user:password@localhost:5432/dbname'")
 	flag.BoolVar(&opts.Restore, "r", opts.Restore, "Restore initial state from the file storage file")
 
 	// Parse command line args
@@ -60,6 +63,7 @@ func (opts *Options) parseEnv() {
 		"LOG_LEVEL":         parseString(&opts.LogLevel),
 		"FILE_STORAGE_PATH": parseString(&opts.FilePath),
 		"RESTORE":           parseBool(&opts.Restore),
+		"DATABASE_DSN":      parseString(&opts.Dsn),
 	}
 
 	for key, parseFn := range envMap {
