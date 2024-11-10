@@ -2,6 +2,7 @@ package memstorage
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"io"
 
@@ -39,7 +40,7 @@ func memRestore(s *MemStorage) error {
 			return err
 		}
 
-		if _, err = s.UpdateMetric(&metric); err != nil {
+		if _, err = s.UpdateMetric(context.TODO(), &metric); err != nil {
 			return err
 		}
 	}

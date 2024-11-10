@@ -2,8 +2,6 @@ package main
 
 import (
 	"context"
-	"database/sql"
-	_ "github.com/jackc/pgx/v5/stdlib"
 	"log"
 	"net/http"
 	"os"
@@ -11,11 +9,15 @@ import (
 	"syscall"
 	"time"
 
+	_ "github.com/jackc/pgx/v5/stdlib"
+
 	"github.com/nkiryanov/go-metrics/cmd/server/app"
 	"github.com/nkiryanov/go-metrics/cmd/server/opts"
 	"github.com/nkiryanov/go-metrics/internal/handlers"
 	"github.com/nkiryanov/go-metrics/internal/logger"
+	"github.com/nkiryanov/go-metrics/internal/storage"
 	"github.com/nkiryanov/go-metrics/internal/storage/memstorage"
+	"github.com/nkiryanov/go-metrics/internal/storage/pgstorage"
 )
 
 // Defaults
@@ -45,22 +47,15 @@ func main() {
 	}
 
 	// Initialize storage
-	s, err := memstorage.New(opts.FilePath, opts.StoreInterval, opts.Restore)
+	s, err := initStorage(opts)
 	if err != nil {
 		logger.Slog.Fatal("storage initialization failed", "error", err.Error())
 	}
 	defer s.Close()
 
-	// Initialize database
-	db, err := sql.Open("pgx", opts.Dsn)
-	if err != nil {
-		log.Fatal("couldn't initialize DB connection", err.Error())
-	}
-	defer db.Close()
-
 	srv := &app.ServerApp{
 		Opts:    opts,
-		Handler: handlers.NewMetricRouter(s, db),
+		Handler: handlers.NewMetricRouter(s),
 	}
 
 	// Initialize context that cancelled on SIGTERM
@@ -77,4 +72,12 @@ func main() {
 		logger.Slog.Error("HTTP server Shutdown", "error", err.Error())
 		os.Exit(1)
 	}
+}
+
+func initStorage(opts *opts.Options) (storage.Storage, error) {
+	if opts.Dsn != "" {
+		return pgstorage.New(context.TODO(), opts.Dsn)
+	}
+
+	return memstorage.New(opts.FilePath, opts.StoreInterval, opts.Restore)
 }

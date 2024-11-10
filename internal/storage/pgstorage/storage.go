@@ -2,6 +2,7 @@ package pgstorage
 
 import (
 	"context"
+	"embed"
 	"strings"
 
 	"github.com/jackc/pgx/v5"
@@ -11,40 +12,55 @@ import (
 
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/pgx/v5"
-	_ "github.com/golang-migrate/migrate/v4/source/file"
+	"github.com/golang-migrate/migrate/v4/source/iofs"
 
 	"github.com/nkiryanov/go-metrics/internal/logger"
 )
+
+//go:embed db/migrations/*.sql
+var migrations embed.FS
 
 type DBTX interface {
 	Exec(context.Context, string, ...interface{}) (pgconn.CommandTag, error)
 	Query(context.Context, string, ...interface{}) (pgx.Rows, error)
 	QueryRow(context.Context, string, ...interface{}) pgx.Row
+	Ping(context.Context) error
+	Close()
 }
 
 type PgStorage struct {
 	db DBTX
 }
 
-func New(ctx context.Context, connString string) *PgStorage {
-	m, err := migrate.New("file://db/migrations", strings.Replace(connString, "postgres://", "pgx5://", 1))
+// Create PgStorage
+// Note: it embed migrations files, that would be run on initialization
+func New(ctx context.Context, connString string) (*PgStorage, error) {
+	driver, err := iofs.New(migrations, "db/migrations")
 	if err != nil {
-		logger.Slog.Fatal(err)
+		logger.Slog.Error(err)
+		return nil, err
+	}
+
+	m, err := migrate.NewWithSourceInstance("iofs", driver, strings.Replace(connString, "postgres://", "pgx5://", 1))
+	if err != nil {
+		logger.Slog.Error(err)
+		return nil, err
 	}
 	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
-		logger.Slog.Fatal(err)
+		logger.Slog.Error(err)
+		return nil, err
 	}
 
 	dbpool, err := pgxpool.New(ctx, connString)
 	if err != nil {
-		logger.Slog.Fatal("Can't connect to db %s", err)
+		logger.Slog.Error("Can't connect to db %s", err)
+		return nil, err
 	}
 
-	return &PgStorage{db: dbpool}
+	return &PgStorage{db: dbpool}, nil
 }
 
-func (q *PgStorage) WithTx(tx pgx.Tx) *PgStorage {
-	return &PgStorage{
-		db: tx,
-	}
+func (s *PgStorage) Close() error {
+	s.db.Close()
+	return nil
 }

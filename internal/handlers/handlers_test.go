@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -61,12 +62,12 @@ func TestHandler_UpdateMetricPlain(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			mockedStorage := &mocks.StorageMock{UpdateMetricFunc: func(m *models.Metric) (models.Metric, error) {
+			mockedStorage := &mocks.StorageMock{UpdateMetricFunc: func(ctx context.Context, m *models.Metric) (models.Metric, error) {
 				var result = *m
 				return result, tc.storageUpdateErr
 			}}
 
-			router := NewMetricRouter(mockedStorage, nil)
+			router := NewMetricRouter(mockedStorage)
 			srv := httptest.NewServer(router)
 			defer srv.Close()
 
@@ -86,10 +87,10 @@ func TestHandler_UpdateMetricPlain(t *testing.T) {
 
 func TestHandlers_UpdateMetricJSON(t *testing.T) {
 	t.Run("POST ok", func(t *testing.T) {
-		mockedStorage := &mocks.StorageMock{UpdateMetricFunc: func(m *models.Metric) (models.Metric, error) {
+		mockedStorage := &mocks.StorageMock{UpdateMetricFunc: func(ctx context.Context, m *models.Metric) (models.Metric, error) {
 			return *m, nil
 		}}
-		router := NewMetricRouter(mockedStorage, nil)
+		router := NewMetricRouter(mockedStorage)
 		srv := httptest.NewServer(router)
 		defer srv.Close()
 
@@ -151,11 +152,11 @@ func TestHandlers_GetMetricPlain(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			mockedStorage := &mocks.StorageMock{GetMetricFunc: func(mType string, mName string) (models.Metric, error) {
+			mockedStorage := &mocks.StorageMock{GetMetricFunc: func(ctx context.Context, mType string, mName string) (models.Metric, error) {
 				return tc.storReturnValue, tc.storReturnErr
 			}}
 
-			router := NewMetricRouter(mockedStorage, nil)
+			router := NewMetricRouter(mockedStorage)
 			srv := httptest.NewServer(router)
 			defer srv.Close()
 
@@ -204,11 +205,11 @@ func TestHandlers_GetMetricJSON(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			mockedStorage := &mocks.StorageMock{GetMetricFunc: func(mType string, mName string) (models.Metric, error) {
+			mockedStorage := &mocks.StorageMock{GetMetricFunc: func(ctx context.Context, mType string, mName string) (models.Metric, error) {
 				return tc.storReturnValue, tc.storReturnErr
 			}}
 
-			router := NewMetricRouter(mockedStorage, nil)
+			router := NewMetricRouter(mockedStorage)
 			srv := httptest.NewServer(router)
 			defer srv.Close()
 
@@ -228,8 +229,8 @@ func TestHandlers_GetMetricJSON(t *testing.T) {
 func TestHandlers_ListMetrics(t *testing.T) {
 	// Mocked storage; behave like it has 3 stored metrics.
 	mockedStorage := &mocks.StorageMock{
-		CountMetricFunc: func() int { return 3 },
-		ListMetricFunc: func() ([]models.Metric, error) {
+		CountMetricFunc: func(ctx context.Context) (int, error) { return 3, nil },
+		ListMetricFunc: func(ctx context.Context) ([]models.Metric, error) {
 			return []models.Metric{
 				{Type: models.CounterTypeName, Name: "bar", Delta: 200},
 				{Type: models.CounterTypeName, Name: "foo", Delta: 100},
@@ -238,7 +239,7 @@ func TestHandlers_ListMetrics(t *testing.T) {
 		},
 	}
 
-	router := NewMetricRouter(mockedStorage, nil)
+	router := NewMetricRouter(mockedStorage)
 	srv := httptest.NewServer(router)
 	defer srv.Close()
 
@@ -277,17 +278,34 @@ func TestHandlers_ListMetrics(t *testing.T) {
 	}
 }
 
-func TestHandler_dbPing(t *testing.T) {
-	// Just test fail path for now
-	router := NewMetricRouter(nil, nil)
+func TestHandler_Ping(t *testing.T) {
+	t.Run("500 if ping fail", func(t *testing.T) {
+		mockedStorage := &mocks.StorageMock{
+			PingFunc: func(ctx context.Context) error { return errors.New("something terrible happened") },
+		}
 
-	srv := httptest.NewServer(router)
-	defer srv.Close()
+		router := NewMetricRouter(mockedStorage)
+		srv := httptest.NewServer(router)
+		defer srv.Close()
 
-	t.Run("500 if no db", func(t *testing.T) {
 		resp, err := resty.New().R().SetHeader("Accept-Encoding", "").Get(srv.URL + "/ping")
 
 		require.NoError(t, err)
 		assert.Equal(t, 500, resp.StatusCode())
+	})
+
+	t.Run("200 if ok", func(t *testing.T) {
+		mockedStorage := &mocks.StorageMock{
+			PingFunc: func(ctx context.Context) error { return nil },
+		}
+
+		router := NewMetricRouter(mockedStorage)
+		srv := httptest.NewServer(router)
+		defer srv.Close()
+
+		resp, err := resty.New().R().SetHeader("Accept-Encoding", "").Get(srv.URL + "/ping")
+
+		require.NoError(t, err)
+		assert.Equal(t, 200, resp.StatusCode())
 	})
 }

@@ -1,6 +1,7 @@
 package memstorage
 
 import (
+	"context"
 	"os"
 	"sync"
 	"sync/atomic"
@@ -44,7 +45,7 @@ func TestMemStorage_UpdateMetric(t *testing.T) {
 		s, close := memstorage(t, 3*time.Minute)
 		defer close()
 
-		got, err := s.UpdateMetric(&mCounter)
+		got, err := s.UpdateMetric(context.TODO(), &mCounter)
 
 		assert.NoError(t, err)
 		assert.Equal(t, mCounter, got)
@@ -55,8 +56,8 @@ func TestMemStorage_UpdateMetric(t *testing.T) {
 		defer close()
 		metric := models.Metric{Type: models.CounterTypeName, Name: "foo", Delta: 10}
 
-		_, _ = s.UpdateMetric(&metric)
-		got, err := s.UpdateMetric(&metric)
+		_, _ = s.UpdateMetric(context.TODO(), &metric)
+		got, err := s.UpdateMetric(context.TODO(), &metric)
 
 		assert.NoError(t, err)
 		assert.Equal(t, models.Metric{Type: models.CounterTypeName, Name: "foo", Delta: 20}, got, "counter should increase")
@@ -66,7 +67,7 @@ func TestMemStorage_UpdateMetric(t *testing.T) {
 		s, close := memstorage(t, 3*time.Minute)
 		defer close()
 
-		got, err := s.UpdateMetric(&mGauge)
+		got, err := s.UpdateMetric(context.TODO(), &mGauge)
 
 		assert.NoError(t, err)
 		assert.Equal(t, mGauge, got)
@@ -77,8 +78,8 @@ func TestMemStorage_UpdateMetric(t *testing.T) {
 		defer close()
 		yaGauge := models.Metric{Type: models.GaugeTypeName, Name: "foo", Value: 123.1}
 
-		_, _ = s.UpdateMetric(&mGauge)
-		got, err := s.UpdateMetric(&yaGauge)
+		_, _ = s.UpdateMetric(context.TODO(), &mGauge)
+		got, err := s.UpdateMetric(context.TODO(), &yaGauge)
 
 		assert.NoError(t, err)
 		assert.Equal(t, yaGauge, got, "Gauge on update should replace")
@@ -89,7 +90,7 @@ func TestMemStorage_UpdateMetric(t *testing.T) {
 		defer close()
 		metric := models.Metric{Type: "unknown", Name: "foo", Value: 500.23}
 
-		_, err := s.UpdateMetric(&metric)
+		_, err := s.UpdateMetric(context.TODO(), &metric)
 
 		require.Error(t, err)
 	})
@@ -102,12 +103,12 @@ func TestMemStorage_UpdateMetric(t *testing.T) {
 		for range 10 {
 			wg.Add(1)
 			go func() {
-				_, _ = s.UpdateMetric(&mCounter)
-				_, _ = s.UpdateMetric(&mGauge)
+				_, _ = s.UpdateMetric(context.TODO(), &mCounter)
+				_, _ = s.UpdateMetric(context.TODO(), &mGauge)
 				wg.Done()
 			}()
 		}
-		got, err := s.UpdateMetric(&mGauge)
+		got, err := s.UpdateMetric(context.TODO(), &mGauge)
 
 		require.NoError(t, err)
 		assert.Equal(t, mGauge, got)
@@ -141,7 +142,7 @@ func TestMemStorage_UpdateMetric(t *testing.T) {
 				s.saver = func(s *MemStorage) error { saverCalled.Store(true); return nil }
 
 				// Update metric and give enough time to run goroutine
-				_, err := s.UpdateMetric(&mCounter)
+				_, err := s.UpdateMetric(context.TODO(), &mCounter)
 				require.NoError(t, err)
 				time.Sleep(100 * time.Millisecond)
 
@@ -154,18 +155,19 @@ func TestMemStorage_UpdateMetric(t *testing.T) {
 func TestMemStorage_CountMetric(t *testing.T) {
 	s, deferFn := memstorage(t, 3*time.Minute)
 	defer deferFn()
-	_, _ = s.UpdateMetric(&models.Metric{Name: "foo", Type: models.CounterTypeName, Delta: 10})
-	_, _ = s.UpdateMetric(&models.Metric{Name: "bar", Type: models.CounterTypeName, Delta: 200})
-	_, _ = s.UpdateMetric(&models.Metric{Name: "goo", Type: models.GaugeTypeName, Value: 500.233})
+	_, _ = s.UpdateMetric(context.TODO(), &models.Metric{Name: "foo", Type: models.CounterTypeName, Delta: 10})
+	_, _ = s.UpdateMetric(context.TODO(), &models.Metric{Name: "bar", Type: models.CounterTypeName, Delta: 200})
+	_, _ = s.UpdateMetric(context.TODO(), &models.Metric{Name: "goo", Type: models.GaugeTypeName, Value: 500.233})
 
 	var wg sync.WaitGroup
 	for range 10 {
 		wg.Add(1)
-		go func() { s.CountMetric(); wg.Done() }()
+		go func() { s.CountMetric(context.TODO()); wg.Done() }() // nolint:errcheck
 	}
 	wg.Wait()
-	got := s.CountMetric()
+	got, err := s.CountMetric(context.TODO())
 
+	assert.NoError(t, err)
 	assert.Equal(t, 3, got)
 }
 
@@ -176,9 +178,9 @@ func TestMemStorage_GetMetric(t *testing.T) {
 
 	s, deferFn := memstorage(t, 3*time.Minute)
 	defer deferFn()
-	_, _ = s.UpdateMetric(&fooCounter)
-	_, _ = s.UpdateMetric(&barCounter)
-	_, _ = s.UpdateMetric(&fooGauge)
+	_, _ = s.UpdateMetric(context.TODO(), &fooCounter)
+	_, _ = s.UpdateMetric(context.TODO(), &barCounter)
+	_, _ = s.UpdateMetric(context.TODO(), &fooGauge)
 
 	t.Run("sync ok", func(t *testing.T) {
 		type expected struct {
@@ -218,7 +220,7 @@ func TestMemStorage_GetMetric(t *testing.T) {
 
 		for _, tc := range tCases {
 			t.Run(tc.name, func(t *testing.T) {
-				got, err := s.GetMetric(tc.args.mType, tc.args.mName)
+				got, err := s.GetMetric(context.TODO(), tc.args.mType, tc.args.mName)
 
 				require.Equal(t, tc.expected.err, err)
 				assert.EqualValues(t, tc.expected.metric, got)
@@ -232,13 +234,13 @@ func TestMemStorage_GetMetric(t *testing.T) {
 		for range 10 {
 			wg.Add(1)
 			go func() {
-				s.GetMetric(models.CounterTypeName, "foo") // nolint:errcheck
-				s.GetMetric(models.GaugeTypeName, "foo")   // nolint:errcheck
+				s.GetMetric(context.TODO(), models.CounterTypeName, "foo") // nolint:errcheck
+				s.GetMetric(context.TODO(), models.GaugeTypeName, "foo")   // nolint:errcheck
 				wg.Done()
 			}()
 		}
 		wg.Wait()
-		got, err := s.GetMetric(models.GaugeTypeName, "foo")
+		got, err := s.GetMetric(context.TODO(), models.GaugeTypeName, "foo")
 
 		assert.NoError(t, err)
 		assert.EqualValues(t, fooGauge, got)
@@ -252,12 +254,12 @@ func TestMemStorage_ListMetric(t *testing.T) {
 
 	s, deferFn := memstorage(t, 3*time.Minute)
 	defer deferFn()
-	_, _ = s.UpdateMetric(&fooCounter)
-	_, _ = s.UpdateMetric(&barCounter)
-	_, _ = s.UpdateMetric(&fooGauge)
+	_, _ = s.UpdateMetric(context.TODO(), &fooCounter)
+	_, _ = s.UpdateMetric(context.TODO(), &barCounter)
+	_, _ = s.UpdateMetric(context.TODO(), &fooGauge)
 
 	t.Run("list ok", func(t *testing.T) {
-		metrics, err := s.ListMetric()
+		metrics, err := s.ListMetric(context.TODO())
 		require.NoError(t, err)
 
 		require.Equal(t, 3, len(metrics))
@@ -272,7 +274,7 @@ func TestMemStorage_ListMetric(t *testing.T) {
 		for idx := range mResults {
 			wg.Add(1)
 			go func() {
-				mResults[idx], _ = s.ListMetric()
+				mResults[idx], _ = s.ListMetric(context.TODO())
 				wg.Done()
 			}()
 		}

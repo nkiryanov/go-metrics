@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -47,7 +46,7 @@ func updateMetricPlain(s storage.Storage) http.HandlerFunc {
 			return
 		}
 
-		if metric, err = s.UpdateMetric(&metric); err != nil {
+		if metric, err = s.UpdateMetric(r.Context(), &metric); err != nil {
 			logger.Slog.Warnw("can't update metric", "error", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -69,7 +68,7 @@ func updateMetricJSON(s storage.Storage) http.HandlerFunc {
 			return
 		}
 
-		metric, err := s.UpdateMetric(&metric)
+		metric, err := s.UpdateMetric(r.Context(), &metric)
 		if err != nil {
 			logger.Slog.Warnw("metric could not updated", "error", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -95,7 +94,7 @@ func getMetricPlain(s storage.Storage) http.HandlerFunc {
 		mType := r.PathValue("mType")
 		mName := r.PathValue("mID")
 
-		metric, err := s.GetMetric(mType, mName)
+		metric, err := s.GetMetric(r.Context(), mType, mName)
 		if err != nil {
 			logger.Slog.Info("metic requested, but not found", "type", mType, "name", mName)
 			http.Error(w, fmt.Sprintf("metric not found. type: %s, id: %s", mType, mName), http.StatusNotFound)
@@ -120,7 +119,7 @@ func getMetricJSON(s storage.Storage) http.HandlerFunc {
 			return
 		}
 
-		metric, err := s.GetMetric(req.Type, req.Name)
+		metric, err := s.GetMetric(r.Context(), req.Type, req.Name)
 		if err != nil {
 			logger.Slog.Infow("metic requested, but not found", "type", req.Type, "id", req.Name)
 			http.Error(w, fmt.Sprintf("metric not found. type: %s, id: %s", req.Type, req.Name), http.StatusNotFound)
@@ -147,7 +146,7 @@ func listMetrics(s storage.Storage, tpl *template.Template) http.HandlerFunc {
 			Value string
 		}
 
-		metrics, err := s.ListMetric()
+		metrics, err := s.ListMetric(r.Context())
 		if err != nil {
 			logger.Slog.Infow("list metric failed", "error", err.Error())
 		}
@@ -168,19 +167,12 @@ func listMetrics(s storage.Storage, tpl *template.Template) http.HandlerFunc {
 	}
 }
 
-func dbPing(db *sql.DB) http.HandlerFunc {
+func ping(s storage.Storage) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if db == nil {
-			err := errors.New("db not initialized")
-			logger.Slog.Errorw("error", err)
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
 		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 		defer cancel()
 
-		if err := db.PingContext(ctx); err != nil {
+		if err := s.Ping(ctx); err != nil {
 			logger.Slog.Error("db connection failed", "error", err.Error())
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return

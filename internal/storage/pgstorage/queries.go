@@ -26,12 +26,16 @@ func rowToMetric(row pgx.CollectableRow) (models.Metric, error) {
 	return m, nil
 }
 
+func (s *PgStorage) Ping(ctx context.Context) error {
+	return s.db.Ping(ctx)
+}
+
 const countMetric = `
 	SELECT count(*) AS count
 	FROM "metric"
 	`
 
-func (s *PgStorage) Count(ctx context.Context) (int, error) {
+func (s *PgStorage) CountMetric(ctx context.Context) (int, error) {
 	rows, _ := s.db.Query(ctx, countMetric)
 	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[int])
 }
@@ -39,7 +43,7 @@ func (s *PgStorage) Count(ctx context.Context) (int, error) {
 const getMetric = `
 	SELECT "type", "name", "delta", "value"
 	FROM "metric"
-	WHERE "type" = $1, "name" = $2
+	WHERE "type" = $1 AND "name" = $2
 	`
 
 func (s *PgStorage) GetMetric(ctx context.Context, mType string, mName string) (models.Metric, error) {

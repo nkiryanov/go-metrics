@@ -2,6 +2,7 @@ package memstorage
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"io"
 )
@@ -21,7 +22,7 @@ func memSave(s *MemStorage) error {
 	}
 
 	buf := bufio.NewWriter(s.file)
-	metrics, _ := s.ListMetric()
+	metrics, _ := s.ListMetric(context.TODO())
 
 	err = json.NewEncoder(buf).Encode(metrics)
 	if err != nil {

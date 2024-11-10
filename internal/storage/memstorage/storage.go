@@ -119,16 +119,22 @@ func (s *MemStorage) Close() error {
 	return s.file.Close()
 }
 
-func (s *MemStorage) CountMetric() int {
+// Memory storage is ready for use just after initialization
+// No errors is possible
+func (s *MemStorage) Ping(ctx context.Context) error {
+	return nil
+}
+
+func (s *MemStorage) CountMetric(ctx context.Context) (int, error) {
 	s.counters.lock.RLock()
 	s.gauges.lock.RLock()
 	defer s.counters.lock.RUnlock()
 	defer s.gauges.lock.RUnlock()
 
-	return len(s.counters.storage) + len(s.gauges.storage)
+	return len(s.counters.storage) + len(s.gauges.storage), nil
 }
 
-func (s *MemStorage) GetMetric(mType string, mName string) (models.Metric, error) {
+func (s *MemStorage) GetMetric(ctx context.Context, mType string, mName string) (models.Metric, error) {
 	var err = storage.ErrNoMetric
 	metric := models.Metric{Type: mType, Name: mName}
 
@@ -154,7 +160,7 @@ func (s *MemStorage) GetMetric(mType string, mName string) (models.Metric, error
 	return metric, err
 }
 
-func (s *MemStorage) UpdateMetric(in *models.Metric) (models.Metric, error) {
+func (s *MemStorage) UpdateMetric(ctx context.Context, in *models.Metric) (models.Metric, error) {
 	metric := models.Metric{Type: in.Type, Name: in.Name}
 
 	switch metric.Type {
@@ -188,7 +194,7 @@ func (s *MemStorage) UpdateMetric(in *models.Metric) (models.Metric, error) {
 	return metric, nil
 }
 
-func (s *MemStorage) ListMetric() ([]models.Metric, error) {
+func (s *MemStorage) ListMetric(ctx context.Context) ([]models.Metric, error) {
 	s.counters.lock.RLock()
 	defer s.counters.lock.RUnlock()
 	s.gauges.lock.RLock()
