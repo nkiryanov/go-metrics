@@ -27,7 +27,7 @@ const (
 	filePath      = "server_data.json"
 	storeInterval = 300 * time.Second
 	restore       = false
-	dsn           = "postgres://go-metrics@localhost:5432/go-metrics"
+	dsn           = ""
 )
 
 func main() {
