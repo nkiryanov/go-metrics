@@ -75,7 +75,7 @@ func TestHTTPReporter_ReportBatch(t *testing.T) {
 	defer httpmock.DeactivateAndReset()
 
 	t.Run("do batch reports", func(t *testing.T) {
-		httpmock.RegisterResponder("POST", `http://pornhub.com/updates`, httpmock.NewStringResponder(200, "got it!"))
+		httpmock.RegisterResponder("POST", `http://pornhub.com/update`, httpmock.NewStringResponder(200, "got it!"))
 
 		err := rept.ReportBatch(
 			[]models.Metric{
@@ -86,11 +86,11 @@ func TestHTTPReporter_ReportBatch(t *testing.T) {
 
 		require.NoError(t, err)
 		info := httpmock.GetCallCountInfo()
-		assert.Equal(t, 1, info["POST http://pornhub.com/updates"])
+		assert.Equal(t, 2, info["POST http://pornhub.com/update"])
 	})
 
 	t.Run("return any happened error", func(t *testing.T) {
-		httpmock.RegisterResponder("POST", `http://pornhub.com/updates`, httpmock.NewStringResponder(500, "go fuck yourself!"))
+		httpmock.RegisterResponder("POST", `http://pornhub.com/update`, httpmock.NewStringResponder(500, "go fuck yourself!"))
 
 		err := rept.ReportBatch(
 			[]models.Metric{
@@ -101,6 +101,6 @@ func TestHTTPReporter_ReportBatch(t *testing.T) {
 
 		require.Error(t, err)
 		info := httpmock.GetCallCountInfo()
-		assert.Equal(t, 1, info["POST http://pornhub.com/updates"])
+		assert.Equal(t, 2, info["POST http://pornhub.com/update"])
 	})
 }

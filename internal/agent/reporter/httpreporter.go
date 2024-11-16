@@ -77,42 +77,30 @@ func (rept *HTTPReporter) ReportOnce(m *models.Metric) error {
 // POST /{baseUrl}/update
 // If errors while reporting occurred return one of them (randomly chosen)
 func (rept *HTTPReporter) ReportBatch(metrics []models.Metric) error {
-	body := &bytes.Buffer{}
+	var wg sync.WaitGroup
+	var once sync.Once
+	var err error
 
-	// Get gzip writer from them pool
-	gz := gzPool.Get().(*gzip.Writer)
-	gz.Reset(body)
+	onceBody := func(e error) { err = e }
 
-	encoder := json.NewEncoder(gz)
-	if err := encoder.Encode(metrics); err != nil {
-		logger.Slog.Errorw("reporter: request error", "error", err.Error())
-		return err
+	for _, metric := range metrics {
+		wg.Add(1)
+		go func(m *models.Metric) {
+			defer wg.Done()
+
+			if err := rept.ReportOnce(m); err != nil {
+				once.Do(func() {
+					onceBody(err)
+				})
+			}
+		}(&metric)
 	}
 
-	// Make sure body is written completely and return writer to pool
-	gz.Close()
-	gzPool.Put(gz)
+	wg.Wait()
 
-	request, err := http.NewRequest(http.MethodPost, rept.addr+"/updates", body)
-	if err != nil {
-		logger.Slog.Errorw("reporter: error when create request", "error", err.Error())
-		return err
+	if err == nil {
+		logger.Slog.Infow("reporter: metrics updated", "count", len(metrics))
 	}
 
-	request.Header.Set("Content-Encoding", "gzip")
-	request.Header.Set("Content-Type", "application/json")
-
-	resp, err := rept.client.Do(request)
-	if err != nil {
-		logger.Slog.Errorw("reporter: http client error", "error", err.Error())
-		return err
-	}
-	defer resp.Body.Close()
-
-	if status := resp.StatusCode; status != http.StatusOK {
-		logger.Slog.Errorw("reporter: server responds with not OK", "code", status, "body", resp.Body)
-		return fmt.Errorf("reporter: metric update error = %s", resp.Body)
-	}
-
-	return nil
+	return err
 }
