@@ -89,6 +89,35 @@ func updateMetricJSON(s storage.Storage) http.HandlerFunc {
 	}
 }
 
+func updateMetricBulkJSON(s storage.Storage) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		metrics := make([]models.Metric, 0)
+		var err error
+
+		if err = json.NewDecoder(r.Body).Decode(&metrics); err != nil {
+			logger.Slog.Warnw("request not expected format", "error", err)
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		if metrics, err = s.UpdateMetricBulk(r.Context(), metrics); err != nil {
+			logger.Slog.Warnw("error while updating metrics", "error", err.Error())
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		resp, err := json.Marshal(metrics)
+		if err != nil {
+			logger.Slog.Error("error while deserializing metric json", "error", err.Error())
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		writeOrInternalError(w, resp)
+	}
+}
+
 func getMetricPlain(s storage.Storage) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		mType := r.PathValue("mType")

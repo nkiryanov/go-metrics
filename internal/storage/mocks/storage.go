@@ -34,6 +34,9 @@ import (
 //			UpdateMetricFunc: func(ctx context.Context, in *models.Metric) (models.Metric, error) {
 //				panic("mock out the UpdateMetric method")
 //			},
+//			UpdateMetricBulkFunc: func(ctx context.Context, metrics []models.Metric) ([]models.Metric, error) {
+//				panic("mock out the UpdateMetricBulk method")
+//			},
 //		}
 //
 //		// use mockedStorage in code that requires storage.Storage
@@ -58,6 +61,9 @@ type StorageMock struct {
 
 	// UpdateMetricFunc mocks the UpdateMetric method.
 	UpdateMetricFunc func(ctx context.Context, in *models.Metric) (models.Metric, error)
+
+	// UpdateMetricBulkFunc mocks the UpdateMetricBulk method.
+	UpdateMetricBulkFunc func(ctx context.Context, metrics []models.Metric) ([]models.Metric, error)
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -95,13 +101,21 @@ type StorageMock struct {
 			// In is the in argument value.
 			In *models.Metric
 		}
+		// UpdateMetricBulk holds details about calls to the UpdateMetricBulk method.
+		UpdateMetricBulk []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Metrics is the metrics argument value.
+			Metrics []models.Metric
+		}
 	}
-	lockClose        sync.RWMutex
-	lockCountMetric  sync.RWMutex
-	lockGetMetric    sync.RWMutex
-	lockListMetric   sync.RWMutex
-	lockPing         sync.RWMutex
-	lockUpdateMetric sync.RWMutex
+	lockClose            sync.RWMutex
+	lockCountMetric      sync.RWMutex
+	lockGetMetric        sync.RWMutex
+	lockListMetric       sync.RWMutex
+	lockPing             sync.RWMutex
+	lockUpdateMetric     sync.RWMutex
+	lockUpdateMetricBulk sync.RWMutex
 }
 
 // Close calls CloseFunc.
@@ -300,5 +314,41 @@ func (mock *StorageMock) UpdateMetricCalls() []struct {
 	mock.lockUpdateMetric.RLock()
 	calls = mock.calls.UpdateMetric
 	mock.lockUpdateMetric.RUnlock()
+	return calls
+}
+
+// UpdateMetricBulk calls UpdateMetricBulkFunc.
+func (mock *StorageMock) UpdateMetricBulk(ctx context.Context, metrics []models.Metric) ([]models.Metric, error) {
+	if mock.UpdateMetricBulkFunc == nil {
+		panic("StorageMock.UpdateMetricBulkFunc: method is nil but Storage.UpdateMetricBulk was just called")
+	}
+	callInfo := struct {
+		Ctx     context.Context
+		Metrics []models.Metric
+	}{
+		Ctx:     ctx,
+		Metrics: metrics,
+	}
+	mock.lockUpdateMetricBulk.Lock()
+	mock.calls.UpdateMetricBulk = append(mock.calls.UpdateMetricBulk, callInfo)
+	mock.lockUpdateMetricBulk.Unlock()
+	return mock.UpdateMetricBulkFunc(ctx, metrics)
+}
+
+// UpdateMetricBulkCalls gets all the calls that were made to UpdateMetricBulk.
+// Check the length with:
+//
+//	len(mockedStorage.UpdateMetricBulkCalls())
+func (mock *StorageMock) UpdateMetricBulkCalls() []struct {
+	Ctx     context.Context
+	Metrics []models.Metric
+} {
+	var calls []struct {
+		Ctx     context.Context
+		Metrics []models.Metric
+	}
+	mock.lockUpdateMetricBulk.RLock()
+	calls = mock.calls.UpdateMetricBulk
+	mock.lockUpdateMetricBulk.RUnlock()
 	return calls
 }

@@ -1,4 +1,4 @@
-package pgstorage
+package queries
 
 import (
 	"context"
@@ -26,17 +26,13 @@ func rowToMetric(row pgx.CollectableRow) (models.Metric, error) {
 	return m, nil
 }
 
-func (s *PgStorage) Ping(ctx context.Context) error {
-	return s.db.Ping(ctx)
-}
-
 const countMetric = `
 	SELECT count(*) AS count
 	FROM "metric"
 	`
 
-func (s *PgStorage) CountMetric(ctx context.Context) (int, error) {
-	rows, _ := s.db.Query(ctx, countMetric)
+func (q *Queries) CountMetric(ctx context.Context) (int, error) {
+	rows, _ := q.db.Query(ctx, countMetric)
 	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[int])
 }
 
@@ -46,8 +42,8 @@ const getMetric = `
 	WHERE "type" = $1 AND "name" = $2
 	`
 
-func (s *PgStorage) GetMetric(ctx context.Context, mType string, mName string) (models.Metric, error) {
-	rows, _ := s.db.Query(ctx, getMetric, mType, mName)
+func (q *Queries) GetMetric(ctx context.Context, mType string, mName string) (models.Metric, error) {
+	rows, _ := q.db.Query(ctx, getMetric, mType, mName)
 	metric, err := pgx.CollectExactlyOneRow(rows, rowToMetric)
 
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -67,7 +63,7 @@ const insertOrUpdateMetric = `
 	RETURNING "type", "name", "delta", "value"
 	`
 
-func (s *PgStorage) UpdateMetric(ctx context.Context, m *models.Metric) (models.Metric, error) {
+func (q *Queries) UpdateMetric(ctx context.Context, m *models.Metric) (models.Metric, error) {
 	var delta pgtype.Int8
 	var value pgtype.Float8
 
@@ -80,7 +76,7 @@ func (s *PgStorage) UpdateMetric(ctx context.Context, m *models.Metric) (models.
 		value.Valid = true
 	}
 
-	rows, _ := s.db.Query(ctx, insertOrUpdateMetric, m.Type, m.Name, delta, value)
+	rows, _ := q.db.Query(ctx, insertOrUpdateMetric, m.Type, m.Name, delta, value)
 	return pgx.CollectExactlyOneRow(rows, rowToMetric)
 }
 
@@ -90,7 +86,7 @@ const listMetric = `
 	ORDER BY "name", "type"
 	`
 
-func (s *PgStorage) ListMetric(ctx context.Context) ([]models.Metric, error) {
-	rows, _ := s.db.Query(ctx, listMetric)
+func (q *Queries) ListMetric(ctx context.Context) ([]models.Metric, error) {
+	rows, _ := q.db.Query(ctx, listMetric)
 	return pgx.CollectRows(rows, rowToMetric)
 }

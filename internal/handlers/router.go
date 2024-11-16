@@ -35,6 +35,11 @@ func NewMetricRouter(stor storage.Storage) http.Handler {
 		router.Post("/{mType}/{mID}/{mValue}", updateMetricPlain(stor))
 	})
 
+	// Router for /updates
+	router.Route("/updates", func(router chi.Router) {
+		router.Post("/", updateMetricBulkJSON(stor))
+	})
+
 	// Routers for /ping
 	router.Get("/ping", ping(stor))
 

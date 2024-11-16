@@ -216,3 +216,7 @@ func (s *MemStorage) ListMetric(ctx context.Context) ([]models.Metric, error) {
 
 	return metrics, nil
 }
+
+func (s *MemStorage) UpdateMetricBulk(ctx context.Context, metrics []models.Metric) (updated []models.Metric, err error) {
+	return nil, fmt.Errorf("not implemented")
+}
