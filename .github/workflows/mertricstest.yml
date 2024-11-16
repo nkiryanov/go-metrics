@@ -276,9 +276,9 @@ jobs:
             -server-port=$SERVER_PORT \
             -source-path=.
 
-      # The main branch is disabled until pr iter10 is ready
       - name: "Code increment #10"
         if: |
+          github.ref == 'refs/heads/main' ||
           github.head_ref == 'iter10' ||
           github.head_ref == 'iter11' ||
           github.head_ref == 'iter12' ||
@@ -295,9 +295,9 @@ jobs:
             -server-port=$SERVER_PORT \
             -source-path=.
 
-      # The main branch is disabled until pr iter11 is ready
       - name: "Code increment #11"
         if: |
+          github.ref == 'refs/heads/main' ||
           github.head_ref == 'iter11' ||
           github.head_ref == 'iter12' ||
           github.head_ref == 'iter13' ||
@@ -313,9 +313,9 @@ jobs:
             -server-port=$SERVER_PORT \
             -source-path=.
 
-      # The main branch is disabled until pr iter12 is ready
       - name: "Code increment #12"
         if: |
+          github.ref == 'refs/heads/main' ||
           github.head_ref == 'iter12' ||
           github.head_ref == 'iter13' ||
           github.head_ref == 'iter14'
