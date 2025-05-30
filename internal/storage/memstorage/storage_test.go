@@ -285,3 +285,39 @@ func TestMemStorage_ListMetric(t *testing.T) {
 		assert.Equal(t, 3, len(mResults[2]))
 	})
 }
+
+func TestMemStorage_UpdateMetricBulk(t *testing.T) {
+	metrics := []models.Metric{
+		{Name: "bar", Type: models.GaugeTypeName, Value: 431.10},
+		{Name: "foo", Type: models.CounterTypeName, Delta: 10},
+	}
+
+	t.Run("update metric counter and gauge bulk ok", func(t *testing.T) {
+		s, close := memstorage(t, 3*time.Minute)
+		defer close()
+
+		got, err := s.UpdateMetricBulk(context.TODO(), metrics)
+
+		assert.NoError(t, err)
+		assert.Equal(t, metrics, got)
+
+		inMemory, err := s.ListMetric(context.TODO())
+		require.NoError(t, err)
+		assert.Equal(t, inMemory, got)
+	})
+
+	t.Run("fail if unknown type", func(t *testing.T) {
+		s, close := memstorage(t, 3*time.Minute)
+		defer close()
+		invalid := append(metrics, models.Metric{Name: "unknown", Type: "unknown"})
+
+		got, err := s.UpdateMetricBulk(context.TODO(), invalid)
+
+		assert.Error(t, err)
+		assert.Equal(t, invalid, got)
+
+		inMemory, err := s.ListMetric(context.TODO())
+		require.NoError(t, err)
+		assert.Equal(t, make([]models.Metric, 0), inMemory)
+	})
+}

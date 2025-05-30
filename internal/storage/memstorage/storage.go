@@ -111,6 +111,40 @@ func (s *MemStorage) restore() error {
 	return s.restorer(s)
 }
 
+// Validate metric could be saved in memory storage
+func (s *MemStorage) validate(m *models.Metric) error {
+	switch m.Type {
+	case models.CounterTypeName, models.GaugeTypeName:
+		return nil
+	default:
+		return fmt.Errorf("unknown metric type: %s", m.Type)
+	}
+}
+
+// Update valid metric in storage (in memory)
+func (s *MemStorage) update(validated *models.Metric) models.Metric {
+	metric := models.Metric{Type: validated.Type, Name: validated.Name}
+
+	switch metric.Type {
+	case models.CounterTypeName:
+		s.counters.lock.Lock()
+		s.counters.storage[validated.Name] += validated.Delta
+		counter := s.counters.storage[validated.Name]
+		s.counters.lock.Unlock()
+
+		metric.Delta = counter
+	case models.GaugeTypeName:
+		s.gauges.lock.Lock()
+		s.gauges.storage[validated.Name] = validated.Value
+		gauge := s.gauges.storage[validated.Name]
+		s.gauges.lock.Unlock()
+
+		metric.Value = gauge
+	}
+
+	return metric
+}
+
 func (s *MemStorage) Close() error {
 	s.cancel()
 	if err := s.save(); err != nil {
@@ -161,26 +195,12 @@ func (s *MemStorage) GetMetric(ctx context.Context, mType string, mName string) 
 }
 
 func (s *MemStorage) UpdateMetric(ctx context.Context, in *models.Metric) (models.Metric, error) {
-	metric := models.Metric{Type: in.Type, Name: in.Name}
-
-	switch metric.Type {
-	case models.CounterTypeName:
-		s.counters.lock.Lock()
-		s.counters.storage[in.Name] += in.Delta
-		counter := s.counters.storage[in.Name]
-		s.counters.lock.Unlock()
-
-		metric.Delta = counter
-	case models.GaugeTypeName:
-		s.gauges.lock.Lock()
-		s.gauges.storage[in.Name] = in.Value
-		gauge := s.gauges.storage[in.Name]
-		s.gauges.lock.Unlock()
-
-		metric.Value = gauge
-	default:
-		return metric, fmt.Errorf("unknown metric type: %s", metric.Type)
+	err := s.validate(in)
+	if err != nil {
+		return models.Metric{}, err
 	}
+
+	metric := s.update(in)
 
 	// is saveInterval = 0, than save metrics in synchronously
 	if s.saveInterval == 0 {
@@ -217,6 +237,34 @@ func (s *MemStorage) ListMetric(ctx context.Context) ([]models.Metric, error) {
 	return metrics, nil
 }
 
-func (s *MemStorage) UpdateMetricBulk(ctx context.Context, metrics []models.Metric) (updated []models.Metric, err error) {
-	return nil, fmt.Errorf("not implemented")
+func (s *MemStorage) UpdateMetricBulk(ctx context.Context, metrics []models.Metric) ([]models.Metric, error) {
+	var err error
+
+	// Validate all the metrics
+	for _, m := range metrics {
+		err = s.validate(&m)
+		if err != nil {
+			return metrics, err
+		}
+	}
+
+	updated := make([]models.Metric, 0, len(metrics))
+
+	for _, m := range metrics {
+
+		updated = append(updated, s.update(&m))
+	}
+
+	// is saveInterval = 0, than save metrics in synchronously
+	if s.saveInterval == 0 {
+		err = s.save()
+		if err != nil {
+			logger.Slog.Errorw("metrics saving failed", "error", err.Error())
+			return updated, err
+		}
+
+		logger.Slog.Debugw("metrics bulk saved", "metric")
+	}
+
+	return updated, nil
 }
