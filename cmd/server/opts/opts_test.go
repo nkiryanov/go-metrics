@@ -190,8 +190,8 @@ func TestOptions(t *testing.T) {
 
 			// Set (and clean on exit) environment variables
 			for key, value := range tc.envVars {
-				os.Setenv(key, value)
-				defer os.Unsetenv(key)
+				_ = os.Setenv(key, value)
+				defer os.Unsetenv(key) // nolint:errcheck
 			}
 
 			// Set command-line args

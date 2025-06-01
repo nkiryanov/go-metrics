@@ -46,7 +46,7 @@ func (rept *HTTPReporter) ReportOnce(m *models.Metric) error {
 	}
 
 	// Make sure body is written completely and return writer to pool
-	gz.Close()
+	_ = gz.Close()
 	gzPool.Put(gz)
 
 	request, err := http.NewRequest(http.MethodPost, rept.addr+"/update", body)
@@ -63,7 +63,7 @@ func (rept *HTTPReporter) ReportOnce(m *models.Metric) error {
 		logger.Slog.Errorw("reporter: http client error", "error", err.Error())
 		return err
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() // nolint:errcheck
 
 	if status := resp.StatusCode; status != http.StatusOK {
 		logger.Slog.Errorw("reporter: server responds with not OK", "code", status, "body", resp.Body)
@@ -90,7 +90,7 @@ func (rept *HTTPReporter) ReportBatch(metrics []models.Metric) error {
 	}
 
 	// Make sure body is written completely and return writer to pool
-	gz.Close()
+	_ = gz.Close()
 	gzPool.Put(gz)
 
 	request, err := http.NewRequest(http.MethodPost, rept.addr+"/updates", body)
@@ -107,7 +107,7 @@ func (rept *HTTPReporter) ReportBatch(metrics []models.Metric) error {
 		logger.Slog.Errorw("reporter: http client error", "error", err.Error())
 		return err
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() // nolint:errcheck
 
 	if status := resp.StatusCode; status != http.StatusOK {
 		logger.Slog.Errorw("reporter: server responds with not OK", "code", status, "body", resp.Body)

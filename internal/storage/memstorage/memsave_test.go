@@ -17,11 +17,11 @@ func Test_memSave(t *testing.T) {
 	file, err := os.CreateTemp("", "saved_metrics_*.json")
 	require.NoError(t, err)
 	filename := file.Name()
-	defer os.Remove(filename)
+	defer os.Remove(filename) // nolint:errcheck
 
 	// Create storage and add some metrics
 	s, _ := New(filename, 3*time.Minute, true)
-	defer s.Close()
+	defer s.Close() // nolint:errcheck
 	_, _ = s.UpdateMetric(context.TODO(), &models.Metric{Name: "foo", Type: models.CounterTypeName, Delta: 10})
 	_, _ = s.UpdateMetric(context.TODO(), &models.Metric{Name: "goo", Type: models.GaugeTypeName, Value: 500.233})
 

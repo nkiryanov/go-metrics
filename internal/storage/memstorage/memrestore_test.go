@@ -14,7 +14,7 @@ func Test_memRestore(t *testing.T) {
 	file, err := os.CreateTemp("", "saved_metrics_*.json")
 	require.NoError(t, err)
 	filename := file.Name()
-	defer os.Remove(filename)
+	defer os.Remove(filename) // nolint:errcheck
 
 	// Write some metrics to file
 	metricsJSON := `[
@@ -31,7 +31,7 @@ func Test_memRestore(t *testing.T) {
 	t.Run("restore func ok", func(t *testing.T) {
 		s, err := New(filename, 3*time.Minute, false) // Restore = false
 		require.NoError(t, err)
-		defer s.Close()
+		defer s.Close() // nolint:errcheck
 
 		err = memRestore(s)
 

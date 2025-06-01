@@ -16,7 +16,7 @@ import (
 
 func decompress(buf *bytes.Buffer) string {
 	decoder, _ := gzip.NewReader(buf)
-	defer decoder.Close()
+	defer decoder.Close() // nolint:errcheck
 
 	data, _ := io.ReadAll(decoder)
 	return string(data)

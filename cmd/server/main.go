@@ -51,7 +51,7 @@ func main() {
 	if err != nil {
 		logger.Slog.Fatal("storage initialization failed", "error", err.Error())
 	}
-	defer s.Close()
+	defer s.Close() // nolint:errcheck
 
 	srv := &app.ServerApp{
 		Opts:    opts,
