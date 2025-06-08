@@ -23,11 +23,11 @@ func TestAgent_RunStoppedOnSignal(t *testing.T) {
 
 	// Prefer not to use mock here, cause it made test closer to production use
 	agent := &Agent{
-		PollIntv: 2 * time.Second,
-		ReptIntv: 10 * time.Second,
+		PollInterval:   2 * time.Second,
+		ReportInterval: 10 * time.Second,
 
-		Rept: reporter.NewHTTPReporter("http://localhost:40010", &http.Client{}),
-		Capt: capturer.NewMemCapturer(),
+		Reporter: reporter.NewHTTPReporter("http://localhost:40010", &http.Client{}, nil),
+		Capturer: capturer.NewMemCapturer(),
 	}
 
 	err := agent.Run(ctx)

@@ -46,11 +46,15 @@ func main() {
 	}()
 
 	agent := &app.Agent{
-		PollIntv: opts.PollIntv,
-		ReptIntv: opts.ReptIntv,
+		PollInterval:   opts.PollIntv,
+		ReportInterval: opts.ReptIntv,
 
-		Rept: reporter.NewHTTPReporter(opts.ReptAddr, &http.Client{}),
-		Capt: capturer.NewMemCapturer(),
+		Reporter: reporter.NewHTTPReporter(
+			opts.ReptAddr,
+			&http.Client{},
+			[]time.Duration{time.Second, 3 * time.Second, 5 * time.Second},
+		),
+		Capturer: capturer.NewMemCapturer(),
 	}
 
 	if err := agent.Run(ctx); err != app.ErrAgentStopped {
