@@ -7,27 +7,27 @@ import (
 
 // Simple interval runner
 // Executes a function at regular intervals until it is stopped
-// There is no graceful shutdown, may be implemented later
-type IntvRunner struct {
+// There is no graceful shutdown, may be implemented sometime
+type IntervalRunner struct {
 	// Interval at which the task is executed
-	intv time.Duration
+	interval time.Duration
 
 	// Start delay
 	delay time.Duration
 }
 
-func NewIntvRunner(d time.Duration, intv time.Duration) *IntvRunner {
-	return &IntvRunner{
-		intv:  intv,
+func NewIntvRunner(d time.Duration, interval time.Duration) *IntervalRunner {
+	return &IntervalRunner{
+		interval:  interval,
 		delay: d,
 	}
 }
 
-func (ir IntvRunner) Run(ctx context.Context, fn func()) {
+func (runner IntervalRunner) Run(ctx context.Context, fn func()) {
 	gofn := func() {
 		fn()
 
-		ticker := time.NewTicker(ir.intv)
+		ticker := time.NewTicker(runner.interval)
 		defer ticker.Stop()
 
 		for {
@@ -36,17 +36,17 @@ func (ir IntvRunner) Run(ctx context.Context, fn func()) {
 				return
 			case <-ticker.C:
 				fn()
-				ticker.Reset(ir.intv)
+				ticker.Reset(runner.interval)
 			}
 		}
 	}
 
-	// Dummy stop, replaced real one if delay set
+	// Dummy stop, will be replaced with real one if delay set
 	stop := func() bool { return true }
 
 	// Wait to start runner
-	if ir.delay > 0 {
-		timer := time.AfterFunc(ir.delay, gofn)
+	if runner.delay > 0 {
+		timer := time.AfterFunc(runner.delay, gofn)
 		stop = timer.Stop
 	} else {
 		go gofn()
