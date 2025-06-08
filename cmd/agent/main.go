@@ -54,7 +54,7 @@ func main() {
 	}
 
 	if err := agent.Run(ctx); err != app.ErrAgentStopped {
-		logger.Slog.Error("Something terrible happened", "error", err)
+		logger.Slog.Error("Agent stopped unintentionally with error", "error", err)
 		os.Exit(1)
 	}
 }

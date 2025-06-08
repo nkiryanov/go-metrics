@@ -30,17 +30,17 @@ func TestHTTPReporter_ReportOnce(t *testing.T) {
 
 	tests := []struct {
 		name         string
-		metric       *models.Metric
+		metric       models.Metric
 		expectedBody string
 	}{
 		{
 			"report counter, ok",
-			&models.Metric{Name: "poll-count", Type: "counter", Delta: 213},
+			models.Metric{Name: "poll-count", Type: "counter", Delta: 213},
 			`{"id": "poll-count", "type": "counter", "delta": 213}`,
 		},
 		{
 			"report gauge, ok",
-			&models.Metric{Name: "mem-usage", Type: "gauge", Value: 239239.3983},
+			models.Metric{Name: "mem-usage", Type: "gauge", Value: 239239.3983},
 			`{"id": "mem-usage", "type": "gauge", "value": 239239.3983}`,
 		},
 	}
