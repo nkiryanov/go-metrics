@@ -18,8 +18,8 @@ type IntervalRunner struct {
 
 func NewIntvRunner(d time.Duration, interval time.Duration) *IntervalRunner {
 	return &IntervalRunner{
-		interval:  interval,
-		delay: d,
+		interval: interval,
+		delay:    d,
 	}
 }
 

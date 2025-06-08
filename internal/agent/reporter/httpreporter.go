@@ -11,16 +11,15 @@ import (
 	"github.com/nkiryanov/go-metrics/internal/models"
 )
 
-
 type HTTPReporter struct {
-	reportAddr   string
-	client *http.Client
+	reportAddr string
+	client     *http.Client
 }
 
 func NewHTTPReporter(reportAddr string, client *http.Client) *HTTPReporter {
 	return &HTTPReporter{
-		reportAddr:   reportAddr,
-		client: client,
+		reportAddr: reportAddr,
+		client:     client,
 	}
 }
 
@@ -33,7 +32,6 @@ func (reporter *HTTPReporter) ReportOnce(m models.Metric) error {
 func (reporter *HTTPReporter) ReportBatch(metrics []models.Metric) error {
 	return reporter.postRequest("/updates", metrics)
 }
-
 
 // POSTs data to url server as gzipped JSON
 func (reporter *HTTPReporter) postRequest(url string, data any) error {
@@ -55,7 +53,7 @@ func (reporter *HTTPReporter) postRequest(url string, data any) error {
 		return err
 	}
 
-	request, err := http.NewRequest(http.MethodPost, reporter.reportAddr + url, &body)
+	request, err := http.NewRequest(http.MethodPost, reporter.reportAddr+url, &body)
 	if err != nil {
 		logger.Slog.Errorw("reporter: error when create request", "error", err.Error())
 		return err
