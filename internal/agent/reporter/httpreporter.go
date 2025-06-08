@@ -5,95 +5,57 @@ import (
 	"compress/gzip"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
-	"sync"
 
 	"github.com/nkiryanov/go-metrics/internal/logger"
 	"github.com/nkiryanov/go-metrics/internal/models"
 )
 
-var gzPool = sync.Pool{
-	New: func() interface{} { return gzip.NewWriter(io.Discard) },
-}
 
 type HTTPReporter struct {
-	addr   string
+	reportAddr   string
 	client *http.Client
 }
 
-func NewHTTPReporter(addr string, client *http.Client) *HTTPReporter {
+func NewHTTPReporter(reportAddr string, client *http.Client) *HTTPReporter {
 	return &HTTPReporter{
-		addr:   addr,
+		reportAddr:   reportAddr,
 		client: client,
 	}
 }
 
-// Sends a gzip encoded single metric update
 // POST /{baseUrl}/update
-// If the request encounters an error, it is returned.
-func (rept *HTTPReporter) ReportOnce(m *models.Metric) error {
-	body := &bytes.Buffer{}
-
-	// Get gzip writer from them pool
-	gz := gzPool.Get().(*gzip.Writer)
-	gz.Reset(body)
-
-	encoder := json.NewEncoder(gz)
-	if err := encoder.Encode(m); err != nil {
-		logger.Slog.Errorw("reporter: request error", "error", err.Error())
-		return err
-	}
-
-	// Make sure body is written completely and return writer to pool
-	_ = gz.Close()
-	gzPool.Put(gz)
-
-	request, err := http.NewRequest(http.MethodPost, rept.addr+"/update", body)
-	if err != nil {
-		logger.Slog.Errorw("reporter: error when create request", "error", err.Error())
-		return err
-	}
-
-	request.Header.Set("Content-Encoding", "gzip")
-	request.Header.Set("Content-Type", "application/json")
-
-	resp, err := rept.client.Do(request)
-	if err != nil {
-		logger.Slog.Errorw("reporter: http client error", "error", err.Error())
-		return err
-	}
-	defer resp.Body.Close() // nolint:errcheck
-
-	if status := resp.StatusCode; status != http.StatusOK {
-		logger.Slog.Errorw("reporter: server responds with not OK", "code", status, "body", resp.Body)
-		return fmt.Errorf("reporter: metric update error = %s", resp.Body)
-	}
-
-	return nil
+func (reporter *HTTPReporter) ReportOnce(m models.Metric) error {
+	return reporter.postRequest("/update", m)
 }
 
-// ReportBatch sends concurrent metric update
 // POST /{baseUrl}/update
-// If errors while reporting occurred return one of them (randomly chosen)
-func (rept *HTTPReporter) ReportBatch(metrics []models.Metric) error {
-	body := &bytes.Buffer{}
+func (reporter *HTTPReporter) ReportBatch(metrics []models.Metric) error {
+	return reporter.postRequest("/updates", metrics)
+}
 
-	// Get gzip writer from them pool
-	gz := gzPool.Get().(*gzip.Writer)
-	gz.Reset(body)
 
-	encoder := json.NewEncoder(gz)
-	if err := encoder.Encode(metrics); err != nil {
-		logger.Slog.Errorw("reporter: request error", "error", err.Error())
+// POSTs data to url server as gzipped JSON
+func (reporter *HTTPReporter) postRequest(url string, data any) error {
+	var body bytes.Buffer
+	var err error
+
+	gw := gzip.NewWriter(&body)
+
+	encoder := json.NewEncoder(gw)
+	err = encoder.Encode(data)
+	if err != nil {
+		logger.Slog.Errorw("error when marshaling json data", "error", err.Error(), "data", data)
 		return err
 	}
 
-	// Make sure body is written completely and return writer to pool
-	_ = gz.Close()
-	gzPool.Put(gz)
+	err = gw.Close()
+	if err != nil {
+		logger.Slog.Errorw("error when compressing data", "error", err.Error())
+		return err
+	}
 
-	request, err := http.NewRequest(http.MethodPost, rept.addr+"/updates", body)
+	request, err := http.NewRequest(http.MethodPost, reporter.reportAddr + url, &body)
 	if err != nil {
 		logger.Slog.Errorw("reporter: error when create request", "error", err.Error())
 		return err
@@ -102,7 +64,7 @@ func (rept *HTTPReporter) ReportBatch(metrics []models.Metric) error {
 	request.Header.Set("Content-Encoding", "gzip")
 	request.Header.Set("Content-Type", "application/json")
 
-	resp, err := rept.client.Do(request)
+	resp, err := reporter.client.Do(request)
 	if err != nil {
 		logger.Slog.Errorw("reporter: http client error", "error", err.Error())
 		return err
@@ -110,7 +72,7 @@ func (rept *HTTPReporter) ReportBatch(metrics []models.Metric) error {
 	defer resp.Body.Close() // nolint:errcheck
 
 	if status := resp.StatusCode; status != http.StatusOK {
-		logger.Slog.Errorw("reporter: server responds with not OK", "code", status, "body", resp.Body)
+		logger.Slog.Errorw("reporter: server responds with not OK", "status", status, "body", resp.Body)
 		return fmt.Errorf("reporter: metric update error = %s", resp.Body)
 	}
 
