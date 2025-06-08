@@ -27,9 +27,9 @@ func rowToMetric(row pgx.CollectableRow) (models.Metric, error) {
 }
 
 const countMetric = `
-	SELECT count(*) AS count
-	FROM "metric"
-	`
+SELECT count(*) AS count
+FROM "metric"
+`
 
 func (q *Queries) CountMetric(ctx context.Context) (int, error) {
 	rows, _ := q.db.Query(ctx, countMetric)
@@ -37,10 +37,10 @@ func (q *Queries) CountMetric(ctx context.Context) (int, error) {
 }
 
 const getMetric = `
-	SELECT "type", "name", "delta", "value"
-	FROM "metric"
-	WHERE "type" = $1 AND "name" = $2
-	`
+SELECT "type", "name", "delta", "value"
+FROM "metric"
+WHERE "type" = $1 AND "name" = $2
+`
 
 func (q *Queries) GetMetric(ctx context.Context, mType string, mName string) (models.Metric, error) {
 	rows, _ := q.db.Query(ctx, getMetric, mType, mName)
@@ -54,14 +54,14 @@ func (q *Queries) GetMetric(ctx context.Context, mType string, mName string) (mo
 }
 
 const insertOrUpdateMetric = `
-	INSERT INTO "metric" ("type", "name", "delta", "value")
-	VALUES ($1, $2, $3, $4)
-	ON CONFLICT ("name", "type")
-	DO UPDATE SET
-		"delta" = "metric"."delta" + EXCLUDED."delta",
-		"value" = EXCLUDED."value"
-	RETURNING "type", "name", "delta", "value"
-	`
+INSERT INTO "metric" ("type", "name", "delta", "value")
+VALUES ($1, $2, $3, $4)
+ON CONFLICT ("name", "type")
+DO UPDATE SET
+	"delta" = "metric"."delta" + EXCLUDED."delta",
+	"value" = EXCLUDED."value"
+RETURNING "type", "name", "delta", "value"
+`
 
 func (q *Queries) UpdateMetric(ctx context.Context, m *models.Metric) (models.Metric, error) {
 	var delta pgtype.Int8
@@ -81,12 +81,32 @@ func (q *Queries) UpdateMetric(ctx context.Context, m *models.Metric) (models.Me
 }
 
 const listMetric = `
-	SELECT "type", "name", "delta", "value"
-	FROM "metric"
-	ORDER BY "name", "type"
-	`
+SELECT "type", "name", "delta", "value"
+FROM "metric"
+ORDER BY "name", "type"
+`
 
 func (q *Queries) ListMetric(ctx context.Context) ([]models.Metric, error) {
 	rows, _ := q.db.Query(ctx, listMetric)
 	return pgx.CollectRows(rows, rowToMetric)
+}
+
+// Get slice of metrics, update them in transaction and return slice of updated metrics
+// Return err and rollback if any error occurs
+func (q *Queries) UpdateMetricBulk(ctx context.Context, metrics []models.Metric) ([]models.Metric, error) {
+	updated := make([]models.Metric, 0, len(metrics))
+	err := pgx.BeginFunc(ctx, q.db, func(tx pgx.Tx) error {
+		qtx := WithTx(tx)
+		var err error
+		var u models.Metric
+		for _, m := range metrics {
+			if u, err = qtx.UpdateMetric(ctx, &m); err != nil {
+				return err
+			}
+			updated = append(updated, u)
+		}
+		return nil
+	})
+
+	return updated, err
 }

@@ -3,7 +3,6 @@ package pgstorage
 import (
 	"context"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/nkiryanov/go-metrics/internal/models"
@@ -51,22 +50,7 @@ func (s *PgStorage) ListMetric(ctx context.Context) ([]models.Metric, error) {
 	return q.ListMetric(ctx)
 }
 
-// Get slice of metrics, update them in transaction and return slice of updated metrics
-// Return err and rollback if any error occurs
 func (s *PgStorage) UpdateMetricBulk(ctx context.Context, metrics []models.Metric) ([]models.Metric, error) {
-	updated := make([]models.Metric, 0, len(metrics))
-	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		qtx := queries.WithTx(tx)
-		var err error
-		var u models.Metric
-		for _, m := range metrics {
-			if u, err = qtx.UpdateMetric(ctx, &m); err != nil {
-				return err
-			}
-			updated = append(updated, u)
-		}
-		return nil
-	})
-
-	return updated, err
+	q := queries.New(s.db)
+	return q.UpdateMetricBulk(ctx, metrics)
 }
