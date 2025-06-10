@@ -6,19 +6,29 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/nkiryanov/go-metrics/internal/models"
-	"github.com/nkiryanov/go-metrics/internal/storage/pgstorage/db"
+	"github.com/nkiryanov/go-metrics/internal/db"
 	"github.com/nkiryanov/go-metrics/internal/storage/pgstorage/queries"
 )
 
 type PgStorage struct {
+	
 	db *pgxpool.Pool
 }
 
-// Create PgStorage
-// Note: it embed migrations files, that would be run on initialization
-func New(ctx context.Context, connString string) (*PgStorage, error) {
-	pool, err := db.New(ctx, connString)
-	return &PgStorage{db: pool}, err
+func New(ctx context.Context, dbURI string) (*PgStorage, error) {
+	var err error
+
+	pool, err := db.Connect(ctx, dbURI)
+	if err != nil {
+		return nil, err
+	}
+
+	err = db.Migrate(dbURI)
+	if err != nil {
+		return nil, err
+	}
+
+	return &PgStorage{db: pool}, nil
 }
 
 func (s *PgStorage) Close() error {
@@ -27,6 +37,7 @@ func (s *PgStorage) Close() error {
 }
 
 func (s *PgStorage) Ping(ctx context.Context) error {
+
 	return s.db.Ping(ctx)
 }
 
