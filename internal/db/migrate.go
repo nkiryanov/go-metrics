@@ -2,8 +2,8 @@ package db
 
 import (
 	"embed"
-	"strings"
 	"errors"
+	"strings"
 
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/pgx/v5"
@@ -15,7 +15,6 @@ var migrations embed.FS
 
 // Run embedded migrations on dbURI
 // Check the example at https://github.com/golang-migrate/migrate/blob/v4.18.1/source/iofs/example_test.go
-// 
 func Migrate(dbURI string) error {
 	var err error
 

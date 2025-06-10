@@ -1,4 +1,4 @@
-package queries
+package pgstorage
 
 import (
 	"context"
@@ -26,13 +26,19 @@ func rowToMetric(row pgx.CollectableRow) (models.Metric, error) {
 	return m, nil
 }
 
+// Execute empty sql statement and return result
+func (s *PgStorage) Ping(ctx context.Context) error {
+	_, err := s.db.Exec(ctx, `-- ping`)
+	return err
+}
+
 const countMetric = `
 SELECT count(*) AS count
 FROM "metric"
 `
 
-func (q *Queries) CountMetric(ctx context.Context) (int, error) {
-	rows, _ := q.db.Query(ctx, countMetric)
+func (s *PgStorage) CountMetric(ctx context.Context) (int, error) {
+	rows, _ := s.db.Query(ctx, countMetric)
 	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[int])
 }
 
@@ -42,8 +48,8 @@ FROM "metric"
 WHERE "type" = $1 AND "name" = $2
 `
 
-func (q *Queries) GetMetric(ctx context.Context, mType string, mName string) (models.Metric, error) {
-	rows, _ := q.db.Query(ctx, getMetric, mType, mName)
+func (s *PgStorage) GetMetric(ctx context.Context, mType string, mName string) (models.Metric, error) {
+	rows, _ := s.db.Query(ctx, getMetric, mType, mName)
 	metric, err := pgx.CollectExactlyOneRow(rows, rowToMetric)
 
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -63,7 +69,7 @@ DO UPDATE SET
 RETURNING "type", "name", "delta", "value"
 `
 
-func (q *Queries) UpdateMetric(ctx context.Context, m *models.Metric) (models.Metric, error) {
+func (s *PgStorage) UpdateMetric(ctx context.Context, m *models.Metric) (models.Metric, error) {
 	var delta pgtype.Int8
 	var value pgtype.Float8
 
@@ -76,7 +82,7 @@ func (q *Queries) UpdateMetric(ctx context.Context, m *models.Metric) (models.Me
 		value.Valid = true
 	}
 
-	rows, _ := q.db.Query(ctx, insertOrUpdateMetric, m.Type, m.Name, delta, value)
+	rows, _ := s.db.Query(ctx, insertOrUpdateMetric, m.Type, m.Name, delta, value)
 	return pgx.CollectExactlyOneRow(rows, rowToMetric)
 }
 
@@ -86,21 +92,21 @@ FROM "metric"
 ORDER BY "name", "type"
 `
 
-func (q *Queries) ListMetric(ctx context.Context) ([]models.Metric, error) {
-	rows, _ := q.db.Query(ctx, listMetric)
+func (s *PgStorage) ListMetric(ctx context.Context) ([]models.Metric, error) {
+	rows, _ := s.db.Query(ctx, listMetric)
 	return pgx.CollectRows(rows, rowToMetric)
 }
 
 // Get slice of metrics, update them in transaction and return slice of updated metrics
 // Return err and rollback if any error occurs
-func (q *Queries) UpdateMetricBulk(ctx context.Context, metrics []models.Metric) ([]models.Metric, error) {
+func (s *PgStorage) UpdateMetricBulk(ctx context.Context, metrics []models.Metric) ([]models.Metric, error) {
 	updated := make([]models.Metric, 0, len(metrics))
-	err := pgx.BeginFunc(ctx, q.db, func(tx pgx.Tx) error {
-		qtx := WithTx(tx)
+	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
+		storageTx := WithTx(tx)
 		var err error
 		var u models.Metric
 		for _, m := range metrics {
-			if u, err = qtx.UpdateMetric(ctx, &m); err != nil {
+			if u, err = storageTx.UpdateMetric(ctx, &m); err != nil {
 				return err
 			}
 			updated = append(updated, u)
