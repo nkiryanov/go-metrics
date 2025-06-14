@@ -13,6 +13,7 @@ import (
 
 	"github.com/nkiryanov/go-metrics/cmd/server/app"
 	"github.com/nkiryanov/go-metrics/cmd/server/opts"
+	"github.com/nkiryanov/go-metrics/internal/db"
 	"github.com/nkiryanov/go-metrics/internal/handlers"
 	"github.com/nkiryanov/go-metrics/internal/logger"
 	"github.com/nkiryanov/go-metrics/internal/storage"
@@ -46,12 +47,14 @@ func main() {
 		log.Fatal("logger could not be initialized, %w", err.Error())
 	}
 
+	ctx := context.Background()
+
 	// Initialize storage
-	s, err := initStorage(opts)
+	s, cancelFn, err := initStorage(ctx, opts)
 	if err != nil {
 		logger.Slog.Fatal("storage initialization failed", "error", err.Error())
 	}
-	defer s.Close() // nolint:errcheck
+	defer cancelFn() // nolint:errcheck
 
 	srv := &app.ServerApp{
 		Opts:    opts,
@@ -74,10 +77,30 @@ func main() {
 	}
 }
 
-func initStorage(opts *opts.Options) (storage.Storage, error) {
+func initStorage(ctx context.Context, opts *opts.Options) (s storage.Storage, cancelFunc func() error, err error) {
 	if opts.Dsn != "" {
-		return pgstorage.New(context.TODO(), opts.Dsn)
+		err = db.Migrate(opts.Dsn)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		pool, err := db.Connect(ctx, opts.Dsn)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		pgs := pgstorage.New(ctx, pool)
+		cancelFn := func() error {
+			pool.Close()
+			return pgs.Close()
+		}
+		return pgstorage.New(ctx, pool), cancelFn, nil
 	}
 
-	return memstorage.New(opts.FilePath, opts.StoreInterval, opts.Restore)
+	ms, err := memstorage.New(opts.FilePath, opts.StoreInterval, opts.Restore)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return ms, ms.Close, nil
 }
