@@ -18,7 +18,7 @@ type PgStorage struct {
 	db DBTX
 }
 
-func New(ctx context.Context, db DBTX) *PgStorage {
+func New(_ context.Context, db DBTX) *PgStorage {
 	return &PgStorage{db: db}
 }
 
