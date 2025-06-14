@@ -32,10 +32,10 @@ jobs:
         run: |
           if [[ ! $GITHUB_HEAD_REF =~ ^iter[0-9]+.*$ ]] && [[ ${{ github.ref }} != "refs/heads/main" ]]; then
             echo "Branch name must match start with 'iter<number>' or be 'main'"
-            echo "Detected branch: $BRANCH (GITHUB_REF=$GITHUB_REF)"
+            echo "Detected branch: ${GITHUB_HEAD_REF}"
             exit 1
           fi
-          echo "Branch OK: $BRANCH"
+          echo "Branch OK: ${GITHUB_HEAD_REF}"
 
   metricstest:
     runs-on: ubuntu-latest
