@@ -8,7 +8,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/nkiryanov/go-metrics/internal/models"
-	"github.com/nkiryanov/go-metrics/internal/storage"
+	"github.com/nkiryanov/go-metrics/internal/server/storage"
 )
 
 func rowToMetric(row pgx.CollectableRow) (models.Metric, error) {

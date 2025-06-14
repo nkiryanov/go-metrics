@@ -5,8 +5,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/nkiryanov/go-metrics/internal/handlers/templates"
-	"github.com/nkiryanov/go-metrics/internal/storage"
+	"github.com/nkiryanov/go-metrics/internal/server/handlers/templates"
+	"github.com/nkiryanov/go-metrics/internal/server/storage"
 )
 
 const (

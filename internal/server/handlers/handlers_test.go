@@ -8,8 +8,8 @@ import (
 	"testing"
 
 	"github.com/nkiryanov/go-metrics/internal/models"
-	"github.com/nkiryanov/go-metrics/internal/storage"
-	"github.com/nkiryanov/go-metrics/internal/storage/mocks"
+	"github.com/nkiryanov/go-metrics/internal/server/storage"
+	"github.com/nkiryanov/go-metrics/internal/server/storage/mocks"
 
 	"github.com/go-resty/resty/v2"
 	"github.com/stretchr/testify/assert"

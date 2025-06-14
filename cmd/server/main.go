@@ -14,11 +14,11 @@ import (
 	"github.com/nkiryanov/go-metrics/cmd/server/app"
 	"github.com/nkiryanov/go-metrics/cmd/server/opts"
 	"github.com/nkiryanov/go-metrics/internal/db"
-	"github.com/nkiryanov/go-metrics/internal/handlers"
+	"github.com/nkiryanov/go-metrics/internal/server/handlers"
 	"github.com/nkiryanov/go-metrics/internal/logger"
-	"github.com/nkiryanov/go-metrics/internal/storage"
-	"github.com/nkiryanov/go-metrics/internal/storage/memstorage"
-	"github.com/nkiryanov/go-metrics/internal/storage/pgstorage"
+	"github.com/nkiryanov/go-metrics/internal/server/storage"
+	"github.com/nkiryanov/go-metrics/internal/server/storage/memstorage"
+	"github.com/nkiryanov/go-metrics/internal/server/storage/pgstorage"
 )
 
 // Defaults
