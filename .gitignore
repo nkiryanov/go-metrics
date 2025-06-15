@@ -26,3 +26,6 @@ vendor/
 # IDEs directories
 .idea
 .vscode
+
+# masOS staff
+.DS_Store
