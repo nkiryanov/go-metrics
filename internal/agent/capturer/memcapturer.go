@@ -143,7 +143,7 @@ func (c *MemCapturer) CaptureAndSave() {
 	logger.Slog.Info("capturer: mem stats saved")
 }
 
-func (c *MemCapturer) Last() []models.Metric {
+func (c *MemCapturer) ListLast() []models.Metric {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 

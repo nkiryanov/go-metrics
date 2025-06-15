@@ -37,19 +37,19 @@ func TestMemCapturer(t *testing.T) {
 		assert.Contains(t, mc.stor, models.Metric{Name: "PollCount", Type: "counter", Delta: 1}, "captured PollCount has to be on first call")
 	})
 
-	t.Run("Last on empty, ok", func(t *testing.T) {
+	t.Run("ListLast empty ok", func(t *testing.T) {
 		mc := NewMemCapturer()
 
-		metrics := mc.Last()
+		metrics := mc.ListLast()
 
 		assert.Equal(t, 0, len(metrics), "should return empty slice if metrics not saved yet")
 	})
 
-	t.Run("Last when captured", func(t *testing.T) {
+	t.Run("ListLast not empty ok", func(t *testing.T) {
 		mc := NewMemCapturer()
 		mc.CaptureAndSave()
 
-		metrics := mc.Last()
+		metrics := mc.ListLast()
 
 		require.Equal(t, len(expectedIDs), len(metrics))
 		assert.EqualValues(t, expectedIDs, getMetricIDs(metrics))
@@ -63,11 +63,11 @@ func TestMemCapturer(t *testing.T) {
 		for range 5 {
 			wg.Add(2)
 			go func() { mc.CaptureAndSave(); wg.Done() }()
-			go func() { mc.Last(); wg.Done() }()
+			go func() { mc.ListLast(); wg.Done() }()
 		}
 
 		wg.Wait()
-		metrics := mc.Last()
+		metrics := mc.ListLast()
 
 		assert.Equal(t, len(expectedIDs), len(metrics))
 	})
