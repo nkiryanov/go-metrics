@@ -27,7 +27,7 @@ type Storage interface {
 
 	// Update metric in storage
 	// May be implementation specific and not support all the types. In that case should return 'err'.
-	UpdateMetric(ctx context.Context, in *models.Metric) (metric models.Metric, err error)
+	UpdateMetric(ctx context.Context, in models.Metric) (metric models.Metric, err error)
 
 	// Update metrics bulk in storage
 	UpdateMetricBulk(ctx context.Context, metrics []models.Metric) (updated []models.Metric, err error)

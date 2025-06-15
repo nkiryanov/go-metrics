@@ -65,12 +65,12 @@ func Test_PgStorage(t *testing.T) {
 			gauge := models.Metric{Name: "cpu", Type: "gauge", Value: 2234.232}
 
 			// Gauge update once ok
-			updated, err := s.UpdateMetric(t.Context(), &gauge)
+			updated, err := s.UpdateMetric(t.Context(), gauge)
 			require.NoError(t, err)
 			require.Equal(t, gauge, updated)
 
 			// Gauge metric update idempotent
-			updated, err = s.UpdateMetric(t.Context(), &gauge)
+			updated, err = s.UpdateMetric(t.Context(), gauge)
 			require.NoError(t, err)
 			require.EqualValues(t, gauge.Value, updated.Value)
 		})
@@ -81,13 +81,13 @@ func Test_PgStorage(t *testing.T) {
 			counter := models.Metric{Name: "task", Type: "counter", Delta: 2}
 
 			// Counter update once ok
-			got, err := s.UpdateMetric(t.Context(), &counter)
+			got, err := s.UpdateMetric(t.Context(), counter)
 
 			require.NoError(t, err)
 			require.Equal(t, counter, got)
 
 			// Counter update actually update counter by value
-			got, err = s.UpdateMetric(t.Context(), &counter)
+			got, err = s.UpdateMetric(t.Context(), counter)
 
 			require.NoError(t, err)
 			require.EqualValues(t, 4, got.Delta, "Counter update should increment delta")
@@ -118,7 +118,7 @@ func Test_PgStorage(t *testing.T) {
 	t.Run("get metric ok", func(t *testing.T) {
 		withTx(dbpool, t, func(s *PgStorage) {
 			counter := models.Metric{Name: "task", Type: "counter", Delta: 23}
-			_, err := s.UpdateMetric(t.Context(), &counter)
+			_, err := s.UpdateMetric(t.Context(), counter)
 			require.NoError(t, err)
 
 			// Get known metric

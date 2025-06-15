@@ -47,36 +47,17 @@ func (m Metric) MarshalJSON() ([]byte, error) {
 }
 
 func (m *Metric) UnmarshalJSON(data []byte) error {
-	temp := struct {
-		Type  string   `json:"type"`
-		Name  string   `json:"id"`
-		Delta *int64   `json:"delta,omitempty"`
-		Value *float64 `json:"value,omitempty"`
-	}{}
+	type MetricAlias Metric
+	aux := (*MetricAlias)(m)
 
-	if err := json.Unmarshal(data, &temp); err != nil {
+	err := json.Unmarshal(data, &aux)
+	if err != nil {
 		return err
 	}
 
-	switch temp.Type {
-	case CounterTypeName:
-		if temp.Delta != nil {
-			m.Type = temp.Type
-			m.Name = temp.Name
-			m.Delta = *temp.Delta
-		} else {
-			return fmt.Errorf("missing 'delta' for 'counter' type")
-		}
-	case GaugeTypeName:
-		if temp.Value != nil {
-			m.Type = temp.Type
-			m.Name = temp.Name
-			m.Value = *temp.Value
-		} else {
-			return fmt.Errorf("missing 'value' for 'gauge' type")
-		}
-	default:
-		return fmt.Errorf("unsupported type: '%s'", temp.Type)
+	err = m.Validate()
+	if err != nil {
+		return err
 	}
 
 	return nil
@@ -91,4 +72,20 @@ func (m *Metric) String() string {
 	default:
 		return ""
 	}
+}
+
+// Validate Metic invariant
+func (m *Metric) Validate() error {
+	switch {
+	case m.Type != CounterTypeName && m.Type != GaugeTypeName:
+		return fmt.Errorf("unknown metric type: %s", m.Type)
+	case m.Name == "":
+		return fmt.Errorf("empty metric name")
+	case m.Type == CounterTypeName && m.Value != 0:
+		return fmt.Errorf("counters must have Value equal zero, got '%f'", m.Value)
+	case m.Type == GaugeTypeName && m.Delta != 0:
+		return fmt.Errorf("gauges must have Delta equal zero, got '%d'", m.Delta)
+	}
+
+	return nil
 }

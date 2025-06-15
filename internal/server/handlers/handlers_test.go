@@ -62,8 +62,8 @@ func TestHandler_UpdateMetricPlain(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			mockedStorage := &mocks.StorageMock{UpdateMetricFunc: func(ctx context.Context, m *models.Metric) (models.Metric, error) {
-				var result = *m
+			mockedStorage := &mocks.StorageMock{UpdateMetricFunc: func(ctx context.Context, m models.Metric) (models.Metric, error) {
+				var result = m
 				return result, tc.storageUpdateErr
 			}}
 
@@ -87,8 +87,8 @@ func TestHandler_UpdateMetricPlain(t *testing.T) {
 
 func TestHandlers_UpdateMetricJSON(t *testing.T) {
 	t.Run("POST ok", func(t *testing.T) {
-		mockedStorage := &mocks.StorageMock{UpdateMetricFunc: func(ctx context.Context, m *models.Metric) (models.Metric, error) {
-			return *m, nil
+		mockedStorage := &mocks.StorageMock{UpdateMetricFunc: func(ctx context.Context, m models.Metric) (models.Metric, error) {
+			return m, nil
 		}}
 		router := NewMetricRouter(mockedStorage)
 		srv := httptest.NewServer(router)

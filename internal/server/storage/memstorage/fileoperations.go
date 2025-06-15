@@ -1,71 +1,78 @@
 package memstorage
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"errors"
-	"os"
+	"io"
 	"time"
 
+	"github.com/nkiryanov/go-metrics/internal/logger"
 	"github.com/nkiryanov/go-metrics/internal/models"
 )
 
 func (s *MemStorage) loadFromFile() (err error) {
-	file, err := os.Open(s.filename)
+	if s.file == nil {
+		return nil // do nothing if persistent storage not set
+	}
+
+	s.fileLock.Lock()
+	defer s.fileLock.Unlock()
+
+	var metrics []models.Metric
+	err = json.NewDecoder(s.file).Decode(&metrics)
 	if err != nil {
 		switch {
-		case errors.Is(err, os.ErrNotExist): // if file not exists, then nothing to restore
+		case errors.Is(err, io.EOF): // empty file is ok, just restore nothing
 			return nil
 		default:
 			return err
 		}
 	}
-	defer func() {
-		err = file.Close()
-	}()
 
-	var metrics []models.Metric
-	if err := json.NewDecoder(file).Decode(&metrics); err != nil {
-		return err
-	}
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	for _, m := range metrics {
-		switch m.Type {
-		case models.CounterTypeName:
-			s.counters[m.Name] = m.Delta
-		case models.GaugeTypeName:
-			s.gauges[m.Name] = m.Value
-		}
-	}
+	s.update(metrics)
 
 	return nil
 }
 
 // Save in memory data to file
-func (s *MemStorage) saveToFile() (err error) {
+func (s *MemStorage) saveToFile() error {
 	// Do nothing if filename empty
-	if s.filename == "" {
+	if s.file == nil {
 		return nil
+	}
+
+	s.fileLock.Lock()
+	defer s.fileLock.Unlock()
+
+	// Truncate file to write new data
+	_, err := s.file.Seek(0, io.SeekStart)
+	if err != nil {
+		return err
+	}
+	err = s.file.Truncate(0)
+	if err != nil {
+		return err
 	}
 
 	metrics, err := s.ListMetric(context.TODO())
 	if err != nil {
 		return err
 	}
+	buf := bufio.NewWriter(s.file)
 
-	// Open file for write, overwrite if have data already
-	file, err := os.OpenFile(s.filename, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+	err = json.NewEncoder(buf).Encode(metrics)
 	if err != nil {
 		return err
 	}
-	defer func() {
-		err = file.Close()
-	}()
 
-	return json.NewEncoder(file).Encode(metrics)
+	err = buf.Flush()
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // Run job to save in memory data to file until stopped via <-s.stopCh
@@ -76,7 +83,12 @@ func (s *MemStorage) backgroundSaver() {
 	for {
 		select {
 		case <-ticker.C:
-			_ = s.saveToFile() // maybe goog idea to log
+			err := s.saveToFile() // maybe goog idea to log
+			if err != nil {
+				logger.Slog.Errorw("Metrics save failed", "err", err)
+			} else {
+				logger.Slog.Info("Metrics saved to file")
+			}
 		case <-s.stopCh:
 			return
 		}

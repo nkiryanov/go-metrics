@@ -57,7 +57,7 @@ func TestMemStorage_UpdateMetric(t *testing.T) {
 	t.Run("counter update once ok", func(t *testing.T) {
 		s := newInMemory(t)
 
-		got, err := s.UpdateMetric(context.TODO(), &mCounter)
+		got, err := s.UpdateMetric(context.TODO(), mCounter)
 
 		assert.NoError(t, err)
 		assert.Equal(t, mCounter, got)
@@ -66,8 +66,8 @@ func TestMemStorage_UpdateMetric(t *testing.T) {
 	t.Run("counter update several ok", func(t *testing.T) {
 		s := newInMemory(t)
 
-		_, _ = s.UpdateMetric(context.TODO(), &mCounter)
-		got, err := s.UpdateMetric(context.TODO(), &mCounter)
+		_, _ = s.UpdateMetric(context.TODO(), mCounter)
+		got, err := s.UpdateMetric(context.TODO(), mCounter)
 
 		assert.NoError(t, err)
 		assert.Equal(t, models.Metric{Type: models.CounterTypeName, Name: "foo", Delta: 20}, got, "counter should increase")
@@ -76,7 +76,7 @@ func TestMemStorage_UpdateMetric(t *testing.T) {
 	t.Run("gauge update once ok", func(t *testing.T) {
 		s := newInMemory(t)
 
-		got, err := s.UpdateMetric(context.TODO(), &mGauge)
+		got, err := s.UpdateMetric(context.TODO(), mGauge)
 
 		assert.NoError(t, err)
 		assert.Equal(t, mGauge, got)
@@ -86,8 +86,8 @@ func TestMemStorage_UpdateMetric(t *testing.T) {
 		s := newInMemory(t)
 		yaGauge := models.Metric{Type: models.GaugeTypeName, Name: "foo", Value: 123.1}
 
-		_, _ = s.UpdateMetric(context.TODO(), &mGauge)
-		got, err := s.UpdateMetric(context.TODO(), &yaGauge)
+		_, _ = s.UpdateMetric(context.TODO(), mGauge)
+		got, err := s.UpdateMetric(context.TODO(), yaGauge)
 
 		assert.NoError(t, err)
 		assert.Equal(t, yaGauge, got, "Gauge on update should replace")
@@ -97,7 +97,7 @@ func TestMemStorage_UpdateMetric(t *testing.T) {
 		s := newInMemory(t)
 		metric := models.Metric{Type: "unknown", Name: "foo", Value: 500.23}
 
-		_, err := s.UpdateMetric(context.TODO(), &metric)
+		_, err := s.UpdateMetric(context.TODO(), metric)
 
 		require.Error(t, err)
 	})
@@ -109,12 +109,12 @@ func TestMemStorage_UpdateMetric(t *testing.T) {
 		for range 10 {
 			wg.Add(1)
 			go func() {
-				_, _ = s.UpdateMetric(context.TODO(), &mCounter)
-				_, _ = s.UpdateMetric(context.TODO(), &mGauge)
+				_, _ = s.UpdateMetric(context.TODO(), mCounter)
+				_, _ = s.UpdateMetric(context.TODO(), mGauge)
 				wg.Done()
 			}()
 		}
-		got, err := s.UpdateMetric(context.TODO(), &mGauge)
+		got, err := s.UpdateMetric(context.TODO(), mGauge)
 
 		require.NoError(t, err)
 		assert.Equal(t, mGauge, got)
@@ -123,7 +123,7 @@ func TestMemStorage_UpdateMetric(t *testing.T) {
 	t.Run("sync save file ok", func(t *testing.T) {
 		s, filename := newPersistentSync(t)
 
-		_, err := s.UpdateMetric(t.Context(), &mCounter)
+		_, err := s.UpdateMetric(t.Context(), mCounter)
 		require.NoError(t, err)
 
 		data, err := os.ReadFile(filename)
@@ -141,9 +141,9 @@ func TestMemStorage_UpdateMetric(t *testing.T) {
 
 func TestMemStorage_CountMetric(t *testing.T) {
 	s := newInMemory(t)
-	_, _ = s.UpdateMetric(context.TODO(), &models.Metric{Name: "foo", Type: models.CounterTypeName, Delta: 10})
-	_, _ = s.UpdateMetric(context.TODO(), &models.Metric{Name: "bar", Type: models.CounterTypeName, Delta: 200})
-	_, _ = s.UpdateMetric(context.TODO(), &models.Metric{Name: "goo", Type: models.GaugeTypeName, Value: 500.233})
+	_, _ = s.UpdateMetric(context.TODO(), models.Metric{Name: "foo", Type: models.CounterTypeName, Delta: 10})
+	_, _ = s.UpdateMetric(context.TODO(), models.Metric{Name: "bar", Type: models.CounterTypeName, Delta: 200})
+	_, _ = s.UpdateMetric(context.TODO(), models.Metric{Name: "goo", Type: models.GaugeTypeName, Value: 500.233})
 
 	var wg sync.WaitGroup
 	for range 10 {
@@ -163,9 +163,9 @@ func TestMemStorage_GetMetric(t *testing.T) {
 	fooGauge := models.Metric{Name: "foo", Type: models.GaugeTypeName, Value: 500.233}
 
 	s := newInMemory(t)
-	_, _ = s.UpdateMetric(context.TODO(), &fooCounter)
-	_, _ = s.UpdateMetric(context.TODO(), &barCounter)
-	_, _ = s.UpdateMetric(context.TODO(), &fooGauge)
+	_, _ = s.UpdateMetric(context.TODO(), fooCounter)
+	_, _ = s.UpdateMetric(context.TODO(), barCounter)
+	_, _ = s.UpdateMetric(context.TODO(), fooGauge)
 
 	t.Run("sync ok", func(t *testing.T) {
 		type expected struct {
@@ -238,9 +238,9 @@ func TestMemStorage_ListMetric(t *testing.T) {
 	fooGauge := models.Metric{Name: "foo", Type: models.GaugeTypeName, Value: 500.233}
 
 	s := newInMemory(t)
-	_, _ = s.UpdateMetric(context.TODO(), &fooCounter)
-	_, _ = s.UpdateMetric(context.TODO(), &barCounter)
-	_, _ = s.UpdateMetric(context.TODO(), &fooGauge)
+	_, _ = s.UpdateMetric(context.TODO(), fooCounter)
+	_, _ = s.UpdateMetric(context.TODO(), barCounter)
+	_, _ = s.UpdateMetric(context.TODO(), fooGauge)
 
 	t.Run("list ok", func(t *testing.T) {
 		metrics, err := s.ListMetric(context.TODO())

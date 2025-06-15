@@ -46,7 +46,7 @@ func updateMetricPlain(s storage.Storage) http.HandlerFunc {
 			return
 		}
 
-		if metric, err = s.UpdateMetric(r.Context(), &metric); err != nil {
+		if metric, err = s.UpdateMetric(r.Context(), metric); err != nil {
 			logger.Slog.Warnw("can't update metric", "error", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -68,7 +68,7 @@ func updateMetricJSON(s storage.Storage) http.HandlerFunc {
 			return
 		}
 
-		metric, err := s.UpdateMetric(r.Context(), &metric)
+		metric, err := s.UpdateMetric(r.Context(), metric)
 		if err != nil {
 			logger.Slog.Warnw("metric could not updated", "error", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)

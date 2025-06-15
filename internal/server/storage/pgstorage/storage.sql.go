@@ -69,7 +69,7 @@ DO UPDATE SET
 RETURNING "type", "name", "delta", "value"
 `
 
-func (s *PgStorage) UpdateMetric(ctx context.Context, m *models.Metric) (models.Metric, error) {
+func (s *PgStorage) UpdateMetric(ctx context.Context, m models.Metric) (models.Metric, error) {
 	var delta pgtype.Int8
 	var value pgtype.Float8
 
@@ -106,7 +106,7 @@ func (s *PgStorage) UpdateMetricBulk(ctx context.Context, metrics []models.Metri
 		var err error
 		var u models.Metric
 		for _, m := range metrics {
-			if u, err = storageTx.UpdateMetric(ctx, &m); err != nil {
+			if u, err = storageTx.UpdateMetric(ctx, m); err != nil {
 				return err
 			}
 			updated = append(updated, u)

@@ -3,7 +3,7 @@ package memstorage
 import (
 	"context"
 	"errors"
-	"fmt"
+	"os"
 	"sort"
 	"sync"
 	"time"
@@ -22,7 +22,8 @@ type MemStorage struct {
 
 	// File persistence
 	// Save interval means how often metrics should be saved (0 — should saved synchronously, on each update)
-	filename     string
+	file         *os.File
+	fileLock     sync.Mutex
 	saveInterval time.Duration
 	stopCh       chan struct{}
 }
@@ -35,10 +36,20 @@ func New(filename string, saveInterval time.Duration, restore bool) (*MemStorage
 		return nil, errors.New("can't create in-memory only storage, cause one New args not empty")
 	}
 
+	// Open file as persistent storage for metrics
+	var file *os.File
+	if filename != "" {
+		var err error
+		file, err = os.OpenFile(filename, os.O_RDWR|os.O_CREATE, 0666)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	s := &MemStorage{
 		counters:     make(map[string]int64),
 		gauges:       make(map[string]float64),
-		filename:     filename,
+		file:         file,
 		saveInterval: saveInterval,
 		stopCh:       make(chan struct{}),
 	}
@@ -62,7 +73,7 @@ func (s *MemStorage) Close() error {
 		close(s.stopCh)
 	}
 
-	if s.filename != "" {
+	if s.file != nil {
 		return s.saveToFile()
 	}
 
@@ -108,15 +119,15 @@ func (s *MemStorage) GetMetric(_ context.Context, mType string, mName string) (m
 }
 
 // Save valid metric in storage and return updated value
-func (s *MemStorage) UpdateMetric(_ context.Context, in *models.Metric) (models.Metric, error) {
+func (s *MemStorage) UpdateMetric(_ context.Context, in models.Metric) (models.Metric, error) {
 	var metric models.Metric
 
-	err := s.validate(in)
+	err := in.Validate()
 	if err != nil {
 		return metric, err
 	}
 
-	metric = s.update(in)
+	metric = s.update([]models.Metric{in})[0]
 
 	// is saveInterval = 0, than save metrics in synchronously
 	if s.saveInterval == 0 {
@@ -159,17 +170,13 @@ func (s *MemStorage) UpdateMetricBulk(_ context.Context, metrics []models.Metric
 
 	// Validate all the metrics
 	for _, m := range metrics {
-		err = s.validate(&m)
+		err = m.Validate()
 		if err != nil {
 			return metrics, err
 		}
 	}
 
-	updated := make([]models.Metric, 0, len(metrics))
-
-	for _, m := range metrics {
-		updated = append(updated, s.update(&m))
-	}
+	updated := s.update(metrics)
 
 	// is saveInterval = 0, than save metrics in synchronously
 	if s.saveInterval == 0 {
@@ -183,35 +190,26 @@ func (s *MemStorage) UpdateMetricBulk(_ context.Context, metrics []models.Metric
 	return updated, nil
 }
 
-// Validate metric could be saved in memory storage
-func (s *MemStorage) validate(m *models.Metric) error {
-	switch m.Type {
-	case models.CounterTypeName, models.GaugeTypeName:
-		return nil
-	default:
-		return fmt.Errorf("unknown metric type: %s", m.Type)
-	}
-}
-
 // Update valid metric in storage (in memory) and return updated value
-func (s *MemStorage) update(validated *models.Metric) models.Metric {
-	metric := models.Metric{Type: validated.Type, Name: validated.Name}
+func (s *MemStorage) update(validated []models.Metric) []models.Metric {
+	updated := make([]models.Metric, len(validated))
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	switch metric.Type {
-	case models.CounterTypeName:
-		s.counters[validated.Name] += validated.Delta
-		counter := s.counters[validated.Name]
+	for idx, m := range validated {
+		updated[idx].Type = m.Type
+		updated[idx].Name = m.Name
 
-		metric.Delta = counter
-	case models.GaugeTypeName:
-		s.gauges[validated.Name] = validated.Value
-		gauge := s.gauges[validated.Name]
-
-		metric.Value = gauge
+		switch m.Type {
+		case models.CounterTypeName:
+			s.counters[m.Name] += m.Delta
+			updated[idx].Delta = s.counters[m.Name]
+		case models.GaugeTypeName:
+			s.gauges[m.Name] = m.Value
+			updated[idx].Value = s.gauges[m.Name]
+		}
 	}
 
-	return metric
+	return updated
 }
