@@ -31,7 +31,7 @@ import (
 //			PingFunc: func(ctx context.Context) error {
 //				panic("mock out the Ping method")
 //			},
-//			UpdateMetricFunc: func(ctx context.Context, in *models.Metric) (models.Metric, error) {
+//			UpdateMetricFunc: func(ctx context.Context, in models.Metric) (models.Metric, error) {
 //				panic("mock out the UpdateMetric method")
 //			},
 //			UpdateMetricBulkFunc: func(ctx context.Context, metrics []models.Metric) ([]models.Metric, error) {
@@ -60,7 +60,7 @@ type StorageMock struct {
 	PingFunc func(ctx context.Context) error
 
 	// UpdateMetricFunc mocks the UpdateMetric method.
-	UpdateMetricFunc func(ctx context.Context, in *models.Metric) (models.Metric, error)
+	UpdateMetricFunc func(ctx context.Context, in models.Metric) (models.Metric, error)
 
 	// UpdateMetricBulkFunc mocks the UpdateMetricBulk method.
 	UpdateMetricBulkFunc func(ctx context.Context, metrics []models.Metric) ([]models.Metric, error)
@@ -99,7 +99,7 @@ type StorageMock struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
 			// In is the in argument value.
-			In *models.Metric
+			In models.Metric
 		}
 		// UpdateMetricBulk holds details about calls to the UpdateMetricBulk method.
 		UpdateMetricBulk []struct {
@@ -282,13 +282,13 @@ func (mock *StorageMock) PingCalls() []struct {
 }
 
 // UpdateMetric calls UpdateMetricFunc.
-func (mock *StorageMock) UpdateMetric(ctx context.Context, in *models.Metric) (models.Metric, error) {
+func (mock *StorageMock) UpdateMetric(ctx context.Context, in models.Metric) (models.Metric, error) {
 	if mock.UpdateMetricFunc == nil {
 		panic("StorageMock.UpdateMetricFunc: method is nil but Storage.UpdateMetric was just called")
 	}
 	callInfo := struct {
 		Ctx context.Context
-		In  *models.Metric
+		In  models.Metric
 	}{
 		Ctx: ctx,
 		In:  in,
@@ -305,11 +305,11 @@ func (mock *StorageMock) UpdateMetric(ctx context.Context, in *models.Metric) (m
 //	len(mockedStorage.UpdateMetricCalls())
 func (mock *StorageMock) UpdateMetricCalls() []struct {
 	Ctx context.Context
-	In  *models.Metric
+	In  models.Metric
 } {
 	var calls []struct {
 		Ctx context.Context
-		In  *models.Metric
+		In  models.Metric
 	}
 	mock.lockUpdateMetric.RLock()
 	calls = mock.calls.UpdateMetric

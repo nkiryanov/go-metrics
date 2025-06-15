@@ -13,12 +13,12 @@ import (
 
 	"github.com/nkiryanov/go-metrics/cmd/server/app"
 	"github.com/nkiryanov/go-metrics/cmd/server/opts"
-	"github.com/nkiryanov/go-metrics/internal/db"
-	"github.com/nkiryanov/go-metrics/internal/handlers"
 	"github.com/nkiryanov/go-metrics/internal/logger"
-	"github.com/nkiryanov/go-metrics/internal/storage"
-	"github.com/nkiryanov/go-metrics/internal/storage/memstorage"
-	"github.com/nkiryanov/go-metrics/internal/storage/pgstorage"
+	"github.com/nkiryanov/go-metrics/internal/server/handlers"
+	"github.com/nkiryanov/go-metrics/internal/server/storage"
+	"github.com/nkiryanov/go-metrics/internal/server/storage/memstorage"
+	"github.com/nkiryanov/go-metrics/internal/server/storage/pgstorage"
+	"github.com/nkiryanov/go-metrics/internal/server/storage/pgstorage/db"
 )
 
 // Defaults
@@ -79,22 +79,17 @@ func main() {
 
 func initStorage(ctx context.Context, opts *opts.Options) (s storage.Storage, cancelFunc func() error, err error) {
 	if opts.Dsn != "" {
-		err = db.Migrate(opts.Dsn)
+		dbpool, err := db.ConnectAndMigrate(ctx, opts.Dsn)
 		if err != nil {
 			return nil, nil, err
 		}
 
-		pool, err := db.Connect(ctx, opts.Dsn)
-		if err != nil {
-			return nil, nil, err
-		}
-
-		pgs := pgstorage.New(ctx, pool)
+		pgs := pgstorage.New(ctx, dbpool)
 		cancelFn := func() error {
-			pool.Close()
+			dbpool.Close()
 			return pgs.Close()
 		}
-		return pgstorage.New(ctx, pool), cancelFn, nil
+		return pgstorage.New(ctx, dbpool), cancelFn, nil
 	}
 
 	ms, err := memstorage.New(opts.FilePath, opts.StoreInterval, opts.Restore)

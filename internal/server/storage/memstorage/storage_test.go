@@ -4,37 +4,50 @@ import (
 	"context"
 	"os"
 	"sync"
-	"sync/atomic"
 	"testing"
-	"time"
 
 	"github.com/nkiryanov/go-metrics/internal/models"
-	"github.com/nkiryanov/go-metrics/internal/storage"
+	"github.com/nkiryanov/go-metrics/internal/server/storage"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// Test helper. Create storage that store state in temp file.
-// Return *MemStorage and close func. The close should be run on end of the test, to release resources
-func memstorage(t *testing.T, interval time.Duration) (*MemStorage, func()) {
-	var err error
+// Create storage that save data in-memory only
+// At the end of running test close the server
+func newInMemory(t *testing.T) *MemStorage {
+	t.Helper()
+
+	storage, err := New("", 0, false)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		err := storage.Close()
+		require.NoError(t, err)
+	})
+
+	return storage
+}
+
+// Create new storage with persistent synchronous file storage.
+// Return filename of persistent file and server itself
+// At the end of test close server and delete temp file
+func newPersistentSync(t *testing.T) (*MemStorage, string) {
+	t.Helper()
 
 	// Tmp directory for persistent storage
-	tmpFile, err := os.CreateTemp("", "metrics_*.json")
+	tmpFile, err := os.CreateTemp("", "sync_metrics_*.json")
 	require.NoError(t, err)
 	filename := tmpFile.Name()
+	t.Cleanup(func() { _ = os.Remove(filename) })
 
-	s, err := New(filename, interval, true)
+	storage, err := New(filename, 0, false)
 	require.NoError(t, err)
-
-	closeFn := func() {
-		err = s.Close()
+	t.Cleanup(func() {
+		err := storage.Close()
 		require.NoError(t, err)
-		_ = os.Remove(filename)
-	}
+	})
 
-	return s, closeFn
+	return storage, filename
 }
 
 func TestMemStorage_UpdateMetric(t *testing.T) {
@@ -42,122 +55,95 @@ func TestMemStorage_UpdateMetric(t *testing.T) {
 	mGauge := models.Metric{Name: "foo", Type: models.GaugeTypeName, Value: 500.23}
 
 	t.Run("counter update once ok", func(t *testing.T) {
-		s, close := memstorage(t, 3*time.Minute)
-		defer close()
+		s := newInMemory(t)
 
-		got, err := s.UpdateMetric(context.TODO(), &mCounter)
+		got, err := s.UpdateMetric(context.TODO(), mCounter)
 
 		assert.NoError(t, err)
 		assert.Equal(t, mCounter, got)
 	})
 
 	t.Run("counter update several ok", func(t *testing.T) {
-		s, close := memstorage(t, 3*time.Minute)
-		defer close()
-		metric := models.Metric{Type: models.CounterTypeName, Name: "foo", Delta: 10}
+		s := newInMemory(t)
 
-		_, _ = s.UpdateMetric(context.TODO(), &metric)
-		got, err := s.UpdateMetric(context.TODO(), &metric)
+		_, _ = s.UpdateMetric(context.TODO(), mCounter)
+		got, err := s.UpdateMetric(context.TODO(), mCounter)
 
 		assert.NoError(t, err)
 		assert.Equal(t, models.Metric{Type: models.CounterTypeName, Name: "foo", Delta: 20}, got, "counter should increase")
 	})
 
 	t.Run("gauge update once ok", func(t *testing.T) {
-		s, close := memstorage(t, 3*time.Minute)
-		defer close()
+		s := newInMemory(t)
 
-		got, err := s.UpdateMetric(context.TODO(), &mGauge)
+		got, err := s.UpdateMetric(context.TODO(), mGauge)
 
 		assert.NoError(t, err)
 		assert.Equal(t, mGauge, got)
 	})
 
 	t.Run("gauge update several ok", func(t *testing.T) {
-		s, close := memstorage(t, 3*time.Minute)
-		defer close()
+		s := newInMemory(t)
 		yaGauge := models.Metric{Type: models.GaugeTypeName, Name: "foo", Value: 123.1}
 
-		_, _ = s.UpdateMetric(context.TODO(), &mGauge)
-		got, err := s.UpdateMetric(context.TODO(), &yaGauge)
+		_, _ = s.UpdateMetric(context.TODO(), mGauge)
+		got, err := s.UpdateMetric(context.TODO(), yaGauge)
 
 		assert.NoError(t, err)
 		assert.Equal(t, yaGauge, got, "Gauge on update should replace")
 	})
 
 	t.Run("fail if unknown type", func(t *testing.T) {
-		s, close := memstorage(t, 3*time.Minute)
-		defer close()
+		s := newInMemory(t)
 		metric := models.Metric{Type: "unknown", Name: "foo", Value: 500.23}
 
-		_, err := s.UpdateMetric(context.TODO(), &metric)
+		_, err := s.UpdateMetric(context.TODO(), metric)
 
 		require.Error(t, err)
 	})
 
 	t.Run("concurrently ok", func(t *testing.T) {
-		s, close := memstorage(t, 3*time.Minute)
-		defer close()
+		s := newInMemory(t)
 
 		var wg sync.WaitGroup
 		for range 10 {
 			wg.Add(1)
 			go func() {
-				_, _ = s.UpdateMetric(context.TODO(), &mCounter)
-				_, _ = s.UpdateMetric(context.TODO(), &mGauge)
+				_, _ = s.UpdateMetric(context.TODO(), mCounter)
+				_, _ = s.UpdateMetric(context.TODO(), mGauge)
 				wg.Done()
 			}()
 		}
-		got, err := s.UpdateMetric(context.TODO(), &mGauge)
+		got, err := s.UpdateMetric(context.TODO(), mGauge)
 
 		require.NoError(t, err)
 		assert.Equal(t, mGauge, got)
 	})
 
-	t.Run("call saver ok", func(t *testing.T) {
-		tests := []struct {
-			name         string
-			interval     time.Duration
-			expectCalled bool
-		}{
-			{
-				"call if interval zero",
-				0 * time.Second,
-				true,
-			},
-			{
-				"not call if interval > zero",
-				1 * time.Second,
-				false,
-			},
-		}
+	t.Run("sync save file ok", func(t *testing.T) {
+		s, filename := newPersistentSync(t)
 
-		for _, tc := range tests {
-			t.Run(tc.name, func(t *testing.T) {
-				s, close := memstorage(t, tc.interval)
-				defer close()
+		_, err := s.UpdateMetric(t.Context(), mCounter)
+		require.NoError(t, err)
 
-				// Mock memstorage saver
-				var saverCalled atomic.Bool
-				s.saver = func(s *MemStorage) error { saverCalled.Store(true); return nil }
-
-				// Update metric and give enough time to run goroutine
-				_, err := s.UpdateMetric(context.TODO(), &mCounter)
-				require.NoError(t, err)
-				time.Sleep(100 * time.Millisecond)
-
-				assert.Equal(t, tc.expectCalled, saverCalled.Load())
-			})
-		}
+		data, err := os.ReadFile(filename)
+		require.NoError(t, err)
+		require.JSONEq(t, `
+			[{
+				"id": "foo",
+				"type": "counter",
+				"delta": 10
+			}]`,
+			string(data),
+		)
 	})
 }
 
 func TestMemStorage_CountMetric(t *testing.T) {
-	s, deferFn := memstorage(t, 3*time.Minute)
-	defer deferFn()
-	_, _ = s.UpdateMetric(context.TODO(), &models.Metric{Name: "foo", Type: models.CounterTypeName, Delta: 10})
-	_, _ = s.UpdateMetric(context.TODO(), &models.Metric{Name: "bar", Type: models.CounterTypeName, Delta: 200})
-	_, _ = s.UpdateMetric(context.TODO(), &models.Metric{Name: "goo", Type: models.GaugeTypeName, Value: 500.233})
+	s := newInMemory(t)
+	_, _ = s.UpdateMetric(context.TODO(), models.Metric{Name: "foo", Type: models.CounterTypeName, Delta: 10})
+	_, _ = s.UpdateMetric(context.TODO(), models.Metric{Name: "bar", Type: models.CounterTypeName, Delta: 200})
+	_, _ = s.UpdateMetric(context.TODO(), models.Metric{Name: "goo", Type: models.GaugeTypeName, Value: 500.233})
 
 	var wg sync.WaitGroup
 	for range 10 {
@@ -176,11 +162,10 @@ func TestMemStorage_GetMetric(t *testing.T) {
 	barCounter := models.Metric{Name: "bar", Type: models.CounterTypeName, Delta: 200}
 	fooGauge := models.Metric{Name: "foo", Type: models.GaugeTypeName, Value: 500.233}
 
-	s, deferFn := memstorage(t, 3*time.Minute)
-	defer deferFn()
-	_, _ = s.UpdateMetric(context.TODO(), &fooCounter)
-	_, _ = s.UpdateMetric(context.TODO(), &barCounter)
-	_, _ = s.UpdateMetric(context.TODO(), &fooGauge)
+	s := newInMemory(t)
+	_, _ = s.UpdateMetric(context.TODO(), fooCounter)
+	_, _ = s.UpdateMetric(context.TODO(), barCounter)
+	_, _ = s.UpdateMetric(context.TODO(), fooGauge)
 
 	t.Run("sync ok", func(t *testing.T) {
 		type expected struct {
@@ -252,11 +237,10 @@ func TestMemStorage_ListMetric(t *testing.T) {
 	barCounter := models.Metric{Name: "bar", Type: models.CounterTypeName, Delta: 200}
 	fooGauge := models.Metric{Name: "foo", Type: models.GaugeTypeName, Value: 500.233}
 
-	s, deferFn := memstorage(t, 3*time.Minute)
-	defer deferFn()
-	_, _ = s.UpdateMetric(context.TODO(), &fooCounter)
-	_, _ = s.UpdateMetric(context.TODO(), &barCounter)
-	_, _ = s.UpdateMetric(context.TODO(), &fooGauge)
+	s := newInMemory(t)
+	_, _ = s.UpdateMetric(context.TODO(), fooCounter)
+	_, _ = s.UpdateMetric(context.TODO(), barCounter)
+	_, _ = s.UpdateMetric(context.TODO(), fooGauge)
 
 	t.Run("list ok", func(t *testing.T) {
 		metrics, err := s.ListMetric(context.TODO())
@@ -293,8 +277,7 @@ func TestMemStorage_UpdateMetricBulk(t *testing.T) {
 	}
 
 	t.Run("update metric counter and gauge bulk ok", func(t *testing.T) {
-		s, close := memstorage(t, 3*time.Minute)
-		defer close()
+		s := newInMemory(t)
 
 		got, err := s.UpdateMetricBulk(context.TODO(), metrics)
 
@@ -307,8 +290,7 @@ func TestMemStorage_UpdateMetricBulk(t *testing.T) {
 	})
 
 	t.Run("fail if unknown type", func(t *testing.T) {
-		s, close := memstorage(t, 3*time.Minute)
-		defer close()
+		s := newInMemory(t)
 		invalid := append(metrics, models.Metric{Name: "unknown", Type: "unknown"})
 
 		got, err := s.UpdateMetricBulk(context.TODO(), invalid)
@@ -319,5 +301,32 @@ func TestMemStorage_UpdateMetricBulk(t *testing.T) {
 		inMemory, err := s.ListMetric(context.TODO())
 		require.NoError(t, err)
 		assert.Equal(t, make([]models.Metric, 0), inMemory)
+	})
+
+	t.Run("save file sync ok", func(t *testing.T) {
+		s, filename := newPersistentSync(t)
+
+		// Create server with sync save, update any metric and stop
+		_, err := s.UpdateMetricBulk(t.Context(), metrics)
+		require.NoError(t, err)
+
+		// Check file saved and data as expected
+		data, err := os.ReadFile(filename)
+		require.NoError(t, err)
+		require.JSONEq(t, `
+			[
+				{
+					"id": "bar",
+					"type": "gauge",
+					"value": 431.10
+				},
+				{
+					"id": "foo",
+					"type": "counter",
+					"delta": 10
+				}
+			]`,
+			string(data),
+		)
 	})
 }

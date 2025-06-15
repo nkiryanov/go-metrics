@@ -9,8 +9,8 @@ import (
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/modules/postgres"
 
-	"github.com/nkiryanov/go-metrics/internal/db"
 	"github.com/nkiryanov/go-metrics/internal/models"
+	"github.com/nkiryanov/go-metrics/internal/server/storage/pgstorage/db"
 )
 
 func Test_PgStorage(t *testing.T) {
@@ -28,21 +28,19 @@ func Test_PgStorage(t *testing.T) {
 	defer testcontainers.CleanupContainer(t, container)
 	require.NoError(t, err, "container with pg start failed")
 
-	dbURI, err := container.ConnectionString(t.Context())
+	dsn, err := container.ConnectionString(t.Context())
 	require.NoError(t, err)
-	t.Logf("Container with pg started, dbURI=%v", dbURI)
+	t.Logf("Container with pg started, DSN=%v", dsn)
 
 	// Migrate and request connection pool
-	err = db.Migrate(dbURI)
+	dbpool, err := db.ConnectAndMigrate(t.Context(), dsn)
 	require.NoError(t, err)
-	pool, err := db.Connect(t.Context(), dbURI)
-	require.NoError(t, err)
-	defer pool.Close()
+	defer dbpool.Close()
 
 	// Helper to run tests with its own PgStorage in transaction
 	// When test end rollback
-	withTx := func(pool *pgxpool.Pool, t *testing.T, testFunc func(*PgStorage)) {
-		tx, err := pool.Begin(t.Context())
+	withTx := func(dbpool *pgxpool.Pool, t *testing.T, testFunc func(*PgStorage)) {
+		tx, err := dbpool.Begin(t.Context())
 		require.NoError(t, err)
 
 		defer func() {
@@ -55,7 +53,7 @@ func Test_PgStorage(t *testing.T) {
 	}
 
 	t.Run("ping ok", func(t *testing.T) {
-		withTx(pool, t, func(s *PgStorage) {
+		withTx(dbpool, t, func(s *PgStorage) {
 			err := s.Ping(t.Context())
 
 			require.NoError(t, err)
@@ -63,33 +61,33 @@ func Test_PgStorage(t *testing.T) {
 	})
 
 	t.Run("update gauge ok", func(t *testing.T) {
-		withTx(pool, t, func(s *PgStorage) {
+		withTx(dbpool, t, func(s *PgStorage) {
 			gauge := models.Metric{Name: "cpu", Type: "gauge", Value: 2234.232}
 
 			// Gauge update once ok
-			updated, err := s.UpdateMetric(t.Context(), &gauge)
+			updated, err := s.UpdateMetric(t.Context(), gauge)
 			require.NoError(t, err)
 			require.Equal(t, gauge, updated)
 
 			// Gauge metric update idempotent
-			updated, err = s.UpdateMetric(t.Context(), &gauge)
+			updated, err = s.UpdateMetric(t.Context(), gauge)
 			require.NoError(t, err)
 			require.EqualValues(t, gauge.Value, updated.Value)
 		})
 	})
 
 	t.Run("update counter ok", func(t *testing.T) {
-		withTx(pool, t, func(s *PgStorage) {
+		withTx(dbpool, t, func(s *PgStorage) {
 			counter := models.Metric{Name: "task", Type: "counter", Delta: 2}
 
 			// Counter update once ok
-			got, err := s.UpdateMetric(t.Context(), &counter)
+			got, err := s.UpdateMetric(t.Context(), counter)
 
 			require.NoError(t, err)
 			require.Equal(t, counter, got)
 
 			// Counter update actually update counter by value
-			got, err = s.UpdateMetric(t.Context(), &counter)
+			got, err = s.UpdateMetric(t.Context(), counter)
 
 			require.NoError(t, err)
 			require.EqualValues(t, 4, got.Delta, "Counter update should increment delta")
@@ -97,7 +95,7 @@ func Test_PgStorage(t *testing.T) {
 	})
 
 	t.Run("update bulk ok", func(t *testing.T) {
-		withTx(pool, t, func(s *PgStorage) {
+		withTx(dbpool, t, func(s *PgStorage) {
 			metrics := []models.Metric{
 				{Name: "task", Type: "counter", Delta: 2},
 				{Name: "task", Type: "counter", Delta: 1},
@@ -118,9 +116,9 @@ func Test_PgStorage(t *testing.T) {
 	})
 
 	t.Run("get metric ok", func(t *testing.T) {
-		withTx(pool, t, func(s *PgStorage) {
+		withTx(dbpool, t, func(s *PgStorage) {
 			counter := models.Metric{Name: "task", Type: "counter", Delta: 23}
-			_, err := s.UpdateMetric(t.Context(), &counter)
+			_, err := s.UpdateMetric(t.Context(), counter)
 			require.NoError(t, err)
 
 			// Get known metric
@@ -137,7 +135,7 @@ func Test_PgStorage(t *testing.T) {
 	})
 
 	t.Run("count metrics ok", func(t *testing.T) {
-		withTx(pool, t, func(s *PgStorage) {
+		withTx(dbpool, t, func(s *PgStorage) {
 			_, err := s.UpdateMetricBulk(t.Context(), []models.Metric{
 				{Name: "task", Type: "counter", Delta: 23},
 				{Name: "task", Type: "counter", Delta: 1},
@@ -153,7 +151,7 @@ func Test_PgStorage(t *testing.T) {
 	})
 
 	t.Run("list metrics ok", func(t *testing.T) {
-		withTx(pool, t, func(s *PgStorage) {
+		withTx(dbpool, t, func(s *PgStorage) {
 			_, err := s.UpdateMetricBulk(t.Context(), []models.Metric{
 				{Name: "task", Type: "counter", Delta: 23},
 				{Name: "task", Type: "counter", Delta: 1},

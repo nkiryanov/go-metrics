@@ -45,8 +45,39 @@ const (
 )
 
 var (
-	gauges   = []string{Alloc, BuckHashSys, Frees, GCCPUFraction, GCSys, HeapAlloc, HeapIdle, HeapInuse, HeapObjects, HeapReleased, HeapSys, LastGC, Lookups, MCacheInuse, MCacheSys, MSpanInuse, MSpanSys, Mallocs, NextGC, NumForcedGC, NumGC, OtherSys, PauseTotalNs, StackInuse, StackSys, Sys, TotalAlloc, RandomValue}
-	counters = []string{PollCount}
+	gauges = []string{
+		Alloc,
+		BuckHashSys,
+		Frees,
+		GCCPUFraction,
+		GCSys,
+		HeapAlloc,
+		HeapIdle,
+		HeapInuse,
+		HeapObjects,
+		HeapReleased,
+		HeapSys,
+		LastGC,
+		Lookups,
+		MCacheInuse,
+		MCacheSys,
+		MSpanInuse,
+		MSpanSys,
+		Mallocs,
+		NextGC,
+		NumForcedGC,
+		NumGC,
+		OtherSys,
+		PauseTotalNs,
+		StackInuse,
+		StackSys,
+		Sys,
+		TotalAlloc,
+		RandomValue,
+	}
+	counters = []string{
+		PollCount,
+	}
 )
 
 type MemCapturer struct {
@@ -112,7 +143,7 @@ func (c *MemCapturer) CaptureAndSave() {
 	logger.Slog.Info("capturer: mem stats saved")
 }
 
-func (c *MemCapturer) Last() []models.Metric {
+func (c *MemCapturer) ListLast() []models.Metric {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
