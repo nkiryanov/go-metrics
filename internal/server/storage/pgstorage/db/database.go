@@ -6,10 +6,10 @@ import (
 	"errors"
 	"strings"
 
-	_ "github.com/golang-migrate/migrate/v4/database/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/database/pgx/v5"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 //go:embed migrations/*.sql
@@ -44,7 +44,6 @@ func Migrate(dsn string) error {
 	return nil
 }
 
-
 // Connect to the DB
 // dsn: database source name in format postgres://...
 func Connect(ctx context.Context, dsn string) (*pgxpool.Pool, error) {
@@ -55,7 +54,6 @@ func Connect(ctx context.Context, dsn string) (*pgxpool.Pool, error) {
 
 	return dbpool, err
 }
-
 
 // Do both: Connect and Migrate
 // dsn: database source name in format postgres://...
