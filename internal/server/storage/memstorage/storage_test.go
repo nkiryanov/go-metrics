@@ -2,11 +2,8 @@ package memstorage
 
 import (
 	"context"
-	"os"
 	"sync"
-	"sync/atomic"
 	"testing"
-	"time"
 
 	"github.com/nkiryanov/go-metrics/internal/models"
 	"github.com/nkiryanov/go-metrics/internal/server/storage"
@@ -17,21 +14,16 @@ import (
 
 // Test helper. Create storage that store state in temp file.
 // Return *MemStorage and close func. The close should be run on end of the test, to release resources
-func memstorage(t *testing.T, interval time.Duration) (*MemStorage, func()) {
+func newInMemory(t *testing.T) (*MemStorage, func()) {
+	t.Helper()
 	var err error
 
-	// Tmp directory for persistent storage
-	tmpFile, err := os.CreateTemp("", "metrics_*.json")
-	require.NoError(t, err)
-	filename := tmpFile.Name()
-
-	s, err := New(filename, interval, true)
+	s, err := New("", 0, false)
 	require.NoError(t, err)
 
 	closeFn := func() {
 		err = s.Close()
 		require.NoError(t, err)
-		_ = os.Remove(filename)
 	}
 
 	return s, closeFn
@@ -42,8 +34,8 @@ func TestMemStorage_UpdateMetric(t *testing.T) {
 	mGauge := models.Metric{Name: "foo", Type: models.GaugeTypeName, Value: 500.23}
 
 	t.Run("counter update once ok", func(t *testing.T) {
-		s, close := memstorage(t, 3*time.Minute)
-		defer close()
+		s, close := newInMemory(t)
+		t.Cleanup(close)
 
 		got, err := s.UpdateMetric(context.TODO(), &mCounter)
 
@@ -52,8 +44,8 @@ func TestMemStorage_UpdateMetric(t *testing.T) {
 	})
 
 	t.Run("counter update several ok", func(t *testing.T) {
-		s, close := memstorage(t, 3*time.Minute)
-		defer close()
+		s, close := newInMemory(t)
+		t.Cleanup(close)
 		metric := models.Metric{Type: models.CounterTypeName, Name: "foo", Delta: 10}
 
 		_, _ = s.UpdateMetric(context.TODO(), &metric)
@@ -64,8 +56,8 @@ func TestMemStorage_UpdateMetric(t *testing.T) {
 	})
 
 	t.Run("gauge update once ok", func(t *testing.T) {
-		s, close := memstorage(t, 3*time.Minute)
-		defer close()
+		s, close := newInMemory(t)
+		t.Cleanup(close)
 
 		got, err := s.UpdateMetric(context.TODO(), &mGauge)
 
@@ -74,8 +66,8 @@ func TestMemStorage_UpdateMetric(t *testing.T) {
 	})
 
 	t.Run("gauge update several ok", func(t *testing.T) {
-		s, close := memstorage(t, 3*time.Minute)
-		defer close()
+		s, close := newInMemory(t)
+		t.Cleanup(close)
 		yaGauge := models.Metric{Type: models.GaugeTypeName, Name: "foo", Value: 123.1}
 
 		_, _ = s.UpdateMetric(context.TODO(), &mGauge)
@@ -86,8 +78,8 @@ func TestMemStorage_UpdateMetric(t *testing.T) {
 	})
 
 	t.Run("fail if unknown type", func(t *testing.T) {
-		s, close := memstorage(t, 3*time.Minute)
-		defer close()
+		s, close := newInMemory(t)
+		t.Cleanup(close)
 		metric := models.Metric{Type: "unknown", Name: "foo", Value: 500.23}
 
 		_, err := s.UpdateMetric(context.TODO(), &metric)
@@ -96,8 +88,8 @@ func TestMemStorage_UpdateMetric(t *testing.T) {
 	})
 
 	t.Run("concurrently ok", func(t *testing.T) {
-		s, close := memstorage(t, 3*time.Minute)
-		defer close()
+		s, close := newInMemory(t)
+		t.Cleanup(close)
 
 		var wg sync.WaitGroup
 		for range 10 {
@@ -114,47 +106,11 @@ func TestMemStorage_UpdateMetric(t *testing.T) {
 		assert.Equal(t, mGauge, got)
 	})
 
-	t.Run("call saver ok", func(t *testing.T) {
-		tests := []struct {
-			name         string
-			interval     time.Duration
-			expectCalled bool
-		}{
-			{
-				"call if interval zero",
-				0 * time.Second,
-				true,
-			},
-			{
-				"not call if interval > zero",
-				1 * time.Second,
-				false,
-			},
-		}
-
-		for _, tc := range tests {
-			t.Run(tc.name, func(t *testing.T) {
-				s, close := memstorage(t, tc.interval)
-				defer close()
-
-				// Mock memstorage saver
-				var saverCalled atomic.Bool
-				s.saver = func(s *MemStorage) error { saverCalled.Store(true); return nil }
-
-				// Update metric and give enough time to run goroutine
-				_, err := s.UpdateMetric(context.TODO(), &mCounter)
-				require.NoError(t, err)
-				time.Sleep(100 * time.Millisecond)
-
-				assert.Equal(t, tc.expectCalled, saverCalled.Load())
-			})
-		}
-	})
 }
 
 func TestMemStorage_CountMetric(t *testing.T) {
-	s, deferFn := memstorage(t, 3*time.Minute)
-	defer deferFn()
+	s, close := newInMemory(t)
+	t.Cleanup(close)
 	_, _ = s.UpdateMetric(context.TODO(), &models.Metric{Name: "foo", Type: models.CounterTypeName, Delta: 10})
 	_, _ = s.UpdateMetric(context.TODO(), &models.Metric{Name: "bar", Type: models.CounterTypeName, Delta: 200})
 	_, _ = s.UpdateMetric(context.TODO(), &models.Metric{Name: "goo", Type: models.GaugeTypeName, Value: 500.233})
@@ -176,8 +132,8 @@ func TestMemStorage_GetMetric(t *testing.T) {
 	barCounter := models.Metric{Name: "bar", Type: models.CounterTypeName, Delta: 200}
 	fooGauge := models.Metric{Name: "foo", Type: models.GaugeTypeName, Value: 500.233}
 
-	s, deferFn := memstorage(t, 3*time.Minute)
-	defer deferFn()
+	s, close := newInMemory(t)
+	t.Cleanup(close)
 	_, _ = s.UpdateMetric(context.TODO(), &fooCounter)
 	_, _ = s.UpdateMetric(context.TODO(), &barCounter)
 	_, _ = s.UpdateMetric(context.TODO(), &fooGauge)
@@ -252,8 +208,8 @@ func TestMemStorage_ListMetric(t *testing.T) {
 	barCounter := models.Metric{Name: "bar", Type: models.CounterTypeName, Delta: 200}
 	fooGauge := models.Metric{Name: "foo", Type: models.GaugeTypeName, Value: 500.233}
 
-	s, deferFn := memstorage(t, 3*time.Minute)
-	defer deferFn()
+	s, close := newInMemory(t)
+	t.Cleanup(close)
 	_, _ = s.UpdateMetric(context.TODO(), &fooCounter)
 	_, _ = s.UpdateMetric(context.TODO(), &barCounter)
 	_, _ = s.UpdateMetric(context.TODO(), &fooGauge)
@@ -293,8 +249,8 @@ func TestMemStorage_UpdateMetricBulk(t *testing.T) {
 	}
 
 	t.Run("update metric counter and gauge bulk ok", func(t *testing.T) {
-		s, close := memstorage(t, 3*time.Minute)
-		defer close()
+		s, close := newInMemory(t)
+		t.Cleanup(close)
 
 		got, err := s.UpdateMetricBulk(context.TODO(), metrics)
 
@@ -307,8 +263,8 @@ func TestMemStorage_UpdateMetricBulk(t *testing.T) {
 	})
 
 	t.Run("fail if unknown type", func(t *testing.T) {
-		s, close := memstorage(t, 3*time.Minute)
-		defer close()
+		s, close := newInMemory(t)
+		t.Cleanup(close)
 		invalid := append(metrics, models.Metric{Name: "unknown", Type: "unknown"})
 
 		got, err := s.UpdateMetricBulk(context.TODO(), invalid)

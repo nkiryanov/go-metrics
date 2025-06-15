@@ -24,7 +24,7 @@ func (a *Agent) Run(ctx context.Context) error {
 	// create slice of all stored metrics and run report batch
 	reportFn := func() {
 		captured := a.Capturer.ListLast()
-		_ = a.Reporter.ReportBatch(captured) 
+		_ = a.Reporter.ReportBatch(captured)
 	}
 
 	go runner.NewIntvRunner(0, a.PollInterval).Run(ctx, a.Capturer.CaptureAndSave)

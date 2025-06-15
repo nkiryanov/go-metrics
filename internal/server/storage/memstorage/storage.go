@@ -2,8 +2,8 @@ package memstorage
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"os"
 	"sort"
 	"sync"
 	"time"
@@ -13,180 +13,93 @@ import (
 	"github.com/nkiryanov/go-metrics/internal/server/storage"
 )
 
-type counterStore struct {
-	lock    sync.RWMutex
-	storage map[string]int64
-}
-
-type gaugeStore struct {
-	lock    sync.RWMutex
-	storage map[string]float64
-}
-
-type saveFunc func(s *MemStorage) error
-type restoreFunc func(s *MemStorage) error
-
+// MemStorage implements storage interface with in-memory metrics and optional file persistence
 type MemStorage struct {
 	// Metric storages
-	gauges   gaugeStore
-	counters counterStore
+	counters map[string]int64
+	gauges   map[string]float64
+	mu       sync.RWMutex
 
-	// File as a persistent storage
+	// File persistence
 	// Save interval means how often metrics should be saved (0 — should saved synchronously, on each update)
-	file         *os.File
-	fileLock     sync.Mutex
+	filename     string
 	saveInterval time.Duration
-	saver        saveFunc
-	restorer     restoreFunc
-
-	// MemStorage context. Should be cancelled when Close() is called
-	ctx    context.Context
-	cancel context.CancelFunc
+	stopCh       chan struct{}
 }
 
-func New(filePath string, interval time.Duration, restore bool) (*MemStorage, error) {
-	var err error
-	var file *os.File
-
-	// Open file as persistent storage for metrics
-	file, err = os.OpenFile(filePath, os.O_RDWR|os.O_CREATE, 0666)
-	if err != nil {
-		return nil, err
+// New creates a MemStorage instance, optionally with file persistence.
+// If filename is provided, metrics will be saved at specified saveInterval (0 = synchronous saves)
+// If filename, saveInterval, restore is empty then create in memory only storage
+func New(filename string, saveInterval time.Duration, restore bool) (*MemStorage, error) {
+	if filename == "" && (saveInterval != 0 || restore) {
+		return nil, errors.New("can't create in-memory only storage, cause one New args not empty")
 	}
 
-	// Initialize context with cancel function
-	ctx, cancel := context.WithCancel(context.Background())
-
-	storage := &MemStorage{
-		counters: counterStore{storage: make(map[string]int64)},
-		gauges:   gaugeStore{storage: make(map[string]float64)},
-
-		file:         file,
-		saveInterval: interval,
-		saver:        memSave,
-		restorer:     memRestore,
-
-		ctx:    ctx,
-		cancel: cancel,
+	s := &MemStorage{
+		counters:     make(map[string]int64),
+		gauges:       make(map[string]float64),
+		filename:     filename,
+		saveInterval: saveInterval,
+		stopCh:       make(chan struct{}),
 	}
 
-	// Restore storage data from file if needed
 	if restore {
-		if err = storage.restore(); err != nil {
+		err := s.loadFromFile()
+		if err != nil {
 			return nil, err
 		}
-		logger.Slog.Info("storage: restored from file")
 	}
 
-	// Run interval saver if needed
-	if storage.saveInterval > 0 {
-		go func(s *MemStorage) {
-			ticker := time.NewTicker(s.saveInterval)
-			defer ticker.Stop()
-
-			for {
-				select {
-				case <-ticker.C:
-					if err := s.save(); err != nil {
-						logger.Slog.Errorw("storage: save failed", "error", err.Error())
-					} else {
-						logger.Slog.Debug("storage: saved")
-					}
-				case <-s.ctx.Done():
-					return
-				}
-			}
-		}(storage)
-		logger.Slog.Infow("storage: interval saver started", "interval", storage.saveInterval.String())
+	if saveInterval > 0 {
+		go s.backgroundSaver()
 	}
 
-	return storage, nil
-}
-
-func (s *MemStorage) save() error {
-	return s.saver(s)
-}
-
-func (s *MemStorage) restore() error {
-	return s.restorer(s)
-}
-
-// Validate metric could be saved in memory storage
-func (s *MemStorage) validate(m *models.Metric) error {
-	switch m.Type {
-	case models.CounterTypeName, models.GaugeTypeName:
-		return nil
-	default:
-		return fmt.Errorf("unknown metric type: %s", m.Type)
-	}
-}
-
-// Update valid metric in storage (in memory)
-func (s *MemStorage) update(validated *models.Metric) models.Metric {
-	metric := models.Metric{Type: validated.Type, Name: validated.Name}
-
-	switch metric.Type {
-	case models.CounterTypeName:
-		s.counters.lock.Lock()
-		s.counters.storage[validated.Name] += validated.Delta
-		counter := s.counters.storage[validated.Name]
-		s.counters.lock.Unlock()
-
-		metric.Delta = counter
-	case models.GaugeTypeName:
-		s.gauges.lock.Lock()
-		s.gauges.storage[validated.Name] = validated.Value
-		gauge := s.gauges.storage[validated.Name]
-		s.gauges.lock.Unlock()
-
-		metric.Value = gauge
-	}
-
-	return metric
+	return s, nil
 }
 
 func (s *MemStorage) Close() error {
-	s.cancel()
-	if err := s.save(); err != nil {
-		return err
+	if s.stopCh != nil {
+		close(s.stopCh)
 	}
-	return s.file.Close()
+
+	if s.filename != "" {
+		return s.saveToFile()
+	}
+
+	return nil
 }
 
 // Memory storage is ready for use just after initialization
 // No errors is possible
-func (s *MemStorage) Ping(ctx context.Context) error {
+func (s *MemStorage) Ping(_ context.Context) error {
 	return nil
 }
 
-func (s *MemStorage) CountMetric(ctx context.Context) (int, error) {
-	s.counters.lock.RLock()
-	s.gauges.lock.RLock()
-	defer s.counters.lock.RUnlock()
-	defer s.gauges.lock.RUnlock()
-
-	return len(s.counters.storage) + len(s.gauges.storage), nil
+// CountMetric returns a total count of all metrics in storage
+func (s *MemStorage) CountMetric(_ context.Context) (int, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return len(s.counters) + len(s.gauges), nil
 }
 
-func (s *MemStorage) GetMetric(ctx context.Context, mType string, mName string) (models.Metric, error) {
+// GetMetric gets a metric by its type and name. Returns error if metric not found
+func (s *MemStorage) GetMetric(_ context.Context, mType string, mName string) (models.Metric, error) {
 	var err = storage.ErrNoMetric
 	metric := models.Metric{Type: mType, Name: mName}
 
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	var readOk bool
+
 	switch mType {
 	case models.CounterTypeName:
-		s.counters.lock.RLock()
-		defer s.counters.lock.RUnlock()
-		var ok bool
-		metric.Delta, ok = s.counters.storage[mName]
-		if ok {
+		metric.Delta, readOk = s.counters[mName]
+		if readOk {
 			return metric, nil
 		}
 	case models.GaugeTypeName:
-		s.gauges.lock.RLock()
-		defer s.gauges.lock.RUnlock()
-		var ok bool
-		metric.Value, ok = s.gauges.storage[mName]
-		if ok {
+		metric.Value, readOk = s.gauges[mName]
+		if readOk {
 			return metric, nil
 		}
 	}
@@ -194,39 +107,41 @@ func (s *MemStorage) GetMetric(ctx context.Context, mType string, mName string) 
 	return metric, err
 }
 
-func (s *MemStorage) UpdateMetric(ctx context.Context, in *models.Metric) (models.Metric, error) {
+// Save valid metric in storage and return updated value
+func (s *MemStorage) UpdateMetric(_ context.Context, in *models.Metric) (models.Metric, error) {
+	var metric models.Metric
+
 	err := s.validate(in)
 	if err != nil {
-		return models.Metric{}, err
+		return metric, err
 	}
 
-	metric := s.update(in)
+	metric = s.update(in)
 
 	// is saveInterval = 0, than save metrics in synchronously
 	if s.saveInterval == 0 {
-		if err := s.save(); err != nil {
+		err := s.saveToFile()
+		if err != nil {
 			logger.Slog.Errorw("metrics saving failed", "error", err.Error())
 			return metric, err
 		}
-		logger.Slog.Debugw("metrics saved", "metric", in)
 	}
 
 	return metric, nil
 }
 
-func (s *MemStorage) ListMetric(ctx context.Context) ([]models.Metric, error) {
-	s.counters.lock.RLock()
-	defer s.counters.lock.RUnlock()
-	s.gauges.lock.RLock()
-	defer s.gauges.lock.RUnlock()
+// ListMetric returns all metrics in storage sorted by name
+func (s *MemStorage) ListMetric(_ context.Context) ([]models.Metric, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 
-	metrics := make([]models.Metric, 0, len(s.counters.storage)+len(s.gauges.storage))
+	metrics := make([]models.Metric, 0, len(s.counters)+len(s.gauges))
 
-	for name, counter := range s.counters.storage {
+	for name, counter := range s.counters {
 		metrics = append(metrics, models.Metric{Name: name, Type: models.CounterTypeName, Delta: counter})
 	}
 
-	for name, gauge := range s.gauges.storage {
+	for name, gauge := range s.gauges {
 		metrics = append(metrics, models.Metric{Name: name, Type: models.GaugeTypeName, Value: gauge})
 	}
 
@@ -237,7 +152,9 @@ func (s *MemStorage) ListMetric(ctx context.Context) ([]models.Metric, error) {
 	return metrics, nil
 }
 
-func (s *MemStorage) UpdateMetricBulk(ctx context.Context, metrics []models.Metric) ([]models.Metric, error) {
+// UpdateMetricBulk takes a slice of metrics, validates them, updates them in storage,
+// and returns the updated metrics. If saveInterval is 0, saves to file synchronously.
+func (s *MemStorage) UpdateMetricBulk(_ context.Context, metrics []models.Metric) ([]models.Metric, error) {
 	var err error
 
 	// Validate all the metrics
@@ -251,20 +168,50 @@ func (s *MemStorage) UpdateMetricBulk(ctx context.Context, metrics []models.Metr
 	updated := make([]models.Metric, 0, len(metrics))
 
 	for _, m := range metrics {
-
 		updated = append(updated, s.update(&m))
 	}
 
 	// is saveInterval = 0, than save metrics in synchronously
 	if s.saveInterval == 0 {
-		err = s.save()
+		err = s.saveToFile()
 		if err != nil {
 			logger.Slog.Errorw("metrics saving failed", "error", err.Error())
 			return updated, err
 		}
-
-		logger.Slog.Debugw("metrics bulk saved", "metric")
 	}
 
 	return updated, nil
+}
+
+// Validate metric could be saved in memory storage
+func (s *MemStorage) validate(m *models.Metric) error {
+	switch m.Type {
+	case models.CounterTypeName, models.GaugeTypeName:
+		return nil
+	default:
+		return fmt.Errorf("unknown metric type: %s", m.Type)
+	}
+}
+
+// Update valid metric in storage (in memory) and return updated value
+func (s *MemStorage) update(validated *models.Metric) models.Metric {
+	metric := models.Metric{Type: validated.Type, Name: validated.Name}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	switch metric.Type {
+	case models.CounterTypeName:
+		s.counters[validated.Name] += validated.Delta
+		counter := s.counters[validated.Name]
+
+		metric.Delta = counter
+	case models.GaugeTypeName:
+		s.gauges[validated.Name] = validated.Value
+		gauge := s.gauges[validated.Name]
+
+		metric.Value = gauge
+	}
+
+	return metric
 }
