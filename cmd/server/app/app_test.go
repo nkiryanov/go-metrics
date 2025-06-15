@@ -17,7 +17,7 @@ const (
 
 func TestServerApp_ExitWithSignal(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), HalfSecond)
-	defer cancel()
+	t.Cleanup(cancel)
 	opts := &opts.Options{ListenAddr: "localhost:39232"}
 	srv := ServerApp{Opts: opts, Handler: nil}
 

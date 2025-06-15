@@ -3,6 +3,7 @@ package memstorage
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"time"
 
@@ -12,7 +13,12 @@ import (
 func (s *MemStorage) loadFromFile() (err error) {
 	file, err := os.Open(s.filename)
 	if err != nil {
-		return err
+		switch {
+		case errors.Is(err, os.ErrNotExist): // if file not exists, then nothing to restore
+			return nil
+		default:
+			return err
+		}
 	}
 	defer func() {
 		err = file.Close()

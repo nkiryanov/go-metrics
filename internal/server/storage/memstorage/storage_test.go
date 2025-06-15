@@ -15,7 +15,7 @@ import (
 
 // Create storage that save data in-memory only
 // At the end of running test close the server
-func newInMemory(t *testing.T) *MemStorage  {
+func newInMemory(t *testing.T) *MemStorage {
 	t.Helper()
 
 	storage, err := New("", 0, false)
