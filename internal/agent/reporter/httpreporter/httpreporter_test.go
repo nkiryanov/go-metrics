@@ -1,4 +1,4 @@
-package reporter
+package httpreporter
 
 import (
 	"bytes"
@@ -25,7 +25,7 @@ func decompress(buf *bytes.Buffer) string {
 }
 
 func TestHTTPReporter_post(t *testing.T) {
-	reporter := NewHTTPReporter("http://test.server", &http.Client{}, nil)
+	reporter := New("http://test.server", &http.Client{}, nil)
 	metric := models.Metric{Name: "test", Type: "counter", Delta: 1} // Any valid metric should ok
 
 	httpmock.ActivateNonDefault(reporter.client)
@@ -97,7 +97,7 @@ func TestHTTPReporter_post(t *testing.T) {
 }
 
 func TestHTTPReporter_postWithRetry(t *testing.T) {
-	reporter := NewHTTPReporter(
+	reporter := New(
 		"http://test.server",
 		&http.Client{},
 		[]time.Duration{ // Two retries max
@@ -170,7 +170,7 @@ func TestHTTPReporter_postWithRetry(t *testing.T) {
 }
 
 func TestHTTPReporter_Smoke(t *testing.T) {
-	reporter := NewHTTPReporter("http://pornhub.com", &http.Client{}, nil)
+	reporter := New("http://pornhub.com", &http.Client{}, nil)
 	httpmock.ActivateNonDefault(reporter.client)
 	t.Cleanup(httpmock.DeactivateAndReset)
 

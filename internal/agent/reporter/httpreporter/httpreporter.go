@@ -1,4 +1,4 @@
-package reporter
+package httpreporter
 
 import (
 	"bytes"
@@ -40,7 +40,7 @@ type HTTPReporter struct {
 	retryIntervals []time.Duration
 }
 
-func NewHTTPReporter(reportAddr string, client *http.Client, retryIntervals []time.Duration) *HTTPReporter {
+func New(reportAddr string, client *http.Client, retryIntervals []time.Duration) *HTTPReporter {
 	return &HTTPReporter{
 		reportAddr:     reportAddr,
 		client:         client,

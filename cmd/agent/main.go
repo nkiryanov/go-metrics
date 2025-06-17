@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/nkiryanov/go-metrics/internal/agent/capturer"
-	"github.com/nkiryanov/go-metrics/internal/agent/reporter"
+	"github.com/nkiryanov/go-metrics/internal/agent/reporter/httpreporter"
 	"github.com/nkiryanov/go-metrics/internal/logger"
 
 	"github.com/nkiryanov/go-metrics/cmd/agent/app"
@@ -49,7 +49,7 @@ func main() {
 		PollInterval:   opts.PollIntv,
 		ReportInterval: opts.ReptIntv,
 
-		Reporter: reporter.NewHTTPReporter(
+		Reporter: httpreporter.New(
 			opts.ReptAddr,
 			&http.Client{},
 			[]time.Duration{time.Second, 3 * time.Second, 5 * time.Second},
