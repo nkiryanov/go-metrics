@@ -15,21 +15,21 @@ import (
 
 // Reporter error
 // Store additional data to introspect error cause
-type reportErr struct {
+type reportError struct {
 	err     error // original error
 	connErr bool  // wether HTTP connection error or something else
 }
 
-func (e *reportErr) Error() string {
+func (e *reportError) Error() string {
 	return fmt.Sprintf("%v", e.err)
 }
 
-func (e *reportErr) Unwrap() error {
+func (e *reportError) Unwrap() error {
 	return e.err
 }
 
-func newReportErr(err error, connErr bool) *reportErr {
-	return &reportErr{err, connErr}
+func newReportErr(err error, connErr bool) *reportError {
+	return &reportError{err, connErr}
 }
 
 // Metrics reporter to HTTP server
@@ -117,8 +117,8 @@ func (reporter *HTTPReporter) postWithRetry(url string, data any) error {
 		err = reporter.post(url, data)
 
 		// Return if no error occurred or it's not connection error
-		var reportErr *reportErr
-		if err == nil || (errors.As(err, &reportErr) && !reportErr.connErr) {
+		var errReport *reportError
+		if err == nil || (errors.As(err, &errReport) && !errReport.connErr) {
 			return err
 		}
 

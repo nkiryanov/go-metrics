@@ -49,13 +49,13 @@ func TestHTTPReporter_post(t *testing.T) {
 			"http://test.server/some-shit",
 			httpmock.NewErrorResponder(errors.New("connection refused")),
 		)
-		var reportErr *reportErr
+		var errReport *reportError
 
 		err := reporter.post("/some-shit", metric)
 
 		require.Error(t, err)
-		require.True(t, errors.As(err, &reportErr), "post has to return reportErr error")
-		assert.True(t, reportErr.connErr, "connErr must be true on connection errors")
+		require.True(t, errors.As(err, &errReport), "post has to return reportErr error")
+		assert.True(t, errReport.connErr, "connErr must be true on connection errors")
 	})
 
 	t.Run("server error 500", func(t *testing.T) {
@@ -64,13 +64,13 @@ func TestHTTPReporter_post(t *testing.T) {
 			"http://test.server/some-shit",
 			httpmock.NewStringResponder(500, "Internal Server Error"),
 		)
-		var reportErr *reportErr
+		var errReport *reportError
 
 		err := reporter.post("/some-shit", metric)
 
 		require.Error(t, err)
-		require.True(t, errors.As(err, &reportErr), "post has to return reportErr error")
-		assert.False(t, reportErr.connErr, "connError must false if server response with valid response")
+		require.True(t, errors.As(err, &errReport), "post has to return reportErr error")
+		assert.False(t, errReport.connErr, "connError must false if server response with valid response")
 	})
 
 	t.Run("proper gzip encoding and headers", func(t *testing.T) {
