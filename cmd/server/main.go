@@ -89,7 +89,7 @@ func initStorage(ctx context.Context, opts *opts.Options) (s storage.Storage, ca
 			dbpool.Close()
 			return pgs.Close()
 		}
-		return pgstorage.New(ctx, dbpool), cancelFn, nil
+		return pgs, cancelFn, nil
 	}
 
 	ms, err := memstorage.New(opts.FilePath, opts.StoreInterval, opts.Restore)
