@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/nkiryanov/go-metrics/internal/agent/capturer"
-	"github.com/nkiryanov/go-metrics/internal/agent/reporter"
+	"github.com/nkiryanov/go-metrics/internal/agent/reporter/httpreporter"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -26,7 +26,7 @@ func TestAgent_RunStoppedOnSignal(t *testing.T) {
 		PollInterval:   2 * time.Second,
 		ReportInterval: 10 * time.Second,
 
-		Reporter: reporter.NewHTTPReporter("http://localhost:40010", &http.Client{}, nil),
+		Reporter: httpreporter.New("http://localhost:40010", &http.Client{}, nil),
 		Capturer: capturer.NewMemCapturer(),
 	}
 
