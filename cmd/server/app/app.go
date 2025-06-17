@@ -5,21 +5,20 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/nkiryanov/go-metrics/cmd/server/opts"
 	"github.com/nkiryanov/go-metrics/internal/logger"
 )
 
 type ServerApp struct {
-	Opts    *opts.Options
-	Handler http.Handler
+	ListenAddr string
+	Handler    http.Handler
 }
 
 // Run starts http server and closes gracefully on context cancellation
 func (s *ServerApp) Run(ctx context.Context) error {
-	logger.Slog.Infow("Starting server", "ListenAddr", s.Opts.ListenAddr)
+	logger.Slog.Infow("Starting server", "ListenAddr", s.ListenAddr)
 
 	httpServer := &http.Server{
-		Addr:    s.Opts.ListenAddr,
+		Addr:    s.ListenAddr,
 		Handler: s.Handler,
 	}
 

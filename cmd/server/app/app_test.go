@@ -7,8 +7,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/nkiryanov/go-metrics/cmd/server/opts"
 )
 
 const (
@@ -18,8 +16,7 @@ const (
 func TestServerApp_ExitWithSignal(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), HalfSecond)
 	t.Cleanup(cancel)
-	opts := &opts.Options{ListenAddr: "localhost:39232"}
-	srv := ServerApp{Opts: opts, Handler: nil}
+	srv := ServerApp{ListenAddr: "localhost:39232", Handler: nil}
 
 	err := srv.Run(ctx)
 
@@ -29,8 +26,7 @@ func TestServerApp_ExitWithSignal(t *testing.T) {
 
 func TestServerApp_ExitOnServerError(t *testing.T) {
 	ctx := context.Background()
-	opts := &opts.Options{ListenAddr: "19.23.23.999:8080"} // invalid host
-	srv := ServerApp{Opts: opts, Handler: nil}
+	srv := ServerApp{ListenAddr: "19.23.23.999:8080", Handler: nil}
 
 	err := srv.Run(ctx)
 

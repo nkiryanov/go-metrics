@@ -15,20 +15,22 @@ type Options struct {
 	ListenAddr string
 	LogLevel   string
 
-	FilePath      string
-	StoreInterval time.Duration
-	Restore       bool
+	// In memory database with persistent storage at file
+	DataFilePath   string
+	SaveInterval   time.Duration
+	RestoreOnStart bool
 
-	Dsn string
+	// If set postgres storage will be used
+	DatabaseDsn string
 }
 
 func (opts *Options) Parse() {
 	flag.Func("a", "Server listen address in format 'host:port'", parseListenAddr(&opts.ListenAddr))
-	flag.Func("i", "Time interval after which server data are saved to file (value 0 makes writing synchronous)", parseStoreInterval(&opts.StoreInterval))
+	flag.Func("i", "Time interval after which server data are saved to file (value 0 makes writing synchronous)", parseSaveInterval(&opts.SaveInterval))
 	flag.StringVar(&opts.LogLevel, "l", opts.LogLevel, "Log level like 'info', 'debug', 'error', etc.")
-	flag.StringVar(&opts.FilePath, "f", opts.FilePath, "File storage path, like '/tmp/server_data_json.json")
-	flag.StringVar(&opts.Dsn, "d", opts.Dsn, "Database connection string like 'postgres://user:password@localhost:5432/dbname'")
-	flag.BoolVar(&opts.Restore, "r", opts.Restore, "Restore initial state from the file storage file")
+	flag.StringVar(&opts.DataFilePath, "f", opts.DataFilePath, "File storage path, like '/tmp/server_data_json.json")
+	flag.StringVar(&opts.DatabaseDsn, "d", opts.DatabaseDsn, "Database connection string like 'postgres://user:password@localhost:5432/dbname'")
+	flag.BoolVar(&opts.RestoreOnStart, "r", opts.RestoreOnStart, "Restore initial state from the file storage file on server start")
 
 	// Parse command line args
 	flag.Parse()
@@ -61,9 +63,9 @@ func (opts *Options) parseEnv() {
 	envMap := map[string]func(string) error{
 		"ADDRESS":           parseListenAddr(&opts.ListenAddr),
 		"LOG_LEVEL":         parseString(&opts.LogLevel),
-		"FILE_STORAGE_PATH": parseString(&opts.FilePath),
-		"RESTORE":           parseBool(&opts.Restore),
-		"DATABASE_DSN":      parseString(&opts.Dsn),
+		"FILE_STORAGE_PATH": parseString(&opts.DataFilePath),
+		"RESTORE":           parseBool(&opts.RestoreOnStart),
+		"DATABASE_DSN":      parseString(&opts.DatabaseDsn),
 	}
 
 	for key, parseFn := range envMap {
@@ -99,9 +101,9 @@ func parseListenAddr(listenAddr *string) func(string) error {
 	}
 }
 
-// Parse storeInterval to time.Duration
+// Parse saveInterval to time.Duration
 // The behavior is the same as time.Duration, but if units not specified than 'seconds' is used.
-func parseStoreInterval(intv *time.Duration) func(string) error {
+func parseSaveInterval(intv *time.Duration) func(string) error {
 	return func(flagValue string) error {
 		// If no suffix add 's'
 		if _, err := strconv.Atoi(flagValue); err == nil {

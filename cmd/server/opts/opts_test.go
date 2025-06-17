@@ -67,7 +67,7 @@ func Test_parseListenAddr(t *testing.T) {
 	}
 }
 
-func Test_parseStoreInterval(t *testing.T) {
+func Test_parseSaveInterval(t *testing.T) {
 	t.Run("valid valued", func(t *testing.T) {
 		tests := []struct {
 			name     string
@@ -94,7 +94,7 @@ func Test_parseStoreInterval(t *testing.T) {
 		for _, tc := range tests {
 			t.Run(tc.name, func(t *testing.T) {
 				storeInterval := 300 * time.Second
-				parseFn := parseStoreInterval(&storeInterval)
+				parseFn := parseSaveInterval(&storeInterval)
 
 				err := parseFn(tc.input)
 
@@ -106,7 +106,7 @@ func Test_parseStoreInterval(t *testing.T) {
 
 	t.Run("negative not allowed", func(t *testing.T) {
 		storeInterval := 300 * time.Second
-		parseFn := parseStoreInterval(&storeInterval)
+		parseFn := parseSaveInterval(&storeInterval)
 
 		err := parseFn("-23s")
 
@@ -117,12 +117,12 @@ func Test_parseStoreInterval(t *testing.T) {
 
 func TestOptions(t *testing.T) {
 	defaultOpts := Options{
-		ListenAddr:    "localhost:8080",
-		LogLevel:      "info",
-		FilePath:      "/tmp/default_data.json",
-		StoreInterval: 300 * time.Second,
-		Restore:       false,
-		Dsn:           "postgres://go-metrics@localhost:5432/go-metrics",
+		ListenAddr:     "localhost:8080",
+		LogLevel:       "info",
+		DataFilePath:   "/tmp/default_data.json",
+		SaveInterval:   300 * time.Second,
+		RestoreOnStart: false,
+		DatabaseDsn:    "postgres://go-metrics@localhost:5432/go-metrics",
 	}
 
 	tests := []struct {
@@ -143,11 +143,11 @@ func TestOptions(t *testing.T) {
 				"DATABASE_DSN":      "postgres://envuser@localhost:5432/envdb",
 			},
 			expectedOptions: Options{
-				ListenAddr:    "127.0.0.1:9090",
-				LogLevel:      "error",
-				FilePath:      "/tmp/env_test.json",
-				StoreInterval: 1 * time.Minute,
-				Dsn:           "postgres://envuser@localhost:5432/envdb",
+				ListenAddr:   "127.0.0.1:9090",
+				LogLevel:     "error",
+				DataFilePath: "/tmp/env_test.json",
+				SaveInterval: 1 * time.Minute,
+				DatabaseDsn:  "postgres://envuser@localhost:5432/envdb",
 			},
 		},
 		{
@@ -155,12 +155,12 @@ func TestOptions(t *testing.T) {
 			args:    []string{"-a", "localhost:1234", "-l", "debug", "-i", "4m", "-f", "/tmp/test.json", "-r", "true", "-d", "postgres://test@test:5432/test"},
 			envVars: map[string]string{},
 			expectedOptions: Options{
-				ListenAddr:    "localhost:1234",
-				LogLevel:      "debug",
-				StoreInterval: 4 * time.Minute,
-				FilePath:      "/tmp/test.json",
-				Restore:       true,
-				Dsn:           "postgres://test@test:5432/test",
+				ListenAddr:     "localhost:1234",
+				LogLevel:       "debug",
+				SaveInterval:   4 * time.Minute,
+				DataFilePath:   "/tmp/test.json",
+				RestoreOnStart: true,
+				DatabaseDsn:    "postgres://test@test:5432/test",
 			},
 		},
 		{
@@ -174,11 +174,11 @@ func TestOptions(t *testing.T) {
 			args:    []string{"-i", "1m"},
 			envVars: map[string]string{"STORE_INTERVAL": "-2"}, // Invalid store interval
 			expectedOptions: Options{
-				ListenAddr:    defaultOpts.ListenAddr,
-				LogLevel:      defaultOpts.LogLevel,
-				FilePath:      defaultOpts.FilePath,
-				StoreInterval: 1 * time.Minute, // Should use cli argument cause env variable invalid
-				Restore:       defaultOpts.Restore,
+				ListenAddr:     defaultOpts.ListenAddr,
+				LogLevel:       defaultOpts.LogLevel,
+				DataFilePath:   defaultOpts.DataFilePath,
+				SaveInterval:   1 * time.Minute, // Should use cli argument cause env variable invalid
+				RestoreOnStart: defaultOpts.RestoreOnStart,
 			},
 		},
 	}
@@ -203,7 +203,7 @@ func TestOptions(t *testing.T) {
 
 			assert.Equal(t, tc.expectedOptions.ListenAddr, opts.ListenAddr)
 			assert.Equal(t, tc.expectedOptions.LogLevel, opts.LogLevel)
-			assert.Equal(t, tc.expectedOptions.FilePath, opts.FilePath)
+			assert.Equal(t, tc.expectedOptions.DataFilePath, opts.DataFilePath)
 		})
 	}
 }
