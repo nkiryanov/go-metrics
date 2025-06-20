@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 
@@ -43,7 +44,8 @@ type HTTPReporter struct {
 	client         *http.Client
 	maxRetries     int
 	retryIntervals []time.Duration
-	secretKey      string
+
+	secretKey string
 }
 
 func New(reportAddr string, client *http.Client, retryIntervals []time.Duration, secretKey string) *HTTPReporter {
@@ -74,7 +76,11 @@ func (reporter *HTTPReporter) post(url string, data any) error {
 		body:    nil,
 	}
 
-	err := jsonGzipMiddleware(&postContext)
+	err := reporter.jsonGzipMiddleware(&postContext)
+	if err != nil {
+		return newReportError(err, false)
+	}
+	err = reporter.hmacSha256Middleware(&postContext)
 	if err != nil {
 		return newReportError(err, false)
 	}
@@ -95,7 +101,8 @@ func (reporter *HTTPReporter) post(url string, data any) error {
 	defer resp.Body.Close() // nolint:errcheck
 
 	if status := resp.StatusCode; status != http.StatusOK {
-		return newReportError(err, false)
+		body, _ := io.ReadAll(resp.Body)
+		return newReportError(fmt.Errorf("http %d: %s", resp.StatusCode, string(body)), false)
 	}
 
 	return nil

@@ -25,7 +25,7 @@ func decompress(buf *bytes.Buffer) string {
 }
 
 func TestHTTPReporter_post(t *testing.T) {
-	reporter := New("http://test.server", &http.Client{}, nil, "")
+	reporter := New("http://test.server", &http.Client{}, nil, "VeryStrongKey")
 	metric := models.Metric{Name: "test", Type: "counter", Delta: 1} // Any valid metric should ok
 
 	httpmock.ActivateNonDefault(reporter.client)
@@ -90,6 +90,7 @@ func TestHTTPReporter_post(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, "gzip", capturedHeaders.Get("Content-Encoding"))
 		assert.Equal(t, "application/json", capturedHeaders.Get("Content-Type"))
+		assert.Equal(t, "68be31a7200fefad750239b08fe714dbbdca20324bf51b47148fcd16e8198105", capturedHeaders.Get("HashSHA256")) // computed hmac of body
 
 		expectedJSON := `{"id":"test","type":"counter","delta":1}`
 		assert.JSONEq(t, expectedJSON, decompress(capturedBody))
