@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestOpts_parseReptAddr(t *testing.T) {
+func TestOpts_parseReportAddr(t *testing.T) {
 	defaultRa := "https://default.com/update"
 
 	tests := []struct {
@@ -46,7 +46,7 @@ func TestOpts_parseReptAddr(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			ra := defaultRa
-			parseFn := parseReptAddr(&ra)
+			parseFn := parseReportAddr(&ra)
 
 			err := parseFn(tc.input)
 
@@ -60,7 +60,7 @@ func TestOpts_parseReptAddr(t *testing.T) {
 	}
 }
 
-func TestOpts_parseIntv(t *testing.T) {
+func TestOpts_parseInterval(t *testing.T) {
 	defaultIntv := 300 * time.Second
 
 	tests := []struct {
@@ -98,7 +98,7 @@ func TestOpts_parseIntv(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			intv := defaultIntv
-			parseFn := parseIntv(&intv)
+			parseFn := parseInterval(&intv)
 
 			err := parseFn(tc.input)
 
