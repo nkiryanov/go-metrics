@@ -26,16 +26,20 @@ func (a *Agent) Run(ctx context.Context) error {
 	reportFn := func() {
 		captured := a.Capturer.ListLast()
 		err := a.Reporter.ReportBatch(captured)
-
 		switch err {
 		case nil:
-			logger.Slog.Info("metrics reported or", "count", len(captured))
+			logger.Slog.Info("metrics reported", "count", len(captured))
 		default:
-			logger.Slog.Warn("report error", "error", err.Error())
+			logger.Slog.Warn("report error", "err", err)
 		}
 	}
 
-	go runner.NewIntvRunner(0, a.PollInterval).Run(ctx, a.Capturer.CaptureAndSave)
+	captureFn := func() {
+		a.Capturer.CaptureAndSave()
+		logger.Slog.Info("metrics captured ok")
+	}
+
+	go runner.NewIntvRunner(0, a.PollInterval).Run(ctx, captureFn)
 	go runner.NewIntvRunner(5*time.Second, a.ReportInterval).Run(ctx, reportFn)
 
 	<-ctx.Done()

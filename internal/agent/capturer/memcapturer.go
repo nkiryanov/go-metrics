@@ -5,7 +5,6 @@ import (
 	"runtime"
 	"sync"
 
-	"github.com/nkiryanov/go-metrics/internal/logger"
 	"github.com/nkiryanov/go-metrics/internal/models"
 )
 
@@ -139,8 +138,6 @@ func (c *MemCapturer) CaptureAndSave() {
 	c.mu.Lock()
 	c.stor = c.Capture()
 	c.mu.Unlock()
-
-	logger.Slog.Info("capturer: mem stats saved")
 }
 
 func (c *MemCapturer) ListLast() []models.Metric {
