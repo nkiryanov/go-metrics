@@ -123,6 +123,7 @@ func TestOptions(t *testing.T) {
 		SaveInterval:   300 * time.Second,
 		RestoreOnStart: false,
 		DatabaseDsn:    "postgres://go-metrics@localhost:5432/go-metrics",
+		SecretKey:      "",
 	}
 
 	tests := []struct {
@@ -133,7 +134,15 @@ func TestOptions(t *testing.T) {
 	}{
 		{
 			name: "env vars takes precedence",
-			args: []string{"-a", "localhost:1234", "-l", "debug", "-i", "4m", "-f", "/tmp/test.json", "-r", "false", "-d", "postgres://test@test:5432/test"},
+			args: []string{
+				"-a", "localhost:1234",
+				"-l", "debug",
+				"-i", "4m",
+				"-f", "/tmp/test.json",
+				"-r", "false",
+				"-d", "postgres://test@test:5432/test",
+				"-k", "cli-secret-key",
+			},
 			envVars: map[string]string{
 				"ADDRESS":           "127.0.0.1:9090",
 				"LOG_LEVEL":         "error",
@@ -141,6 +150,7 @@ func TestOptions(t *testing.T) {
 				"STORE_INTERVAL":    "1m",
 				"RESTORE":           "TRUE",
 				"DATABASE_DSN":      "postgres://envuser@localhost:5432/envdb",
+				"KEY":               "env-secret-key",
 			},
 			expectedOptions: Options{
 				ListenAddr:   "127.0.0.1:9090",
@@ -148,11 +158,20 @@ func TestOptions(t *testing.T) {
 				DataFilePath: "/tmp/env_test.json",
 				SaveInterval: 1 * time.Minute,
 				DatabaseDsn:  "postgres://envuser@localhost:5432/envdb",
+				SecretKey:    "env-secret-key",
 			},
 		},
 		{
-			name:    "use cli arguments if set",
-			args:    []string{"-a", "localhost:1234", "-l", "debug", "-i", "4m", "-f", "/tmp/test.json", "-r", "true", "-d", "postgres://test@test:5432/test"},
+			name: "use cli arguments if set",
+			args: []string{
+				"-a", "localhost:1234",
+				"-l", "debug",
+				"-i", "4m",
+				"-f", "/tmp/test.json",
+				"-r", "true",
+				"-d", "postgres://test@test:5432/test",
+				"-k", "cli-secret-key",
+			},
 			envVars: map[string]string{},
 			expectedOptions: Options{
 				ListenAddr:     "localhost:1234",
@@ -161,6 +180,7 @@ func TestOptions(t *testing.T) {
 				DataFilePath:   "/tmp/test.json",
 				RestoreOnStart: true,
 				DatabaseDsn:    "postgres://test@test:5432/test",
+				SecretKey:      "cli-secret-key",
 			},
 		},
 		{
@@ -179,6 +199,7 @@ func TestOptions(t *testing.T) {
 				DataFilePath:   defaultOpts.DataFilePath,
 				SaveInterval:   1 * time.Minute, // Should use cli argument cause env variable invalid
 				RestoreOnStart: defaultOpts.RestoreOnStart,
+				SecretKey:      defaultOpts.SecretKey,
 			},
 		},
 	}
