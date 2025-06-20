@@ -25,8 +25,8 @@ func (opts *Options) Parse() {
 	flag.Func("p", "capturer polling interval (in seconds by default). Should be positive number like: 10 or 10s or 1m.", parseInterval(&opts.PollInterval))
 	flag.Func("r", "report interval (in seconds by default). Should be positive number like: 10 or 10s or 1m.", parseInterval(&opts.ReportInterval))
 
-	flag.StringVar(&opts.LogLevel, "l", "info", "log level like info, debug, error, etc.")
-	flag.StringVar(&opts.SecretKey, "k", "", "secret key to sign reported metrics")
+	flag.StringVar(&opts.LogLevel, "l", opts.LogLevel, "log level like info, debug, error, etc.")
+	flag.StringVar(&opts.SecretKey, "k", opts.SecretKey, "secret key to sign reported metrics")
 
 	flag.Parse()
 

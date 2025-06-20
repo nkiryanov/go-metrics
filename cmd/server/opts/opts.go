@@ -22,6 +22,9 @@ type Options struct {
 
 	// If set postgres storage will be used
 	DatabaseDsn string
+
+	// Secret key to verify hmac of reported metrics
+	SecretKey string
 }
 
 func (opts *Options) Parse() {
@@ -30,6 +33,7 @@ func (opts *Options) Parse() {
 	flag.StringVar(&opts.LogLevel, "l", opts.LogLevel, "Log level like 'info', 'debug', 'error', etc.")
 	flag.StringVar(&opts.DataFilePath, "f", opts.DataFilePath, "File storage path, like '/tmp/server_data_json.json")
 	flag.StringVar(&opts.DatabaseDsn, "d", opts.DatabaseDsn, "Database connection string like 'postgres://user:password@localhost:5432/dbname'")
+	flag.StringVar(&opts.SecretKey, "k", opts.SecretKey, "Secret Key to verify HMAC (provided in HashSHA256 header) of reporting metrics. Takes no effect if not set or empty")
 	flag.BoolVar(&opts.RestoreOnStart, "r", opts.RestoreOnStart, "Restore initial state from the file storage file on server start")
 
 	// Parse command line args
@@ -66,6 +70,7 @@ func (opts *Options) parseEnv() {
 		"FILE_STORAGE_PATH": parseString(&opts.DataFilePath),
 		"RESTORE":           parseBool(&opts.RestoreOnStart),
 		"DATABASE_DSN":      parseString(&opts.DatabaseDsn),
+		"KEY":               parseString(&opts.SecretKey),
 	}
 
 	for key, parseFn := range envMap {
