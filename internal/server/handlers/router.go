@@ -15,10 +15,14 @@ const (
 	URLMetricValue string = "mValue"
 )
 
-func NewMetricRouter(stor storage.Storage) http.Handler {
+func NewMetricRouter(stor storage.Storage, hmacSecretKey string) http.Handler {
 	router := chi.NewRouter()
 
-	router.Use(LoggerMiddleware, GzipMiddleware)
+	router.Use(
+		LoggerMiddleware,
+		HmacSHA256Middleware(hmacSecretKey),
+		GzipMiddleware,
+	)
 
 	// Root level
 	router.Get("/", listMetrics(stor, templates.MetricList))
