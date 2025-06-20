@@ -8,6 +8,7 @@ import (
 	"github.com/nkiryanov/go-metrics/internal/agent/capturer"
 	"github.com/nkiryanov/go-metrics/internal/agent/reporter"
 	"github.com/nkiryanov/go-metrics/internal/agent/runner"
+	"github.com/nkiryanov/go-metrics/internal/logger"
 )
 
 var ErrAgentStopped = errors.New("agent: Agent stopped")
@@ -24,7 +25,14 @@ func (a *Agent) Run(ctx context.Context) error {
 	// create slice of all stored metrics and run report batch
 	reportFn := func() {
 		captured := a.Capturer.ListLast()
-		_ = a.Reporter.ReportBatch(captured)
+		err := a.Reporter.ReportBatch(captured)
+
+		switch err {
+		case nil:
+			logger.Slog.Info("metrics reported or", "count", len(captured))
+		default:
+			logger.Slog.Warn("report error", "error", err.Error())
+		}
 	}
 
 	go runner.NewIntvRunner(0, a.PollInterval).Run(ctx, a.Capturer.CaptureAndSave)
