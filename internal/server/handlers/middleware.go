@@ -201,36 +201,33 @@ func HmacSHA256Middleware(secretKey string) func(http.Handler) http.Handler {
 	key := []byte(secretKey)
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Replace writer with HMAC writer
+			// All responses has to be signed. Replace writer with HMAC Writer
 			hmacw := &hmacWriter{w: w, body: &bytes.Buffer{}}
 			defer hmacw.Release(key)
 
-			expectedMac := r.Header.Get("HashSHA256")
-			if expectedMac == "" {
-				http.Error(hmacw, "HashSHA256 header missing", http.StatusBadRequest)
-				return
-			}
+			// If HashSHA256 is set then HMAC for request must be calculated and verified
+			if expectedMac := r.Header.Get("HashSHA256"); expectedMac != "" {
+				// Read entire body to buffer for HMAC calculation
+				// Also replace request's body with copy of the read body
+				buf, err := io.ReadAll(r.Body)
+				if err != nil {
+					http.Error(hmacw, "invalid body", http.StatusBadRequest)
+					return
+				}
+				_ = r.Body.Close()
+				r.Body = io.NopCloser(bytes.NewReader(buf))
 
-			// Read entire body to buffer for HMAC calculation
-			// Also replace request's body with copy of the read body
-			body, err := io.ReadAll(r.Body)
-			if err != nil {
-				http.Error(hmacw, "invalid body", http.StatusBadRequest)
-				return
-			}
-			_ = r.Body.Close()
-			r.Body = io.NopCloser(bytes.NewReader(body))
-
-			// Verify HMAC signature
-			h := hmac.New(sha256.New, key)
-			_, err = h.Write(body)
-			if err != nil {
-				http.Error(hmacw, err.Error(), http.StatusInternalServerError)
-			}
-			actualMac := hex.EncodeToString(h.Sum(nil))
-			if !hmac.Equal([]byte(expectedMac), []byte(actualMac)) {
-				http.Error(hmacw, "message not authorized", http.StatusBadRequest)
-				return
+				// Verify HMAC signature
+				h := hmac.New(sha256.New, key)
+				_, err = h.Write(buf)
+				if err != nil {
+					http.Error(hmacw, err.Error(), http.StatusInternalServerError)
+				}
+				actualMac := hex.EncodeToString(h.Sum(nil))
+				if !hmac.Equal([]byte(expectedMac), []byte(actualMac)) {
+					http.Error(hmacw, "message not authorized", http.StatusBadRequest)
+					return
+				}
 			}
 
 			next.ServeHTTP(hmacw, r)
