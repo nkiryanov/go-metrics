@@ -25,7 +25,7 @@ func decompress(buf *bytes.Buffer) string {
 }
 
 func TestHTTPReporter_post(t *testing.T) {
-	reporter := New("http://test.server", &http.Client{}, nil)
+	reporter := New("http://test.server", &http.Client{}, nil, "")
 	metric := models.Metric{Name: "test", Type: "counter", Delta: 1} // Any valid metric should ok
 
 	httpmock.ActivateNonDefault(reporter.client)
@@ -104,6 +104,7 @@ func TestHTTPReporter_postWithRetry(t *testing.T) {
 			100 * time.Millisecond,
 			200 * time.Millisecond,
 		},
+		"",
 	)
 	httpmock.ActivateNonDefault(reporter.client)
 	t.Cleanup(httpmock.DeactivateAndReset)
@@ -170,7 +171,7 @@ func TestHTTPReporter_postWithRetry(t *testing.T) {
 }
 
 func TestHTTPReporter_Smoke(t *testing.T) {
-	reporter := New("http://pornhub.com", &http.Client{}, nil)
+	reporter := New("http://pornhub.com", &http.Client{}, nil, "")
 	httpmock.ActivateNonDefault(reporter.client)
 	t.Cleanup(httpmock.DeactivateAndReset)
 

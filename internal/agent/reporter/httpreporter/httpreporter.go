@@ -2,8 +2,6 @@ package httpreporter
 
 import (
 	"bytes"
-	"compress/gzip"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -13,11 +11,18 @@ import (
 	"github.com/nkiryanov/go-metrics/internal/models"
 )
 
+// context to send over post request. It may changed with middleware
+type postContext struct {
+	headers map[string]string // headers to set to the request
+	data    any               // initial data to send over post request. It must be read and converted somehow to body
+	body    *bytes.Buffer     // body to send over post request
+}
+
 // Reporter error
 // Store additional data to introspect error cause
 type reportError struct {
 	err     error // original error
-	connErr bool  // wether HTTP connection error or something else
+	connErr bool  // whether it's an HTTP connection error or something else
 }
 
 func (e *reportError) Error() string {
@@ -28,7 +33,7 @@ func (e *reportError) Unwrap() error {
 	return e.err
 }
 
-func newReportErr(err error, connErr bool) *reportError {
+func newReportError(err error, connErr bool) *reportError {
 	return &reportError{err, connErr}
 }
 
@@ -38,14 +43,16 @@ type HTTPReporter struct {
 	client         *http.Client
 	maxRetries     int
 	retryIntervals []time.Duration
+	secretKey      string
 }
 
-func New(reportAddr string, client *http.Client, retryIntervals []time.Duration) *HTTPReporter {
+func New(reportAddr string, client *http.Client, retryIntervals []time.Duration, secretKey string) *HTTPReporter {
 	return &HTTPReporter{
 		reportAddr:     reportAddr,
 		client:         client,
 		maxRetries:     len(retryIntervals),
 		retryIntervals: retryIntervals,
+		secretKey:      secretKey,
 	}
 }
 
@@ -61,43 +68,34 @@ func (reporter *HTTPReporter) ReportBatch(metrics []models.Metric) error {
 
 // POSTs data to url server as gzipped JSON
 func (reporter *HTTPReporter) post(url string, data any) error {
-	var body bytes.Buffer
-	var err error
-
-	gw := gzip.NewWriter(&body)
-
-	encoder := json.NewEncoder(gw)
-	err = encoder.Encode(data)
-	if err != nil {
-		logger.Slog.Errorw("error when marshaling json data", "error", err.Error(), "data", data)
-		return newReportErr(err, false)
+	postContext := postContext{
+		headers: make(map[string]string),
+		data:    data,
+		body:    nil,
 	}
 
-	err = gw.Close()
+	err := jsonGzipMiddleware(&postContext)
 	if err != nil {
-		logger.Slog.Errorw("error when compressing data", "error", err.Error())
-		return newReportErr(err, false)
+		return newReportError(err, false)
 	}
 
-	request, err := http.NewRequest(http.MethodPost, reporter.reportAddr+url, &body)
+	request, err := http.NewRequest(http.MethodPost, reporter.reportAddr+url, postContext.body)
 	if err != nil {
-		logger.Slog.Errorw("reporter: error when create request", "error", err.Error())
-		return newReportErr(err, false)
+		return newReportError(err, false)
 	}
 
-	request.Header.Set("Content-Encoding", "gzip")
-	request.Header.Set("Content-Type", "application/json")
+	for key, value := range postContext.headers {
+		request.Header.Set(key, value)
+	}
 
 	resp, err := reporter.client.Do(request)
 	if err != nil {
-		logger.Slog.Errorw("reporter: http client error", "error", err.Error())
-		return newReportErr(err, true)
+		return newReportError(err, true)
 	}
 	defer resp.Body.Close() // nolint:errcheck
 
 	if status := resp.StatusCode; status != http.StatusOK {
-		logger.Slog.Errorw("reporter: server responds with not OK", "status", status, "body", resp.Body)
-		return newReportErr(err, false)
+		return newReportError(err, false)
 	}
 
 	return nil
