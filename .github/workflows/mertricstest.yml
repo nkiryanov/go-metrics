@@ -351,9 +351,9 @@ jobs:
             -server-port=$SERVER_PORT \
             -source-path=.
 
-      # The main branch is disabled until pr iter14 is ready
       - name: "Code increment #14"
         if: |
+          github.ref == 'refs/heads/main' ||
           startsWith(github.head_ref, 'iter14')
         run: |
           SERVER_PORT=$(random unused-port)
