@@ -184,4 +184,22 @@ func TestHandlers_HmacSHA256Middleware(t *testing.T) {
 			require.Equal(t, tc.expectedResponseHmac, response.Header.Get("HashSHA256"), "all the responses must be signed")
 		})
 	}
+
+	t.Run("do not fail if header omitted", func(t *testing.T) {
+		secretKey := "super-duper"
+		r := httptest.NewRequest(http.MethodPost, "/test-upi", strings.NewReader("hi!")) // No HashSHA256 header set
+		w := httptest.NewRecorder()
+
+		handler := HmacSHA256Middleware(secretKey)(okHandler(t)) // server running with HMAC support
+		handler.ServeHTTP(w, r)
+
+		response := w.Result()
+		defer response.Body.Close() // nolint: errcheck
+
+		assert.Equal(t, http.StatusOK, response.StatusCode)
+		body, err := io.ReadAll(response.Body)
+		require.NoError(t, err)
+		assert.Equal(t, "OK", string(body))
+		assert.Equal(t, "ffb8ab2cdd8a64b62d392d988408e0e52a68460c56bbcdec892c6b762ce4e340", response.Header.Get("HashSHA256"), "Response has to be signed")
+	})
 }
