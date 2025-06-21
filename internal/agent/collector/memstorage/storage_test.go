@@ -1,14 +1,13 @@
 package memstorage
 
 import (
-	"testing"
 	"sync"
+	"testing"
 
+	"github.com/nkiryanov/go-metrics/internal/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/nkiryanov/go-metrics/internal/models"
 )
-
 
 func TestMemStorage(t *testing.T) {
 	metrics := []models.Metric{

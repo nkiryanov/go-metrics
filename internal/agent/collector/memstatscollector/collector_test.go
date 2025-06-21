@@ -45,7 +45,6 @@ var (
 	}
 )
 
-
 func TestMemStatsCollector(t *testing.T) {
 	extractNames := func(metrics []models.Metric) []string {
 		names := make([]string, 0, len(metrics))
@@ -83,14 +82,14 @@ func TestMemStatsCollector(t *testing.T) {
 
 		for range 5 {
 			wg.Add(2)
-			go func() { 
+			go func() {
 				defer wg.Done()
-				err := c.Collect(t.Context());
+				err := c.Collect(t.Context())
 				require.NoError(t, err)
 			}()
 			go func() {
 				defer wg.Done()
-				_, err := c.List(t.Context());
+				_, err := c.List(t.Context())
 				require.NoError(t, err)
 			}()
 		}
