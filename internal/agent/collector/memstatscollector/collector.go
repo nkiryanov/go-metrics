@@ -1,11 +1,12 @@
-package capturer
+package memstatscollector
 
 import (
 	"math/rand"
 	"runtime"
-	"sync"
+	"context"
 
 	"github.com/nkiryanov/go-metrics/internal/models"
+	"github.com/nkiryanov/go-metrics/internal/agent/collector/memstorage"
 )
 
 const (
@@ -43,59 +44,28 @@ const (
 	PollCount = "PollCount"
 )
 
-var (
-	gauges = []string{
-		Alloc,
-		BuckHashSys,
-		Frees,
-		GCCPUFraction,
-		GCSys,
-		HeapAlloc,
-		HeapIdle,
-		HeapInuse,
-		HeapObjects,
-		HeapReleased,
-		HeapSys,
-		LastGC,
-		Lookups,
-		MCacheInuse,
-		MCacheSys,
-		MSpanInuse,
-		MSpanSys,
-		Mallocs,
-		NextGC,
-		NumForcedGC,
-		NumGC,
-		OtherSys,
-		PauseTotalNs,
-		StackInuse,
-		StackSys,
-		Sys,
-		TotalAlloc,
-		RandomValue,
-	}
-	counters = []string{
-		PollCount,
-	}
-)
-
-type MemCapturer struct {
-	mu   sync.Mutex
-	stor []models.Metric
+// Collect metrics from 'runtime.ReadMemStats' module (and some other that we close eyes on)
+type MemStatsCollector struct {
+	storage *memstorage.MemStorage  // Simplest possible storage
 }
 
-func NewMemCapturer() *MemCapturer {
-	return &MemCapturer{}
+
+func New() *MemStatsCollector {
+	return &MemStatsCollector {
+		storage: memstorage.New(),
+	}
 }
 
-// Capture mem (mostly) stats
-func (c *MemCapturer) Capture() []models.Metric {
+
+func (c *MemStatsCollector) List(_ context.Context) ([]models.Metric, error) {
+	return c.storage.List(), nil
+}
+
+func (c *MemStatsCollector) Collect(_ context.Context) error {
 	var ms runtime.MemStats
-	var stats = make([]models.Metric, 0, len(gauges)+len(counters))
-
 	runtime.ReadMemStats(&ms)
 
-	return append(stats,
+	c.storage.Set(
 		[]models.Metric{
 			{Name: Alloc, Type: models.GaugeTypeName, Value: float64(ms.Alloc)},
 			{Name: BuckHashSys, Type: models.GaugeTypeName, Value: float64(ms.BuckHashSys)},
@@ -132,20 +102,6 @@ func (c *MemCapturer) Capture() []models.Metric {
 			{Name: PollCount, Type: models.CounterTypeName, Delta: 1},
 		}...,
 	)
-}
 
-func (c *MemCapturer) CaptureAndSave() {
-	c.mu.Lock()
-	c.stor = c.Capture()
-	c.mu.Unlock()
-}
-
-func (c *MemCapturer) ListLast() []models.Metric {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	last := make([]models.Metric, len(c.stor))
-	copy(last, c.stor)
-
-	return last
+	return nil
 }
