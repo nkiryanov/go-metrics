@@ -9,7 +9,7 @@ import (
 // Simple in memory metrics storage for agent's collectors
 type MemStorage struct {
 	metrics []models.Metric
-	lock sync.RWMutex
+	lock    sync.RWMutex
 }
 
 func New() *MemStorage {

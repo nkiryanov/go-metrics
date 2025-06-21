@@ -1,12 +1,12 @@
 package memstatscollector
 
 import (
+	"context"
 	"math/rand"
 	"runtime"
-	"context"
 
-	"github.com/nkiryanov/go-metrics/internal/models"
 	"github.com/nkiryanov/go-metrics/internal/agent/collector/memstorage"
+	"github.com/nkiryanov/go-metrics/internal/models"
 )
 
 const (
@@ -46,16 +46,14 @@ const (
 
 // Collect metrics from 'runtime.ReadMemStats' module (and some other that we close eyes on)
 type MemStatsCollector struct {
-	storage *memstorage.MemStorage  // Simplest possible storage
+	storage *memstorage.MemStorage // Simplest possible storage
 }
 
-
 func New() *MemStatsCollector {
-	return &MemStatsCollector {
+	return &MemStatsCollector{
 		storage: memstorage.New(),
 	}
 }
-
 
 func (c *MemStatsCollector) List(_ context.Context) ([]models.Metric, error) {
 	return c.storage.List(), nil
