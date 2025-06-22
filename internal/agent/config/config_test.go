@@ -15,6 +15,7 @@ func TestConfig(t *testing.T) {
 		LogLevel:        "info",
 		ReportAddr:      "http://localhost:9090/",
 		ReportInterval:  3 * time.Hour,
+		ReportRateLimit: 100,
 		SecretKey:       "default-secret-key",
 		CollectInterval: 5 * time.Hour,
 	}
@@ -28,9 +29,10 @@ func TestConfig(t *testing.T) {
 		{
 			name: "env vars takes precedence",
 			args: []string{
-				"-l", "debug",
+				"-v", "debug",
 				"-a", "http://example.com", // Report Address
 				"-r", "3m", // Report Interval
+				"-l", "50",
 				"-k", "cli-secret-key", // Secret key
 				"-p", "5m", // Collect Interval
 			},
@@ -38,6 +40,7 @@ func TestConfig(t *testing.T) {
 				"LOG_LEVEL":       "error",
 				"ADDRESS":         "127.0.0.1:9090", // Report Address
 				"REPORT_INTERVAL": "3s",
+				"RATE_LIMIT":      "20",
 				"KEY":             "env-secret-key", // Secret key
 				"POLL_INTERVAL":   "5s",
 			},
@@ -45,6 +48,7 @@ func TestConfig(t *testing.T) {
 				LogLevel:        "error",
 				ReportAddr:      "http://127.0.0.1:9090",
 				ReportInterval:  3 * time.Second,
+				ReportRateLimit: 20,
 				SecretKey:       "env-secret-key",
 				CollectInterval: 5 * time.Second,
 			},
@@ -52,9 +56,10 @@ func TestConfig(t *testing.T) {
 		{
 			name: "use cli if env empty",
 			args: []string{
-				"-l", "debug",
+				"-v", "debug",
 				"-a", "http://example.com", // Report Address
 				"-r", "3m", // Report Interval
+				"-l", "50",
 				"-k", "cli-secret-key", // Secret key
 				"-p", "5m", // Collect Interval
 			},
@@ -63,6 +68,7 @@ func TestConfig(t *testing.T) {
 				LogLevel:        "debug",
 				ReportAddr:      "http://example.com",
 				ReportInterval:  3 * time.Minute,
+				ReportRateLimit: 50,
 				SecretKey:       "cli-secret-key",
 				CollectInterval: 5 * time.Minute,
 			},
@@ -85,6 +91,7 @@ func TestConfig(t *testing.T) {
 				LogLevel:        defaultConfig.LogLevel,
 				ReportAddr:      defaultConfig.ReportAddr,
 				ReportInterval:  5 * time.Minute, // loaded form cli
+				ReportRateLimit: defaultConfig.ReportRateLimit,
 				SecretKey:       defaultConfig.SecretKey,
 				CollectInterval: defaultConfig.CollectInterval,
 			},

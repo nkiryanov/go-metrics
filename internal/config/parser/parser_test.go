@@ -141,3 +141,51 @@ func Test_LogLevel(t *testing.T) {
 		require.Equal(t, "info", level, "level should not change if parsing fail")
 	})
 }
+
+func Test_PositiveInt(t *testing.T) {
+	t.Run("ok cases", func(t *testing.T) {
+		tests := []struct {
+			name     string
+			input    string
+			expected int
+		}{
+			{"simple positive int", "1", 1},
+			{"large int", "999", 999},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				var value int
+				parseFn := PositiveInt(&value)
+
+				err := parseFn(tt.input)
+
+				require.NoError(t, err)
+				assert.Equal(t, tt.expected, value)
+			})
+		}
+	})
+
+	t.Run("fail cases", func(t *testing.T) {
+		tests := []struct {
+			name  string
+			input string
+		}{
+			{"zero", "0"},
+			{"negative", "-1"},
+			{"non-number", "abc"},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				value := 5
+				parseFn := PositiveInt(&value)
+
+				err := parseFn(tt.input)
+
+				require.Error(t, err)
+				assert.Equal(t, 5, value, "value should not change on error")
+			})
+		}
+	})
+}

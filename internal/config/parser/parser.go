@@ -65,3 +65,14 @@ func LogLevel(level *string) func(string) error {
 		return fmt.Errorf("invalid log level: '%s'\nAllowed (case-insensitive: %s)", flagValue, strings.Join(levels, ", "))
 	}
 }
+
+func PositiveInt(target *int) func(string) error {
+	return func(flagValue string) error {
+		v, err := strconv.Atoi(flagValue)
+		if err != nil || v <= 0 {
+			return fmt.Errorf("must be a positive integer: %s", flagValue)
+		}
+		*target = v
+		return nil
+	}
+}
