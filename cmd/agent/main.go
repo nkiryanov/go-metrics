@@ -42,6 +42,8 @@ func main() {
 	}()
 
 	agent := NewAgent(cfg)
-	agent.Run(ctx)
-	lgr.Error("Agent stopped")
+	err := agent.Run(ctx)
+	if err != nil && err != ErrAgentStopped {
+		lgr.Error("Agent stopped unintentionally", "error", err.Error())
+	}
 }

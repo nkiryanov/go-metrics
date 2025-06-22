@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"sync"
 	"time"
@@ -15,6 +16,8 @@ import (
 	"github.com/nkiryanov/go-metrics/internal/models"
 )
 
+var ErrAgentStopped = errors.New("agent: Stopped")
+
 type Agent struct {
 
 	// Collectors to collect and access collected metrics
@@ -26,7 +29,6 @@ type Agent struct {
 
 	// Reporter requests metrics from collectors and report
 	Reporter struct {
-		n string            // Reporter name
 		r reporter.Reporter // Reporter to run
 		i time.Duration     // Report interval
 	}
@@ -46,11 +48,9 @@ func NewAgent(cfg *config.Config) *Agent {
 			{n: "MemStats Collector", c: memstatscollector.New(), i: cfg.CollectInterval},
 		},
 		Reporter: struct {
-			n string
 			r reporter.Reporter
 			i time.Duration
 		}{
-			n: "HTTP Reporter",
 			r: httpreporter.New(
 				cfg.ReportAddr,
 				&http.Client{},
@@ -64,7 +64,7 @@ func NewAgent(cfg *config.Config) *Agent {
 	}
 }
 
-func (a *Agent) Run(ctx context.Context) {
+func (a *Agent) Run(ctx context.Context) error {
 	var wg sync.WaitGroup
 	// Run collectors until context cancelled
 	wg.Add(len(a.Collectors))
@@ -85,33 +85,38 @@ func (a *Agent) Run(ctx context.Context) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-
-		ticker := time.NewTicker(a.Reporter.i)
-		defer ticker.Stop()
-
-		metrics := make([]models.Metric, 0)
-		reportFn := func() error {
-			metrics = metrics[:0]
-			for _, collr := range a.Collectors {
-				metrics = append(metrics, collr.c.List()...)
-			}
-
-			return a.Reporter.r.ReportBatch(metrics)
-		}
-
-		a.Lgr.Info("Starting reporter", "reporter_name", a.Reporter.n, "report_interval", a.Reporter.i)
-		for ctx.Err() == nil {
-			select {
-			case <-ctx.Done():
-				continue
-			case <-ticker.C:
-				err := reportFn()
-				if err != nil {
-					a.Lgr.Warn("Reporter batch report stopped with error", "error", err.Error())
-				}
-			}
-		}
+		a.runReporter(ctx)
 	}()
 
 	wg.Wait()
+	a.Lgr.Info("Agent stopped")
+	return ErrAgentStopped
+}
+
+func (a *Agent) runReporter(ctx context.Context) {
+	ticker := time.NewTicker(a.Reporter.i)
+	defer ticker.Stop()
+	metrics := make([]models.Metric, 0)
+
+	reportFn := func() error {
+		metrics = metrics[:0]
+		for _, collr := range a.Collectors {
+			metrics = append(metrics, collr.c.List()...)
+		}
+
+		return a.Reporter.r.ReportBatch(metrics)
+	}
+
+	a.Lgr.Info("Starting reporter", "report_interval", a.Reporter.i)
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			err := reportFn()
+			if err != nil {
+				a.Lgr.Warn("Error while reporting metrics", "error", err.Error())
+			}
+		}
+	}
 }
