@@ -61,8 +61,8 @@ func New(reportAddr string, client *http.Client, retryIntervals []time.Duration,
 }
 
 // POST /{baseUrl}/update
-func (r *HTTPReporter) ReportOnce(m models.Metric) error {
-	return r.postWithRetry("/update", m)
+func (r *HTTPReporter) ReportOnce(metric models.Metric) error {
+	return r.postWithRetry("/update", metric)
 }
 
 // POST /{baseUrl}/update
