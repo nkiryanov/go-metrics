@@ -16,7 +16,7 @@ import (
 	"github.com/nkiryanov/go-metrics/internal/server/storage"
 )
 
-func updateMetricPlain(s storage.Storage) http.HandlerFunc {
+func updateMetricPlain(s storage.Storage, lgr logger.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		mType := chi.URLParam(r, URLMetricType)
 		mID := chi.URLParam(r, URLMetricID)
@@ -41,101 +41,101 @@ func updateMetricPlain(s storage.Storage) http.HandlerFunc {
 		}
 
 		if err != nil {
-			logger.Slog.Warnw(msg, "error", err)
+			lgr.Warn(msg, "error", err)
 			http.Error(w, msg, http.StatusBadRequest)
 			return
 		}
 
 		if metric, err = s.UpdateMetric(r.Context(), metric); err != nil {
-			logger.Slog.Warnw("can't update metric", "error", err)
+			lgr.Warn("can't update metric", "error", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
-		logger.Slog.Infow("Metric updated with", "id", mID, "type", mType, "value", mValue)
+		lgr.Info("Metric updated with", "id", mID, "type", mType, "value", mValue)
 		w.Header().Set("Content-Type", "text/plain")
-		writeOrInternalError(w, []byte(metric.String()))
+		writeOrInternalError(w, []byte(metric.String()), lgr)
 	}
 }
 
-func updateMetricJSON(s storage.Storage) http.HandlerFunc {
+func updateMetricJSON(s storage.Storage, lgr logger.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var metric models.Metric
 
 		if err := json.NewDecoder(r.Body).Decode(&metric); err != nil {
-			logger.Slog.Warnw("request not expected format", "error", err)
+			lgr.Warn("request not expected format", "error", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
 		metric, err := s.UpdateMetric(r.Context(), metric)
 		if err != nil {
-			logger.Slog.Warnw("metric could not updated", "error", err)
+			lgr.Warn("metric could not updated", "error", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
-		logger.Slog.Infow("Metric updated", "name", metric.Name, "type", metric.Type, "value", metric.String())
+		lgr.Info("Metric updated", "name", metric.Name, "type", metric.Type, "value", metric.String())
 
 		resp, err := json.Marshal(metric)
 		if err != nil {
-			logger.Slog.Error("error while deserializing metric json", "error", err.Error())
+			lgr.Error("error while deserializing metric json", "error", err.Error())
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		writeOrInternalError(w, resp)
+		writeOrInternalError(w, resp, lgr)
 	}
 }
 
-func updateMetricBulkJSON(s storage.Storage) http.HandlerFunc {
+func updateMetricBulkJSON(s storage.Storage, lgr logger.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		metrics := make([]models.Metric, 0)
 		var err error
 
 		if err = json.NewDecoder(r.Body).Decode(&metrics); err != nil {
-			logger.Slog.Warnw("request not expected format", "error", err)
+			lgr.Warn("request not expected format", "error", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
 		if metrics, err = s.UpdateMetricBulk(r.Context(), metrics); err != nil {
-			logger.Slog.Warnw("error while updating metrics", "error", err.Error())
+			lgr.Warn("error while updating metrics", "error", err.Error())
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
 		resp, err := json.Marshal(metrics)
 		if err != nil {
-			logger.Slog.Error("error while deserializing metric json", "error", err.Error())
+			lgr.Error("error while deserializing metric json", "error", err.Error())
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		writeOrInternalError(w, resp)
+		writeOrInternalError(w, resp, lgr)
 	}
 }
 
-func getMetricPlain(s storage.Storage) http.HandlerFunc {
+func getMetricPlain(s storage.Storage, lgr logger.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		mType := r.PathValue("mType")
 		mName := r.PathValue("mID")
 
 		metric, err := s.GetMetric(r.Context(), mType, mName)
 		if err != nil {
-			logger.Slog.Info("metic requested, but not found", "type", mType, "name", mName)
+			lgr.Info("metic requested, but not found", "type", mType, "name", mName)
 			http.Error(w, fmt.Sprintf("metric not found. type: %s, id: %s", mType, mName), http.StatusNotFound)
 			return
 		}
 
 		w.Header().Set("Content-Type", "text/plain")
-		writeOrInternalError(w, []byte(metric.String()))
+		writeOrInternalError(w, []byte(metric.String()), lgr)
 	}
 }
 
-func getMetricJSON(s storage.Storage) http.HandlerFunc {
+func getMetricJSON(s storage.Storage, lgr logger.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		req := &struct {
 			Type string `json:"type"`
@@ -143,31 +143,31 @@ func getMetricJSON(s storage.Storage) http.HandlerFunc {
 		}{}
 
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			logger.Slog.Warnw("error while decoding request", "error", err.Error())
+			lgr.Warn("error while decoding request", "error", err.Error())
 			http.Error(w, "request not in expected format", http.StatusBadRequest)
 			return
 		}
 
 		metric, err := s.GetMetric(r.Context(), req.Type, req.Name)
 		if err != nil {
-			logger.Slog.Infow("metic requested, but not found", "type", req.Type, "id", req.Name)
+			lgr.Info("metic requested, but not found", "type", req.Type, "id", req.Name)
 			http.Error(w, fmt.Sprintf("metric not found. type: %s, id: %s", req.Type, req.Name), http.StatusNotFound)
 			return
 		}
 
 		resp, err := json.Marshal(metric)
 		if err != nil {
-			logger.Slog.Errorw("error while deserializing metric json", "error", err.Error())
+			lgr.Error("error while deserializing metric json", "error", err.Error())
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		writeOrInternalError(w, resp)
+		writeOrInternalError(w, resp, lgr)
 	}
 }
 
-func listMetrics(s storage.Storage, tpl *template.Template) http.HandlerFunc {
+func listMetrics(s storage.Storage, lgr logger.Logger, tpl *template.Template) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		type templateEntry struct {
 			ID    string
@@ -177,7 +177,7 @@ func listMetrics(s storage.Storage, tpl *template.Template) http.HandlerFunc {
 
 		metrics, err := s.ListMetric(r.Context())
 		if err != nil {
-			logger.Slog.Infow("list metric failed", "error", err.Error())
+			lgr.Info("list metric failed", "error", err.Error())
 		}
 
 		entries := make([]templateEntry, 0, len(metrics))
@@ -189,34 +189,34 @@ func listMetrics(s storage.Storage, tpl *template.Template) http.HandlerFunc {
 		w.WriteHeader(http.StatusOK)
 
 		if err := tpl.Execute(w, entries); err != nil {
-			logger.Slog.Errorw("list metric templated generation failed", "error", err.Error())
+			lgr.Error("list metric templated generation failed", "error", err.Error())
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 	}
 }
 
-func ping(s storage.Storage) http.HandlerFunc {
+func ping(s storage.Storage, lgr logger.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 		defer cancel()
 
 		if err := s.Ping(ctx); err != nil {
-			logger.Slog.Error("db connection failed", "error", err.Error())
+			lgr.Error("db connection failed", "error", err.Error())
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
-		writeOrInternalError(w, []byte("OK"))
+		writeOrInternalError(w, []byte("OK"), lgr)
 	}
 }
 
-func writeOrInternalError(w http.ResponseWriter, value []byte) {
+func writeOrInternalError(w http.ResponseWriter, value []byte, lgr logger.Logger) {
 	w.WriteHeader(http.StatusOK)
 	_, err := w.Write(value)
 
 	if err != nil {
-		logger.Slog.Error("write response error", "error", err.Error())
+		lgr.Error("write response error", "error", err.Error())
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

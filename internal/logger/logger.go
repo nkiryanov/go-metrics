@@ -1,9 +1,12 @@
 package logger
 
 import (
+	"context"
 	"log/slog"
 	"os"
+	"runtime"
 	"strings"
+	"time"
 )
 
 // Constants for logging levels
@@ -14,12 +17,14 @@ const (
 	LevelError = "ERROR"
 )
 
+//go:generate moq -out mocks/logger.go -pkg mocks -skip-ensure -fmt goimports . Logger
+
 type Logger interface {
 	Debug(msg string, args ...any)
 	Info(msg string, args ...any)
 	Warn(msg string, args ...any)
 	Error(msg string, args ...any)
-	
+
 	With(args ...any) Logger
 	WithGroup(name string) Logger
 }
@@ -34,7 +39,7 @@ func parseLevelString(level string) slog.Level {
 	switch strings.ToUpper(level) {
 	case LevelDebug:
 		return slog.LevelDebug
-	case LevelInfo:  
+	case LevelInfo:
 		return slog.LevelInfo
 	case LevelWarn:
 		return slog.LevelWarn
@@ -49,26 +54,26 @@ func parseLevelString(level string) slog.Level {
 func NewLogger(level string) Logger {
 	// Configure handler for pretty console output
 	opts := &slog.HandlerOptions{
-		Level: parseLevelString(level),
+		Level:     parseLevelString(level),
 		AddSource: true, // adds file and line information
 	}
-	
+
 	handler := slog.NewTextHandler(os.Stdout, opts)
 	logger := slog.New(handler)
-	
+
 	return &slogLogger{logger: logger}
 }
 
 // NewJSONLogger creates a logger with JSON format (for production)
 func NewJSONLogger(level string) Logger {
 	opts := &slog.HandlerOptions{
-		Level: parseLevelString(level),
+		Level:     parseLevelString(level),
 		AddSource: true,
 	}
-	
+
 	handler := slog.NewJSONHandler(os.Stdout, opts)
 	logger := slog.New(handler)
-	
+
 	return &slogLogger{logger: logger}
 }
 
@@ -78,22 +83,37 @@ func NewNoOpLogger() Logger {
 	return &slogLogger{logger: logger}
 }
 
-// Logger interface method implementations
+// logWithSource logs with correct source information by skipping the wrapper
+func (l *slogLogger) logWithSource(level slog.Level, msg string, args ...any) {
+	if !l.logger.Enabled(context.Background(), level) {
+		return
+	}
+
+	var pc uintptr
+	var pcs [1]uintptr
+	// Skip 3 frames: runtime.Callers, logWithSource, and the Debug/Info/Warn/Error method
+	runtime.Callers(3, pcs[:])
+	pc = pcs[0]
+
+	record := slog.NewRecord(time.Now(), level, msg, pc)
+	record.Add(args...)
+	_ = l.logger.Handler().Handle(context.Background(), record)
+}
 
 func (l *slogLogger) Debug(msg string, args ...any) {
-	l.logger.Debug(msg, args...)
+	l.logWithSource(slog.LevelDebug, msg, args...)
 }
 
 func (l *slogLogger) Info(msg string, args ...any) {
-	l.logger.Info(msg, args...)
+	l.logWithSource(slog.LevelInfo, msg, args...)
 }
 
 func (l *slogLogger) Warn(msg string, args ...any) {
-	l.logger.Warn(msg, args...)
+	l.logWithSource(slog.LevelWarn, msg, args...)
 }
 
 func (l *slogLogger) Error(msg string, args ...any) {
-	l.logger.Error(msg, args...)
+	l.logWithSource(slog.LevelError, msg, args...)
 }
 
 // With returns a new logger with additional key-value pairs added to all log entries

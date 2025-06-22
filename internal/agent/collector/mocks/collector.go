@@ -19,7 +19,7 @@ import (
 //			CollectFunc: func(ctx context.Context) error {
 //				panic("mock out the Collect method")
 //			},
-//			ListFunc: func(ctx context.Context) ([]models.Metric, error) {
+//			ListFunc: func() []models.Metric {
 //				panic("mock out the List method")
 //			},
 //		}
@@ -33,7 +33,7 @@ type CollectorMock struct {
 	CollectFunc func(ctx context.Context) error
 
 	// ListFunc mocks the List method.
-	ListFunc func(ctx context.Context) ([]models.Metric, error)
+	ListFunc func() []models.Metric
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -44,8 +44,6 @@ type CollectorMock struct {
 		}
 		// List holds details about calls to the List method.
 		List []struct {
-			// Ctx is the ctx argument value.
-			Ctx context.Context
 		}
 	}
 	lockCollect sync.RWMutex
@@ -85,19 +83,16 @@ func (mock *CollectorMock) CollectCalls() []struct {
 }
 
 // List calls ListFunc.
-func (mock *CollectorMock) List(ctx context.Context) ([]models.Metric, error) {
+func (mock *CollectorMock) List() []models.Metric {
 	if mock.ListFunc == nil {
 		panic("CollectorMock.ListFunc: method is nil but Collector.List was just called")
 	}
 	callInfo := struct {
-		Ctx context.Context
-	}{
-		Ctx: ctx,
-	}
+	}{}
 	mock.lockList.Lock()
 	mock.calls.List = append(mock.calls.List, callInfo)
 	mock.lockList.Unlock()
-	return mock.ListFunc(ctx)
+	return mock.ListFunc()
 }
 
 // ListCalls gets all the calls that were made to List.
@@ -105,10 +100,8 @@ func (mock *CollectorMock) List(ctx context.Context) ([]models.Metric, error) {
 //
 //	len(mockedCollector.ListCalls())
 func (mock *CollectorMock) ListCalls() []struct {
-	Ctx context.Context
 } {
 	var calls []struct {
-		Ctx context.Context
 	}
 	mock.lockList.RLock()
 	calls = mock.calls.List

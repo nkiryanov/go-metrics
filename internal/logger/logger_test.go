@@ -40,16 +40,18 @@ func TestLogger_ParseLevelString(t *testing.T) {
 func TestLogger_NewLogger(t *testing.T) {
 	// Capture stdout
 	oldStdout := os.Stdout
-	r, w, _ := os.Pipe()
+	r, w, err := os.Pipe()
+	require.NoError(t, err)
 	os.Stdout = w
 
 	logger := NewLogger(LevelInfo)
 	logger.Info("test message", "key", "value")
 
 	// Restore stdout and read output
-	w.Close()
+	err = w.Close()
+	require.NoError(t, err)
 	os.Stdout = oldStdout
-	
+
 	output, err := io.ReadAll(r)
 	require.NoError(t, err)
 	outputStr := string(output)
@@ -63,16 +65,18 @@ func TestLogger_NewLogger(t *testing.T) {
 func TestLogger_NewJSONLogger(t *testing.T) {
 	// Capture stdout
 	oldStdout := os.Stdout
-	r, w, _ := os.Pipe()
+	r, w, err := os.Pipe()
+	require.NoError(t, err)
 	os.Stdout = w
 
 	logger := NewJSONLogger(LevelInfo)
 	logger.Info("test message", "key", "value")
 
 	// Restore stdout and read output
-	w.Close()
+	err = w.Close()
+	require.NoError(t, err)
 	os.Stdout = oldStdout
-	
+
 	output, err := io.ReadAll(r)
 	require.NoError(t, err)
 
@@ -91,8 +95,9 @@ func TestLogger_NewNoOpLogger(t *testing.T) {
 	// Capture stdout and stderr
 	oldStdout := os.Stdout
 	oldStderr := os.Stderr
-	
-	r, w, _ := os.Pipe()
+
+	r, w, err := os.Pipe()
+	require.NoError(t, err)
 	os.Stdout = w
 	os.Stderr = w
 
@@ -103,10 +108,11 @@ func TestLogger_NewNoOpLogger(t *testing.T) {
 	logger.Error("error message")
 
 	// Restore outputs
-	w.Close()
+	err = w.Close()
+	require.NoError(t, err)
 	os.Stdout = oldStdout
 	os.Stderr = oldStderr
-	
+
 	output, err := io.ReadAll(r)
 	require.NoError(t, err)
 
@@ -116,26 +122,26 @@ func TestLogger_NewNoOpLogger(t *testing.T) {
 
 func TestLogger_Levels(t *testing.T) {
 	tests := []struct {
-		name          string
-		loggerLevel   string
-		logFunction   func(Logger)
-		shouldLog     bool
+		name        string
+		loggerLevel string
+		logFunction func(Logger)
+		shouldLog   bool
 	}{
 		{"Debug logger logs debug", LevelDebug, func(l Logger) { l.Debug("test") }, true},
 		{"Debug logger logs info", LevelDebug, func(l Logger) { l.Info("test") }, true},
 		{"Debug logger logs warn", LevelDebug, func(l Logger) { l.Warn("test") }, true},
 		{"Debug logger logs error", LevelDebug, func(l Logger) { l.Error("test") }, true},
-		
+
 		{"Info logger skips debug", LevelInfo, func(l Logger) { l.Debug("test") }, false},
 		{"Info logger logs info", LevelInfo, func(l Logger) { l.Info("test") }, true},
 		{"Info logger logs warn", LevelInfo, func(l Logger) { l.Warn("test") }, true},
 		{"Info logger logs error", LevelInfo, func(l Logger) { l.Error("test") }, true},
-		
+
 		{"Warn logger skips debug", LevelWarn, func(l Logger) { l.Debug("test") }, false},
 		{"Warn logger skips info", LevelWarn, func(l Logger) { l.Info("test") }, false},
 		{"Warn logger logs warn", LevelWarn, func(l Logger) { l.Warn("test") }, true},
 		{"Warn logger logs error", LevelWarn, func(l Logger) { l.Error("test") }, true},
-		
+
 		{"Error logger skips debug", LevelError, func(l Logger) { l.Debug("test") }, false},
 		{"Error logger skips info", LevelError, func(l Logger) { l.Info("test") }, false},
 		{"Error logger skips warn", LevelError, func(l Logger) { l.Warn("test") }, false},
@@ -146,16 +152,18 @@ func TestLogger_Levels(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			// Capture stdout
 			oldStdout := os.Stdout
-			r, w, _ := os.Pipe()
+			r, w, err := os.Pipe()
+			require.NoError(t, err)
 			os.Stdout = w
 
 			logger := NewLogger(tc.loggerLevel)
 			tc.logFunction(logger)
 
 			// Restore stdout and read output
-			w.Close()
+			err = w.Close()
+			require.NoError(t, err)
 			os.Stdout = oldStdout
-			
+
 			output, err := io.ReadAll(r)
 			require.NoError(t, err)
 			hasOutput := len(output) > 0
@@ -168,7 +176,8 @@ func TestLogger_Levels(t *testing.T) {
 func TestLogger_With(t *testing.T) {
 	// Capture stdout
 	oldStdout := os.Stdout
-	r, w, _ := os.Pipe()
+	r, w, err := os.Pipe()
+	require.NoError(t, err)
 	os.Stdout = w
 
 	logger := NewLogger(LevelInfo)
@@ -176,9 +185,10 @@ func TestLogger_With(t *testing.T) {
 	contextLogger.Info("test message")
 
 	// Restore stdout and read output
-	w.Close()
+	err = w.Close()
+	require.NoError(t, err)
 	os.Stdout = oldStdout
-	
+
 	output, err := io.ReadAll(r)
 	require.NoError(t, err)
 	outputStr := string(output)
@@ -191,7 +201,8 @@ func TestLogger_With(t *testing.T) {
 func TestLogger_WithGroup(t *testing.T) {
 	// Capture stdout
 	oldStdout := os.Stdout
-	r, w, _ := os.Pipe()
+	r, w, err := os.Pipe()
+	require.NoError(t, err)
 	os.Stdout = w
 
 	logger := NewJSONLogger(LevelInfo) // Use JSON for easier parsing
@@ -199,9 +210,10 @@ func TestLogger_WithGroup(t *testing.T) {
 	groupedLogger.Info("connection established", "host", "localhost")
 
 	// Restore stdout and read output
-	w.Close()
+	err = w.Close()
+	require.NoError(t, err)
 	os.Stdout = oldStdout
-	
+
 	output, err := io.ReadAll(r)
 	require.NoError(t, err)
 
@@ -216,19 +228,18 @@ func TestLogger_WithGroup(t *testing.T) {
 	assert.Equal(t, "localhost", database["host"], "WithGroup should group attributes under the specified name")
 }
 
-
 func TestLoggerChaining(t *testing.T) {
 	// Test that With and WithGroup can be chained
 	logger := NewNoOpLogger()
-	
+
 	chainedLogger := logger.
 		With("service", "auth").
 		WithGroup("request").
 		With("id", "123")
-	
+
 	assert.NotNil(t, chainedLogger)
 	assert.Implements(t, (*Logger)(nil), chainedLogger)
-	
+
 	// Should not panic when logging
 	assert.NotPanics(t, func() {
 		chainedLogger.Info("chained logger test")

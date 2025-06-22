@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/nkiryanov/go-metrics/internal/logger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -16,7 +17,7 @@ const (
 func TestServerApp_ExitWithSignal(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), HalfSecond)
 	t.Cleanup(cancel)
-	srv := ServerApp{ListenAddr: "localhost:39232", Handler: nil}
+	srv := New("localhost:39232", nil, logger.NewNoOpLogger())
 
 	err := srv.Run(ctx)
 
@@ -26,7 +27,7 @@ func TestServerApp_ExitWithSignal(t *testing.T) {
 
 func TestServerApp_ExitOnServerError(t *testing.T) {
 	ctx := context.Background()
-	srv := ServerApp{ListenAddr: "19.23.23.999:8080", Handler: nil}
+	srv := New("19.23.23.999:8080", nil, logger.NewNoOpLogger()) // Invalid address to trigger error
 
 	err := srv.Run(ctx)
 

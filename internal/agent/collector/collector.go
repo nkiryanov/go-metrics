@@ -14,8 +14,8 @@ type Collector interface {
 	// Collect metrics. Should store them internally
 	Collect(ctx context.Context) error
 
-	// List collected metrics. Should be fast enough
-	List(ctx context.Context) ([]models.Metric, error)
+	// List collected metrics. Must be fast enough
+	List() []models.Metric
 }
 
 // Run Collector periodically by 'interval'

@@ -11,18 +11,20 @@ import (
 type ServerApp struct {
 	ListenAddr string
 	Handler    http.Handler
+	lgr        logger.Logger
 }
 
-func New(listenAddr string, handler http.Handler) *ServerApp {
+func New(listenAddr string, handler http.Handler, lgr logger.Logger) *ServerApp {
 	return &ServerApp{
 		ListenAddr: listenAddr,
 		Handler:    handler,
+		lgr: lgr,
 	}
 }
 
 // Run starts http server and closes gracefully on context cancellation
 func (s *ServerApp) Run(ctx context.Context) error {
-	logger.Slog.Infow("Starting server", "ListenAddr", s.ListenAddr)
+	s.lgr.Info("Starting server", "ListenAddr", s.ListenAddr)
 
 	httpServer := &http.Server{
 		Addr:    s.ListenAddr,
@@ -40,9 +42,9 @@ func (s *ServerApp) Run(ctx context.Context) error {
 		defer cancel()
 
 		if err := httpServer.Shutdown(timeoutCtx); err == context.DeadlineExceeded {
-			logger.Slog.Error("force http server shutdown...")
+			s.lgr.Error("force http server shutdown...")
 		}
-		logger.Slog.Info("HTTP server stopped")
+		s.lgr.Info("HTTP server stopped")
 		close(idleConnsClosed)
 	}()
 

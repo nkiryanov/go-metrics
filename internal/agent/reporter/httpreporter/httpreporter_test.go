@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/nkiryanov/go-metrics/internal/logger"
 	"github.com/nkiryanov/go-metrics/internal/models"
 
 	"github.com/jarcoal/httpmock"
@@ -25,7 +26,7 @@ func decompress(buf *bytes.Buffer) string {
 }
 
 func TestHTTPReporter_post(t *testing.T) {
-	reporter := New("http://test.server", &http.Client{}, nil, "VeryStrongKey")
+	reporter := New("http://test.server", &http.Client{}, nil, "VeryStrongKey", logger.NewNoOpLogger())
 	metric := models.Metric{Name: "test", Type: "counter", Delta: 1} // Any valid metric should ok
 
 	httpmock.ActivateNonDefault(reporter.client)
@@ -106,6 +107,7 @@ func TestHTTPReporter_postWithRetry(t *testing.T) {
 			200 * time.Millisecond,
 		},
 		"",
+		logger.NewNoOpLogger(),
 	)
 	httpmock.ActivateNonDefault(reporter.client)
 	t.Cleanup(httpmock.DeactivateAndReset)
@@ -172,7 +174,7 @@ func TestHTTPReporter_postWithRetry(t *testing.T) {
 }
 
 func TestHTTPReporter_Smoke(t *testing.T) {
-	reporter := New("http://pornhub.com", &http.Client{}, nil, "")
+	reporter := New("http://pornhub.com", &http.Client{}, nil, "", logger.NewNoOpLogger())
 	httpmock.ActivateNonDefault(reporter.client)
 	t.Cleanup(httpmock.DeactivateAndReset)
 

@@ -55,8 +55,8 @@ func New() *MemStatsCollector {
 	}
 }
 
-func (c *MemStatsCollector) List(_ context.Context) ([]models.Metric, error) {
-	return c.storage.List(), nil
+func (c *MemStatsCollector) List() []models.Metric {
+	return c.storage.List()
 }
 
 func (c *MemStatsCollector) Collect(_ context.Context) error {

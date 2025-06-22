@@ -45,6 +45,8 @@ func (opts *Options) Parse() {
 }
 
 func (opts *Options) parseEnv() {
+	fallbackLgr := logger.NewLogger("INFO") // there is no logger for config, just use fallback one
+
 	// Helpers to use in envMap with other custom parsers
 	parseString := func(optValue *string) func(string) error {
 		return func(envValue string) error {
@@ -76,9 +78,9 @@ func (opts *Options) parseEnv() {
 	for key, parseFn := range envMap {
 		if envVar := os.Getenv(key); envVar != "" {
 			if err := parseFn(envVar); err != nil {
-				logger.Slog.Errorw("invalid env variable, skipped", key, envVar, "error", err.Error())
+				fallbackLgr.Error("invalid env variable, skipped", key, envVar, "error", err.Error())
 			} else {
-				logger.Slog.Infow("Set args form env", key, envVar)
+				fallbackLgr.Info("Set args form env", key, envVar)
 			}
 		}
 	}
