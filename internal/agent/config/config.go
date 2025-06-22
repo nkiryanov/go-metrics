@@ -13,10 +13,10 @@ type Config struct {
 	LogLevel string
 
 	// Agent reporters settings
-	ReportAddr     string
-	ReportInterval time.Duration
-	ReportRateLimit int  // Limit reporter connections to server
-	SecretKey      string
+	ReportAddr      string
+	ReportInterval  time.Duration
+	ReportRateLimit int // Limit reporter connections to server
+	SecretKey       string
 
 	// Agent collectors settings
 	CollectInterval time.Duration

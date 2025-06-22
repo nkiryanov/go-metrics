@@ -55,9 +55,10 @@ func NewAgent(cfg *config.Config) *Agent {
 		}{
 			r: httpreporter.New(
 				cfg.ReportAddr,
-				&http.Client{},
 				[]time.Duration{time.Second, 3 * time.Second, 5 * time.Second},
+				cfg.ReportRateLimit,
 				cfg.SecretKey,
+				&http.Client{},
 				lgr,
 			),
 			i: cfg.ReportInterval,

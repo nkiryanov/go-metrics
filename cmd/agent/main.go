@@ -16,6 +16,7 @@ const (
 
 	ReportAddr     = "http://localhost:8080"
 	ReportInterval = 10 * time.Second
+	RateRateLimit  = 50
 	SecretKey      = ""
 
 	CollectInterval = 2 * time.Second
@@ -26,6 +27,7 @@ func main() {
 		LogLevel:        LogLevel,
 		ReportAddr:      ReportAddr,
 		ReportInterval:  ReportInterval,
+		ReportRateLimit: RateRateLimit,
 		SecretKey:       SecretKey,
 		CollectInterval: CollectInterval,
 	}
