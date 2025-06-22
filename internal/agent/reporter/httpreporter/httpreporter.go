@@ -12,15 +12,14 @@ import (
 	"github.com/nkiryanov/go-metrics/internal/models"
 )
 
-// context to send over post request. It may changed with middleware
+// Context for sending post request may be changed by middleware
 type postContext struct {
-	headers map[string]string // headers to set to the request
-	data    any               // initial data to send over post request. It must be read and converted somehow to body
+	headers map[string]string // headers to set on the request
+	data    any               // initial data to send over post request must be converted to body
 	body    *bytes.Buffer     // body to send over post request
 }
 
-// Reporter error
-// Store additional data to introspect error cause
+// Reporter error with additional data to introspect error cause
 type reportError struct {
 	err     error // original error
 	connErr bool  // whether it's an HTTP connection error or something else
@@ -40,23 +39,32 @@ func newReportError(err error, connErr bool) *reportError {
 
 // Metrics reporter to HTTP server
 type HTTPReporter struct {
-	lgr            logger.Logger
-	reportAddr     string
-	client         *http.Client
-	maxRetries     int
-	retryIntervals []time.Duration
+	reportAddr     string          // address to report to
+	maxRetries     int             // maximum number of retries on connection error
+	retryIntervals []time.Duration // intervals to retry on connection error
+	sem            *Semaphore      // limits concurrent requests to server
+	secretKey      string          // secret key to sign requests with hmac sha256
 
-	secretKey string
+	client *http.Client
+	lgr    logger.Logger
 }
 
-func New(reportAddr string, client *http.Client, retryIntervals []time.Duration, secretKey string, logger logger.Logger) *HTTPReporter {
+func New(
+	reportAddr string,
+	retryIntervals []time.Duration,
+	rateLimit int,
+	secretKey string,
+	client *http.Client,
+	lgr logger.Logger,
+) *HTTPReporter {
 	return &HTTPReporter{
-		lgr:            logger,
 		reportAddr:     reportAddr,
-		client:         client,
 		maxRetries:     len(retryIntervals),
 		retryIntervals: retryIntervals,
+		sem:            NewSemaphore(rateLimit),
 		secretKey:      secretKey,
+		client:         client,
+		lgr:            lgr,
 	}
 }
 
@@ -65,13 +73,16 @@ func (r *HTTPReporter) ReportOnce(metric models.Metric) error {
 	return r.postWithRetry("/update", metric)
 }
 
-// POST /{baseUrl}/update
+// POST /{baseUrl}/updates
 func (r *HTTPReporter) ReportBatch(metrics []models.Metric) error {
 	return r.postWithRetry("/updates", metrics)
 }
 
-// POSTs data to url server as gzipped JSON
+// POST data to url server as gzipped json
 func (r *HTTPReporter) post(url string, data any) error {
+	r.sem.Acquire()
+	defer r.sem.Release()
+
 	postContext := postContext{
 		headers: make(map[string]string),
 		data:    data,
@@ -110,7 +121,7 @@ func (r *HTTPReporter) post(url string, data any) error {
 	return nil
 }
 
-// POSTs data to url server as gzipped JSON and retry if connection error occurs
+// POST data to url server as gzipped json and retry if connection error occurs
 func (r *HTTPReporter) postWithRetry(url string, data any) error {
 	var err error
 

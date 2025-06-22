@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"sync"
 	"testing"
 	"time"
 
@@ -26,7 +27,14 @@ func decompress(buf *bytes.Buffer) string {
 }
 
 func TestHTTPReporter_post(t *testing.T) {
-	reporter := New("http://test.server", &http.Client{}, nil, "VeryStrongKey", logger.NewNoOpLogger())
+	reporter := New(
+		"http://test.server",
+		[]time.Duration{}, // retry intervals, not needed in tests actually
+		100,
+		"VeryStrongKey",
+		&http.Client{},
+		logger.NewNoOpLogger(),
+	)
 	metric := models.Metric{Name: "test", Type: "counter", Delta: 1} // Any valid metric should ok
 
 	httpmock.ActivateNonDefault(reporter.client)
@@ -101,12 +109,13 @@ func TestHTTPReporter_post(t *testing.T) {
 func TestHTTPReporter_postWithRetry(t *testing.T) {
 	reporter := New(
 		"http://test.server",
-		&http.Client{},
 		[]time.Duration{ // Two retries max
 			100 * time.Millisecond,
 			200 * time.Millisecond,
 		},
-		"",
+		20, // Rate limit to sever connections
+		"", // Secret key, not used in test
+		&http.Client{},
 		logger.NewNoOpLogger(),
 	)
 	httpmock.ActivateNonDefault(reporter.client)
@@ -171,10 +180,61 @@ func TestHTTPReporter_postWithRetry(t *testing.T) {
 		require.Error(t, err, "Should return err cause maxRetries exceeded")
 		require.Equal(t, 3, callCount, "Should called 3 times (first attempt and 2 retries)")
 	})
+
+	t.Run("serializes requests when rate limited", func(t *testing.T) {
+		var connCount int
+		var maxSeen int
+		var mu sync.Mutex
+
+		// Functions to calculate max seen connections to server
+		registerConnFn := func() {
+			mu.Lock()
+			defer mu.Unlock()
+
+			connCount += 1
+			if connCount > maxSeen {
+				maxSeen = connCount
+			}
+		}
+		releaseConnFn := func() {
+			mu.Lock()
+			defer mu.Unlock()
+			connCount -= 1
+		}
+
+		httpmock.RegisterResponder("POST", "http://test.server/update",
+			func(req *http.Request) (*http.Response, error) {
+				registerConnFn()
+				defer releaseConnFn()
+				time.Sleep(50 * time.Millisecond)
+				return httpmock.NewStringResponse(200, "ok"), nil
+			})
+
+		// Send 50 connections to server and wait them to complete
+		var wg sync.WaitGroup
+		wg.Add(50)
+		for range 50 {
+			go func() {
+				defer wg.Done()
+				err := reporter.postWithRetry("/update", metric)
+				assert.NoError(t, err)
+			}()
+		}
+		wg.Wait()
+
+		require.Equal(t, 20, maxSeen, "Maximum simultaneous connections should not exceed rate limit that was set 20")
+	})
 }
 
 func TestHTTPReporter_Smoke(t *testing.T) {
-	reporter := New("http://pornhub.com", &http.Client{}, nil, "", logger.NewNoOpLogger())
+	reporter := New(
+		"http://pornhub.com",
+		[]time.Duration{},
+		20,
+		"strong-secret",
+		&http.Client{},
+		logger.NewNoOpLogger(),
+	)
 	httpmock.ActivateNonDefault(reporter.client)
 	t.Cleanup(httpmock.DeactivateAndReset)
 
