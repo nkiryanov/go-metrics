@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/nkiryanov/go-metrics/internal/agent/collector"
+	"github.com/nkiryanov/go-metrics/internal/agent/collector/gopsutilcollector"
 	"github.com/nkiryanov/go-metrics/internal/agent/collector/memstatscollector"
 	"github.com/nkiryanov/go-metrics/internal/agent/config"
 	"github.com/nkiryanov/go-metrics/internal/agent/reporter"
@@ -46,6 +47,7 @@ func NewAgent(cfg *config.Config) *Agent {
 			i time.Duration
 		}{
 			{n: "MemStats Collector", c: memstatscollector.New(), i: cfg.CollectInterval},
+			{n: "gopsutil Stats Collector", c: gopsutilcollector.New(), i: cfg.CollectInterval},
 		},
 		Reporter: struct {
 			r reporter.Reporter
@@ -64,6 +66,7 @@ func NewAgent(cfg *config.Config) *Agent {
 	}
 }
 
+// Run agent unit cancelled with context
 func (a *Agent) Run(ctx context.Context) error {
 	var wg sync.WaitGroup
 	// Run collectors until context cancelled
@@ -93,18 +96,22 @@ func (a *Agent) Run(ctx context.Context) error {
 	return ErrAgentStopped
 }
 
+// Run reporter
+// Reporter has several methods and only agent knows how it want to run it
 func (a *Agent) runReporter(ctx context.Context) {
 	ticker := time.NewTicker(a.Reporter.i)
 	defer ticker.Stop()
 	metrics := make([]models.Metric, 0)
 
-	reportFn := func() error {
+	// Function to run periodically with interval
+	// Get all the metrics from collectors and pass them to reporter --> ReportBatch
+	reportFn := func() (int, error) {
 		metrics = metrics[:0]
 		for _, collr := range a.Collectors {
 			metrics = append(metrics, collr.c.List()...)
 		}
 
-		return a.Reporter.r.ReportBatch(metrics)
+		return len(metrics), a.Reporter.r.ReportBatch(metrics)
 	}
 
 	a.Lgr.Info("Starting reporter", "report_interval", a.Reporter.i)
@@ -113,8 +120,11 @@ func (a *Agent) runReporter(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			err := reportFn()
-			if err != nil {
+			count, err := reportFn()
+			switch err {
+			case nil:
+				a.Lgr.Info("Metrics reported ok", "count", count)
+			default:
 				a.Lgr.Warn("Error while reporting metrics", "error", err.Error())
 			}
 		}
