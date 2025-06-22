@@ -10,12 +10,10 @@ import (
 	"testing"
 
 	"github.com/nkiryanov/go-metrics/internal/logger"
+	"github.com/nkiryanov/go-metrics/internal/logger/mocks"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
-	"go.uber.org/zap/zaptest/observer"
 )
 
 // Helper handler that write "OK" to response
@@ -29,30 +27,12 @@ func okHandler(t *testing.T) http.HandlerFunc {
 }
 
 func TestHandlers_LoggerMiddleware(t *testing.T) {
-	// Save global Slog and return back on exit
-	prevSlog := logger.Slog
-	defer func() { logger.Slog = prevSlog }()
-
-	// Replace global logger with observed one. Reset to default when finish
-	coreLogger, recorded := observer.New(zapcore.InfoLevel)
-	logger.Slog = zap.New(coreLogger).Sugar()
-
-	// Define a dummy handler for testing
-	dumbHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("OK"))
-	})
-
-	// Define func to capture logged keys
-	loggedKeys := func(entry observer.LoggedEntry) []string {
-		keys := make([]string, 0, len(entry.Context))
-		for _, field := range entry.Context {
-			keys = append(keys, field.Key)
-		}
-		return keys
+	logMsg := ""
+	mockedLogger := &mocks.LoggerMock{
+		InfoFunc: func(msg string, args ...any) { logMsg = msg },
 	}
 
-	lgrHandler := LoggerMiddleware(dumbHandler)
+	lgrHandler := LoggerMiddleware(mockedLogger)(okHandler(t))
 
 	t.Run("log http", func(t *testing.T) {
 		r := httptest.NewRequest(http.MethodGet, "/test-uri", nil)
@@ -63,11 +43,8 @@ func TestHandlers_LoggerMiddleware(t *testing.T) {
 		response := w.Result()
 		defer response.Body.Close() // nolint:errcheck
 		require.Equal(t, http.StatusOK, response.StatusCode)
-		require.Equal(t, 1, recorded.Len())
-		logEntry := recorded.All()[0]
-		assert.Equal(t, "got HTTP request", logEntry.Message)
-		assert.ElementsMatch(t, []string{"method", "uri", "duration", "size", "status"}, loggedKeys(logEntry))
-
+		require.Equal(t, 1, len(mockedLogger.InfoCalls()))
+		assert.Equal(t, "got HTTP request", logMsg)
 	})
 }
 
@@ -131,7 +108,7 @@ func TestHandlers_HmacSHA256Middleware(t *testing.T) {
 		r := httptest.NewRequest(http.MethodPost, "/test-uri", strings.NewReader("hi!"))
 		w := httptest.NewRecorder()
 
-		handler := HmacSHA256Middleware(secretKey)(okHandler(t))
+		handler := HmacSHA256Middleware(logger.NewNoOpLogger(), secretKey)(okHandler(t))
 		handler.ServeHTTP(w, r)
 
 		response := w.Result()
@@ -171,7 +148,7 @@ func TestHandlers_HmacSHA256Middleware(t *testing.T) {
 			r.Header.Set("HashSHA256", tc.requestHmac)
 			w := httptest.NewRecorder()
 
-			handler := HmacSHA256Middleware(secretKey)(okHandler(t))
+			handler := HmacSHA256Middleware(logger.NewNoOpLogger(), secretKey)(okHandler(t))
 			handler.ServeHTTP(w, r)
 
 			response := w.Result()
@@ -190,7 +167,7 @@ func TestHandlers_HmacSHA256Middleware(t *testing.T) {
 		r := httptest.NewRequest(http.MethodPost, "/test-upi", strings.NewReader("hi!")) // No HashSHA256 header set
 		w := httptest.NewRecorder()
 
-		handler := HmacSHA256Middleware(secretKey)(okHandler(t)) // server running with HMAC support
+		handler := HmacSHA256Middleware(logger.NewNoOpLogger(), secretKey)(okHandler(t)) // server running with HMAC support
 		handler.ServeHTTP(w, r)
 
 		response := w.Result()

@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/nkiryanov/go-metrics/internal/logger"
 	"github.com/nkiryanov/go-metrics/internal/models"
 )
 
@@ -38,6 +39,7 @@ func TestPgStorage_RestoreOption(t *testing.T) {
 			notExisted, // file removed already
 			1*time.Minute,
 			true, // restore True
+			logger.NewNoOpLogger(),
 		)
 
 		require.NoError(t, err, "Restore should ok if file not exists")
@@ -54,6 +56,7 @@ func TestPgStorage_RestoreOption(t *testing.T) {
 			emptyFile,
 			1*time.Minute,
 			true, // restore True
+			logger.NewNoOpLogger(),
 		)
 
 		require.NoError(t, err, "Restore empty must be ok")
@@ -86,6 +89,7 @@ func TestPgStorage_RestoreOption(t *testing.T) {
 			filename,
 			1*time.Minute,
 			true, // restore True
+			logger.NewNoOpLogger(),
 		)
 
 		require.NoError(t, err, "Restore should ok")
@@ -105,6 +109,7 @@ func TestPgStorage_RestoreOption(t *testing.T) {
 			filename,
 			300*time.Millisecond,
 			false,
+			logger.NewNoOpLogger(),
 		)
 		require.NoError(t, err, "Storage start with save interval should start ok")
 

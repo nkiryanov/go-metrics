@@ -40,6 +40,7 @@ func newReportError(err error, connErr bool) *reportError {
 
 // Metrics reporter to HTTP server
 type HTTPReporter struct {
+	lgr            logger.Logger
 	reportAddr     string
 	client         *http.Client
 	maxRetries     int
@@ -48,8 +49,9 @@ type HTTPReporter struct {
 	secretKey string
 }
 
-func New(reportAddr string, client *http.Client, retryIntervals []time.Duration, secretKey string) *HTTPReporter {
+func New(reportAddr string, client *http.Client, retryIntervals []time.Duration, secretKey string, logger logger.Logger) *HTTPReporter {
 	return &HTTPReporter{
+		lgr:            logger,
 		reportAddr:     reportAddr,
 		client:         client,
 		maxRetries:     len(retryIntervals),
@@ -59,33 +61,33 @@ func New(reportAddr string, client *http.Client, retryIntervals []time.Duration,
 }
 
 // POST /{baseUrl}/update
-func (reporter *HTTPReporter) ReportOnce(m models.Metric) error {
-	return reporter.postWithRetry("/update", m)
+func (r *HTTPReporter) ReportOnce(m models.Metric) error {
+	return r.postWithRetry("/update", m)
 }
 
 // POST /{baseUrl}/update
-func (reporter *HTTPReporter) ReportBatch(metrics []models.Metric) error {
-	return reporter.postWithRetry("/updates", metrics)
+func (r *HTTPReporter) ReportBatch(metrics []models.Metric) error {
+	return r.postWithRetry("/updates", metrics)
 }
 
 // POSTs data to url server as gzipped JSON
-func (reporter *HTTPReporter) post(url string, data any) error {
+func (r *HTTPReporter) post(url string, data any) error {
 	postContext := postContext{
 		headers: make(map[string]string),
 		data:    data,
 		body:    nil,
 	}
 
-	err := reporter.jsonGzipMiddleware(&postContext)
+	err := r.jsonGzipMiddleware(&postContext)
 	if err != nil {
 		return newReportError(err, false)
 	}
-	err = reporter.hmacSha256Middleware(&postContext)
+	err = r.hmacSha256Middleware(&postContext)
 	if err != nil {
 		return newReportError(err, false)
 	}
 
-	request, err := http.NewRequest(http.MethodPost, reporter.reportAddr+url, postContext.body)
+	request, err := http.NewRequest(http.MethodPost, r.reportAddr+url, postContext.body)
 	if err != nil {
 		return newReportError(err, false)
 	}
@@ -94,7 +96,7 @@ func (reporter *HTTPReporter) post(url string, data any) error {
 		request.Header.Set(key, value)
 	}
 
-	resp, err := reporter.client.Do(request)
+	resp, err := r.client.Do(request)
 	if err != nil {
 		return newReportError(err, true)
 	}
@@ -109,17 +111,17 @@ func (reporter *HTTPReporter) post(url string, data any) error {
 }
 
 // POSTs data to url server as gzipped JSON and retry if connection error occurs
-func (reporter *HTTPReporter) postWithRetry(url string, data any) error {
+func (r *HTTPReporter) postWithRetry(url string, data any) error {
 	var err error
 
-	for attempt := 0; attempt <= reporter.maxRetries; attempt++ {
+	for attempt := 0; attempt <= r.maxRetries; attempt++ {
 		if attempt > 0 {
-			delay := reporter.retryIntervals[attempt-1]
-			logger.Slog.Infow("retrying request", "attempt", attempt, "delay", delay)
+			delay := r.retryIntervals[attempt-1]
+			r.lgr.Info("retrying request", "attempt", attempt, "delay", delay)
 			time.Sleep(delay)
 		}
 
-		err = reporter.post(url, data)
+		err = r.post(url, data)
 
 		// Return if no error occurred or it's not connection error
 		var errReport *reportError
@@ -127,9 +129,9 @@ func (reporter *HTTPReporter) postWithRetry(url string, data any) error {
 			return err
 		}
 
-		logger.Slog.Warnw("request connection error, retrying", "error", err, "attempt", attempt+1)
+		r.lgr.Warn("request connection error, retrying", "error", err, "attempt", attempt+1)
 	}
 
-	logger.Slog.Errorw("all retry attempts failed", "error", err, "attempts", reporter.maxRetries+1)
+	r.lgr.Error("all retry attempts failed", "error", err, "attempts", r.maxRetries+1)
 	return err
 }

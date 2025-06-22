@@ -57,8 +57,7 @@ func TestMemStatsCollector(t *testing.T) {
 	t.Run("stats initially empty", func(t *testing.T) {
 		c := New()
 
-		got, err := c.List(t.Context())
-		require.NoError(t, err)
+		got := c.List()
 
 		require.Equal(t, []models.Metric{}, got)
 	})
@@ -68,8 +67,7 @@ func TestMemStatsCollector(t *testing.T) {
 
 		err := c.Collect(t.Context())
 		require.NoError(t, err)
-		got, err := c.List(t.Context())
-		require.NoError(t, err)
+		got := c.List()
 
 		require.Len(t, got, len(expectedStatNames))
 		require.EqualValues(t, expectedStatNames, extractNames(got))
@@ -89,14 +87,12 @@ func TestMemStatsCollector(t *testing.T) {
 			}()
 			go func() {
 				defer wg.Done()
-				_, err := c.List(t.Context())
-				require.NoError(t, err)
+				c.List()
 			}()
 		}
 
 		wg.Wait()
-		got, err := c.List(t.Context())
-		require.NoError(t, err)
+		got := c.List()
 
 		assert.Len(t, got, len(expectedStatNames))
 	})

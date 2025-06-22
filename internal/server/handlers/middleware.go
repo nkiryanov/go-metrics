@@ -35,26 +35,28 @@ func (w *loggingResponseWriter) WriteHeader(statusCode int) {
 	w.loggedData.responseStatus = statusCode
 }
 
-func LoggerMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		start := time.Now()
+func LoggerMiddleware(lgr logger.Logger) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			start := time.Now()
 
-		lw := loggingResponseWriter{
-			ResponseWriter: w,
-			loggedData:     loggedData{responseStatus: 200, responseSize: 0},
-		}
+			lw := loggingResponseWriter{
+				ResponseWriter: w,
+				loggedData:     loggedData{responseStatus: 200, responseSize: 0},
+			}
 
-		next.ServeHTTP(&lw, r)
+			next.ServeHTTP(&lw, r)
 
-		logger.Slog.Infow(
-			"got HTTP request",
-			"method", r.Method,
-			"uri", r.RequestURI,
-			"duration", time.Since(start),
-			"status", lw.loggedData.responseStatus,
-			"size", lw.loggedData.responseSize,
-		)
-	})
+			lgr.Info(
+				"got HTTP request",
+				"method", r.Method,
+				"uri", r.RequestURI,
+				"duration", time.Since(start),
+				"status", lw.loggedData.responseStatus,
+				"size", lw.loggedData.responseSize,
+			)
+		})
+	}
 }
 
 type compressWriter struct {
@@ -151,6 +153,7 @@ type hmacWriter struct {
 	w          http.ResponseWriter
 	body       *bytes.Buffer
 	statusCode int
+	lgr        logger.Logger
 }
 
 func (hw *hmacWriter) Header() http.Header {
@@ -172,7 +175,7 @@ func (hw *hmacWriter) Release(secretKey []byte) {
 	h := hmac.New(sha256.New, secretKey)
 	_, err := h.Write(hw.body.Bytes())
 	if err != nil {
-		logger.Slog.Error("HMAC message signing failed", "error", err)
+		hw.lgr.Error("HMAC message signing failed", "error", err)
 	} else {
 		hw.Header().Set("HashSHA256", hex.EncodeToString(h.Sum(nil)))
 	}
@@ -182,13 +185,13 @@ func (hw *hmacWriter) Release(secretKey []byte) {
 	_, err = hw.w.Write(hw.body.Bytes())
 
 	if err != nil {
-		logger.Slog.Error("write response error", "error", err.Error())
+		hw.lgr.Error("write response error", "error", err.Error())
 		http.Error(hw.w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 }
 
-func HmacSHA256Middleware(secretKey string) func(http.Handler) http.Handler {
+func HmacSHA256Middleware(lgr logger.Logger, secretKey string) func(http.Handler) http.Handler {
 	if secretKey == "" {
 		// Noop middleware: just call next middleware
 		return func(next http.Handler) http.Handler {
@@ -202,7 +205,7 @@ func HmacSHA256Middleware(secretKey string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// All responses has to be signed. Replace writer with HMAC Writer
-			hmacw := &hmacWriter{w: w, body: &bytes.Buffer{}}
+			hmacw := &hmacWriter{w: w, body: &bytes.Buffer{}, lgr: lgr}
 			defer hmacw.Release(key)
 
 			// If HashSHA256 is set then HMAC for request must be calculated and verified

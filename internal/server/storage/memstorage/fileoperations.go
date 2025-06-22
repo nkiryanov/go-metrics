@@ -8,7 +8,6 @@ import (
 	"io"
 	"time"
 
-	"github.com/nkiryanov/go-metrics/internal/logger"
 	"github.com/nkiryanov/go-metrics/internal/models"
 )
 
@@ -85,9 +84,9 @@ func (s *MemStorage) backgroundSaver() {
 		case <-ticker.C:
 			err := s.saveToFile() // maybe goog idea to log
 			if err != nil {
-				logger.Slog.Errorw("Metrics save failed", "err", err)
+				s.lgr.Error("Metrics save failed", "err", err)
 			} else {
-				logger.Slog.Info("Metrics saved to file")
+				s.lgr.Info("Metrics saved to file")
 			}
 		case <-s.stopCh:
 			return
