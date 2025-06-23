@@ -10,11 +10,11 @@ import (
 )
 
 func getMetricIDs(metrics []models.Metric) []string {
-	ids := make([]string, 0, len(metrics))
+	names := make([]string, 0, len(metrics))
 	for _, metric := range metrics {
-		ids = append(ids, metric.ID)
+		names = append(names, metric.Name)
 	}
-	return ids
+	return names
 }
 
 func TestMemCapturer(t *testing.T) {
@@ -34,22 +34,22 @@ func TestMemCapturer(t *testing.T) {
 		mc.CaptureAndSave()
 
 		assert.Equal(t, len(expectedIDs), len(mc.stor))
-		assert.Contains(t, mc.stor, models.Metric{ID: "PollCount", MType: "counter", Delta: 1}, "captured PollCount has to be on first call")
+		assert.Contains(t, mc.stor, models.Metric{Name: "PollCount", Type: "counter", Delta: 1}, "captured PollCount has to be on first call")
 	})
 
-	t.Run("Last on empty, ok", func(t *testing.T) {
+	t.Run("ListLast empty ok", func(t *testing.T) {
 		mc := NewMemCapturer()
 
-		metrics := mc.Last()
+		metrics := mc.ListLast()
 
 		assert.Equal(t, 0, len(metrics), "should return empty slice if metrics not saved yet")
 	})
 
-	t.Run("Last when captured", func(t *testing.T) {
+	t.Run("ListLast not empty ok", func(t *testing.T) {
 		mc := NewMemCapturer()
 		mc.CaptureAndSave()
 
-		metrics := mc.Last()
+		metrics := mc.ListLast()
 
 		require.Equal(t, len(expectedIDs), len(metrics))
 		assert.EqualValues(t, expectedIDs, getMetricIDs(metrics))
@@ -63,11 +63,11 @@ func TestMemCapturer(t *testing.T) {
 		for range 5 {
 			wg.Add(2)
 			go func() { mc.CaptureAndSave(); wg.Done() }()
-			go func() { mc.Last(); wg.Done() }()
+			go func() { mc.ListLast(); wg.Done() }()
 		}
 
 		wg.Wait()
-		metrics := mc.Last()
+		metrics := mc.ListLast()
 
 		assert.Equal(t, len(expectedIDs), len(metrics))
 	})

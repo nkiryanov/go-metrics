@@ -125,13 +125,13 @@ func GzipMiddleware(next http.Handler) http.Handler {
 			}
 
 			r.Body = cr
-			defer cr.Close()
+			defer cr.Close() // nolint:errcheck
 		}
 
 		// If client accept gzip encoded responses than compress response
 		if strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
 			cw := newCompressWriter(w)
-			defer cw.Close()
+			defer cw.Close() // nolint:errcheck
 
 			w = cw
 		}

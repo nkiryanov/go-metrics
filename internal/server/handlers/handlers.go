@@ -1,18 +1,19 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"html/template"
 	"net/http"
-	"sort"
 	"strconv"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/nkiryanov/go-metrics/internal/logger"
 	"github.com/nkiryanov/go-metrics/internal/models"
-	"github.com/nkiryanov/go-metrics/internal/storage"
+	"github.com/nkiryanov/go-metrics/internal/server/storage"
 )
 
 func updateMetricPlain(s storage.Storage) http.HandlerFunc {
@@ -23,7 +24,7 @@ func updateMetricPlain(s storage.Storage) http.HandlerFunc {
 
 		var err error
 		var msg string
-		metric := models.Metric{ID: mID, MType: mType}
+		metric := models.Metric{Name: mID, Type: mType}
 
 		switch mType {
 		case models.CounterTypeName:
@@ -45,7 +46,7 @@ func updateMetricPlain(s storage.Storage) http.HandlerFunc {
 			return
 		}
 
-		if metric, err = s.UpdateMetric(&metric); err != nil {
+		if metric, err = s.UpdateMetric(r.Context(), metric); err != nil {
 			logger.Slog.Warnw("can't update metric", "error", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -67,16 +68,45 @@ func updateMetricJSON(s storage.Storage) http.HandlerFunc {
 			return
 		}
 
-		metric, err := s.UpdateMetric(&metric)
+		metric, err := s.UpdateMetric(r.Context(), metric)
 		if err != nil {
 			logger.Slog.Warnw("metric could not updated", "error", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
-		logger.Slog.Infow("Metric updated", "id", metric.ID, "type", metric.MType, "value", metric.String())
+		logger.Slog.Infow("Metric updated", "name", metric.Name, "type", metric.Type, "value", metric.String())
 
-		resp, err := json.Marshal(models.NewMetricJSON(&metric))
+		resp, err := json.Marshal(metric)
+		if err != nil {
+			logger.Slog.Error("error while deserializing metric json", "error", err.Error())
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		writeOrInternalError(w, resp)
+	}
+}
+
+func updateMetricBulkJSON(s storage.Storage) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		metrics := make([]models.Metric, 0)
+		var err error
+
+		if err = json.NewDecoder(r.Body).Decode(&metrics); err != nil {
+			logger.Slog.Warnw("request not expected format", "error", err)
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		if metrics, err = s.UpdateMetricBulk(r.Context(), metrics); err != nil {
+			logger.Slog.Warnw("error while updating metrics", "error", err.Error())
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		resp, err := json.Marshal(metrics)
 		if err != nil {
 			logger.Slog.Error("error while deserializing metric json", "error", err.Error())
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -91,17 +121,12 @@ func updateMetricJSON(s storage.Storage) http.HandlerFunc {
 func getMetricPlain(s storage.Storage) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		mType := r.PathValue("mType")
-		mID := r.PathValue("mID")
+		mName := r.PathValue("mID")
 
-		metric, ok, err := s.GetMetric(mID, mType)
+		metric, err := s.GetMetric(r.Context(), mType, mName)
 		if err != nil {
-			logger.Slog.Error("storage error occurred when metric requested", "error", err.Error())
-			http.Error(w, err.Error(), http.StatusNotFound)
-			return
-		}
-		if !ok {
-			logger.Slog.Info("metic requested, but not found", "type", mType, "id", mID)
-			http.Error(w, fmt.Sprintf("metric not found. type: %s, id: %s", mType, mID), http.StatusNotFound)
+			logger.Slog.Info("metic requested, but not found", "type", mType, "name", mName)
+			http.Error(w, fmt.Sprintf("metric not found. type: %s, id: %s", mType, mName), http.StatusNotFound)
 			return
 		}
 
@@ -113,8 +138,8 @@ func getMetricPlain(s storage.Storage) http.HandlerFunc {
 func getMetricJSON(s storage.Storage) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		req := &struct {
-			ID    string `json:"id"`
-			MType string `json:"type"`
+			Type string `json:"type"`
+			Name string `json:"id"`
 		}{}
 
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -123,21 +148,16 @@ func getMetricJSON(s storage.Storage) http.HandlerFunc {
 			return
 		}
 
-		metric, ok, err := s.GetMetric(req.ID, req.MType)
+		metric, err := s.GetMetric(r.Context(), req.Type, req.Name)
 		if err != nil {
-			logger.Slog.Error("storage error occurred when metric requested", "error", err.Error())
-			http.Error(w, err.Error(), http.StatusNotFound)
-			return
-		}
-		if !ok {
-			logger.Slog.Info("metic requested, but not found", "type", req.MType, "id", req.ID)
-			http.Error(w, fmt.Sprintf("metric not found. type: %s, id: %s", req.MType, req.ID), http.StatusNotFound)
+			logger.Slog.Infow("metic requested, but not found", "type", req.Type, "id", req.Name)
+			http.Error(w, fmt.Sprintf("metric not found. type: %s, id: %s", req.Type, req.Name), http.StatusNotFound)
 			return
 		}
 
-		resp, err := json.Marshal(models.NewMetricJSON(&metric))
+		resp, err := json.Marshal(metric)
 		if err != nil {
-			logger.Slog.Error("error while deserializing metric json", "error", err.Error())
+			logger.Slog.Errorw("error while deserializing metric json", "error", err.Error())
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -149,31 +169,45 @@ func getMetricJSON(s storage.Storage) http.HandlerFunc {
 
 func listMetrics(s storage.Storage, tpl *template.Template) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		type metric struct {
+		type templateEntry struct {
 			ID    string
 			Type  string
 			Value string
 		}
 
-		metrics := make([]metric, 0, s.Count())
+		metrics, err := s.ListMetric(r.Context())
+		if err != nil {
+			logger.Slog.Infow("list metric failed", "error", err.Error())
+		}
 
-		_ = s.Iterate(func(m models.Metric) error {
-			metrics = append(metrics, metric{ID: m.ID, Type: m.MType, Value: m.String()})
-			return nil
-		})
-
-		sort.Slice(metrics, func(i, j int) bool {
-			return metrics[i].ID < metrics[j].ID
-		})
+		entries := make([]templateEntry, 0, len(metrics))
+		for _, m := range metrics {
+			entries = append(entries, templateEntry{ID: m.Name, Type: m.Type, Value: m.String()})
+		}
 
 		w.Header().Set("Content-Type", "text/html")
 		w.WriteHeader(http.StatusOK)
 
-		if err := tpl.Execute(w, metrics); err != nil {
-			logger.Slog.Error("list metric templated generation failed", "error", err.Error())
+		if err := tpl.Execute(w, entries); err != nil {
+			logger.Slog.Errorw("list metric templated generation failed", "error", err.Error())
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+	}
+}
+
+func ping(s storage.Storage) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+		defer cancel()
+
+		if err := s.Ping(ctx); err != nil {
+			logger.Slog.Error("db connection failed", "error", err.Error())
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		writeOrInternalError(w, []byte("OK"))
 	}
 }
 

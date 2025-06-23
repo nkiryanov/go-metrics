@@ -17,9 +17,15 @@ cmd/agent/agent
 cmd/server/main
 cmd/server/server
 
+# Server runtime artifacts
+server_data.json
+
 # Dependency directories (remove the comment below to include it)
 vendor/
 
 # IDEs directories
 .idea
 .vscode
+
+# masOS staff
+.DS_Store

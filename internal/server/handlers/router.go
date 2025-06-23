@@ -5,8 +5,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/nkiryanov/go-metrics/internal/handlers/templates"
-	"github.com/nkiryanov/go-metrics/internal/storage"
+	"github.com/nkiryanov/go-metrics/internal/server/handlers/templates"
+	"github.com/nkiryanov/go-metrics/internal/server/storage"
 )
 
 const (
@@ -34,6 +34,14 @@ func NewMetricRouter(stor storage.Storage) http.Handler {
 		router.Post("/", updateMetricJSON(stor))
 		router.Post("/{mType}/{mID}/{mValue}", updateMetricPlain(stor))
 	})
+
+	// Router for /updates
+	router.Route("/updates", func(router chi.Router) {
+		router.Post("/", updateMetricBulkJSON(stor))
+	})
+
+	// Routers for /ping
+	router.Get("/ping", ping(stor))
 
 	return router
 }

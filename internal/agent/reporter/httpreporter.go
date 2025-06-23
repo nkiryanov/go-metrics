@@ -4,103 +4,127 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"io"
 	"net/http"
-	"sync"
+	"time"
 
 	"github.com/nkiryanov/go-metrics/internal/logger"
 	"github.com/nkiryanov/go-metrics/internal/models"
 )
 
-var gzPool = sync.Pool{
-	New: func() interface{} { return gzip.NewWriter(io.Discard) },
+// Reporter error
+// Store additional data to introspect error cause
+type reportError struct {
+	err     error // original error
+	connErr bool  // wether HTTP connection error or something else
 }
 
+func (e *reportError) Error() string {
+	return fmt.Sprintf("%v", e.err)
+}
+
+func (e *reportError) Unwrap() error {
+	return e.err
+}
+
+func newReportErr(err error, connErr bool) *reportError {
+	return &reportError{err, connErr}
+}
+
+// Metrics reporter to HTTP server
 type HTTPReporter struct {
-	addr   string
-	client *http.Client
+	reportAddr     string
+	client         *http.Client
+	maxRetries     int
+	retryIntervals []time.Duration
 }
 
-func NewHTTPReporter(addr string, client *http.Client) *HTTPReporter {
+func NewHTTPReporter(reportAddr string, client *http.Client, retryIntervals []time.Duration) *HTTPReporter {
 	return &HTTPReporter{
-		addr:   addr,
-		client: client,
+		reportAddr:     reportAddr,
+		client:         client,
+		maxRetries:     len(retryIntervals),
+		retryIntervals: retryIntervals,
 	}
 }
 
-// Sends a gzip encoded single metric update
 // POST /{baseUrl}/update
-// If the request encounters an error, it is returned.
-func (rept *HTTPReporter) ReportOnce(m *models.Metric) error {
-	body := &bytes.Buffer{}
+func (reporter *HTTPReporter) ReportOnce(m models.Metric) error {
+	return reporter.postWithRetry("/update", m)
+}
 
-	// Get gzip writer from them pool
-	gz := gzPool.Get().(*gzip.Writer)
-	gz.Reset(body)
+// POST /{baseUrl}/update
+func (reporter *HTTPReporter) ReportBatch(metrics []models.Metric) error {
+	return reporter.postWithRetry("/updates", metrics)
+}
 
-	encoder := json.NewEncoder(gz)
-	if err := encoder.Encode(models.NewMetricJSON(m)); err != nil {
-		logger.Slog.Errorw("reporter: request error", "error", err.Error())
-		return err
+// POSTs data to url server as gzipped JSON
+func (reporter *HTTPReporter) post(url string, data any) error {
+	var body bytes.Buffer
+	var err error
+
+	gw := gzip.NewWriter(&body)
+
+	encoder := json.NewEncoder(gw)
+	err = encoder.Encode(data)
+	if err != nil {
+		logger.Slog.Errorw("error when marshaling json data", "error", err.Error(), "data", data)
+		return newReportErr(err, false)
 	}
 
-	// Make sure body is written completely and return writer to pool
-	gz.Close()
-	gzPool.Put(gz)
+	err = gw.Close()
+	if err != nil {
+		logger.Slog.Errorw("error when compressing data", "error", err.Error())
+		return newReportErr(err, false)
+	}
 
-	request, err := http.NewRequest(http.MethodPost, rept.addr+"/update", body)
+	request, err := http.NewRequest(http.MethodPost, reporter.reportAddr+url, &body)
 	if err != nil {
 		logger.Slog.Errorw("reporter: error when create request", "error", err.Error())
-		return err
+		return newReportErr(err, false)
 	}
 
 	request.Header.Set("Content-Encoding", "gzip")
 	request.Header.Set("Content-Type", "application/json")
 
-	resp, err := rept.client.Do(request)
+	resp, err := reporter.client.Do(request)
 	if err != nil {
 		logger.Slog.Errorw("reporter: http client error", "error", err.Error())
-		return err
+		return newReportErr(err, true)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() // nolint:errcheck
 
 	if status := resp.StatusCode; status != http.StatusOK {
-		logger.Slog.Errorw("reporter: server responds with not OK", "code", status, "body", resp.Body)
-		return fmt.Errorf("reporter: metric update error = %s", resp.Body)
+		logger.Slog.Errorw("reporter: server responds with not OK", "status", status, "body", resp.Body)
+		return newReportErr(err, false)
 	}
 
 	return nil
 }
 
-// ReportBatch sends concurrent metric update
-// POST /{baseUrl}/update
-// If errors while reporting occurred return one of them (randomly chosen)
-func (rept *HTTPReporter) ReportBatch(metrics []models.Metric) error {
-	var wg sync.WaitGroup
-	var once sync.Once
+// POSTs data to url server as gzipped JSON and retry if connection error occurs
+func (reporter *HTTPReporter) postWithRetry(url string, data any) error {
 	var err error
 
-	onceBody := func(e error) { err = e }
+	for attempt := 0; attempt <= reporter.maxRetries; attempt++ {
+		if attempt > 0 {
+			delay := reporter.retryIntervals[attempt-1]
+			logger.Slog.Infow("retrying request", "attempt", attempt, "delay", delay)
+			time.Sleep(delay)
+		}
 
-	for _, metric := range metrics {
-		wg.Add(1)
-		go func(m *models.Metric) {
-			defer wg.Done()
+		err = reporter.post(url, data)
 
-			if err := rept.ReportOnce(m); err != nil {
-				once.Do(func() {
-					onceBody(err)
-				})
-			}
-		}(&metric)
+		// Return if no error occurred or it's not connection error
+		var errReport *reportError
+		if err == nil || (errors.As(err, &errReport) && !errReport.connErr) {
+			return err
+		}
+
+		logger.Slog.Warnw("request connection error, retrying", "error", err, "attempt", attempt+1)
 	}
 
-	wg.Wait()
-
-	if err == nil {
-		logger.Slog.Infow("reporter: metrics updated", "count", len(metrics))
-	}
-
+	logger.Slog.Errorw("all retry attempts failed", "error", err, "attempts", reporter.maxRetries+1)
 	return err
 }

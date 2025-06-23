@@ -50,7 +50,7 @@ func TestLoggerMiddleware(t *testing.T) {
 		lgrHandler.ServeHTTP(w, r)
 
 		response := w.Result()
-		defer response.Body.Close()
+		defer response.Body.Close() // nolint:errcheck
 		require.Equal(t, http.StatusOK, response.StatusCode)
 		require.Equal(t, 1, recorded.Len())
 		logEntry := recorded.All()[0]
@@ -70,7 +70,7 @@ func TestGzipMiddleWare(t *testing.T) {
 		var buf bytes.Buffer
 		w := gzip.NewWriter(&buf)
 		_, _ = w.Write([]byte(data))
-		w.Close()
+		_ = w.Close()
 		return &buf
 	}
 
@@ -85,7 +85,7 @@ func TestGzipMiddleWare(t *testing.T) {
 		gzipHandler.ServeHTTP(w, r)
 
 		response := w.Result()
-		defer response.Body.Close()
+		defer response.Body.Close() // nolint:errcheck
 
 		body, err := io.ReadAll(response.Body)
 		require.NoError(t, err)
@@ -102,14 +102,14 @@ func TestGzipMiddleWare(t *testing.T) {
 		gzipHandler.ServeHTTP(w, r)
 
 		response := w.Result()
-		defer response.Body.Close()
+		defer response.Body.Close() // nolint:errcheck
 
 		require.Equal(t, "gzip", response.Header.Get("Content-Encoding"))
 
 		// Read and decompress body
 		gzipReader, err := gzip.NewReader(response.Body)
 		require.NoError(t, err)
-		defer gzipReader.Close()
+		defer gzipReader.Close() // nolint:errcheck
 
 		body, err := io.ReadAll(gzipReader)
 		require.NoError(t, err)

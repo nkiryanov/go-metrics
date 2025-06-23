@@ -14,5 +14,5 @@ type Capturer interface {
 	CaptureAndSave()
 
 	// Return last saved stats
-	Last() []models.Metric
+	ListLast() []models.Metric
 }

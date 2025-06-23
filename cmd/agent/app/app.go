@@ -13,19 +13,22 @@ import (
 var ErrAgentStopped = errors.New("agent: Agent stopped")
 
 type Agent struct {
-	PollIntv time.Duration
-	ReptIntv time.Duration
+	PollInterval   time.Duration
+	ReportInterval time.Duration
 
-	Rept reporter.Reporter
-	Capt capturer.Capturer
+	Reporter reporter.Reporter
+	Capturer capturer.Capturer
 }
 
 func (a *Agent) Run(ctx context.Context) error {
 	// create slice of all stored metrics and run report batch
-	reportFn := func() { _ = a.Rept.ReportBatch(a.Capt.Last()) }
+	reportFn := func() {
+		captured := a.Capturer.ListLast()
+		_ = a.Reporter.ReportBatch(captured)
+	}
 
-	go runner.NewIntvRunner(0, a.PollIntv).Run(ctx, a.Capt.CaptureAndSave)
-	go runner.NewIntvRunner(5*time.Second, a.ReptIntv).Run(ctx, reportFn)
+	go runner.NewIntvRunner(0, a.PollInterval).Run(ctx, a.Capturer.CaptureAndSave)
+	go runner.NewIntvRunner(5*time.Second, a.ReportInterval).Run(ctx, reportFn)
 
 	<-ctx.Done()
 	return ErrAgentStopped

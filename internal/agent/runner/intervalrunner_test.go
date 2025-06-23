@@ -26,7 +26,7 @@ func countFn() (w func(), r func() int) {
 	return
 }
 
-func TestRunner_IntvRunner(t *testing.T) {
+func TestRunner_IntervalRunner(t *testing.T) {
 	t.Run("stopped by context", func(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 300*time.Millisecond)
 		defer cancel()

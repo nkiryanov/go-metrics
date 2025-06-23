@@ -1,14 +1,15 @@
 package handlers
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/nkiryanov/go-metrics/internal/models"
-	"github.com/nkiryanov/go-metrics/internal/storage"
-	"github.com/nkiryanov/go-metrics/internal/storage/mocks"
+	"github.com/nkiryanov/go-metrics/internal/server/storage"
+	"github.com/nkiryanov/go-metrics/internal/server/storage/mocks"
 
 	"github.com/go-resty/resty/v2"
 	"github.com/stretchr/testify/assert"
@@ -61,8 +62,8 @@ func TestHandler_UpdateMetricPlain(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			mockedStorage := &mocks.StorageMock{UpdateMetricFunc: func(m *models.Metric) (models.Metric, error) {
-				var result = *m
+			mockedStorage := &mocks.StorageMock{UpdateMetricFunc: func(ctx context.Context, m models.Metric) (models.Metric, error) {
+				var result = m
 				return result, tc.storageUpdateErr
 			}}
 
@@ -86,8 +87,8 @@ func TestHandler_UpdateMetricPlain(t *testing.T) {
 
 func TestHandlers_UpdateMetricJSON(t *testing.T) {
 	t.Run("POST ok", func(t *testing.T) {
-		mockedStorage := &mocks.StorageMock{UpdateMetricFunc: func(m *models.Metric) (models.Metric, error) {
-			return *m, nil
+		mockedStorage := &mocks.StorageMock{UpdateMetricFunc: func(ctx context.Context, m models.Metric) (models.Metric, error) {
+			return m, nil
 		}}
 		router := NewMetricRouter(mockedStorage)
 		srv := httptest.NewServer(router)
@@ -107,15 +108,14 @@ func TestHandlers_UpdateMetricJSON(t *testing.T) {
 }
 
 func TestHandlers_GetMetricPlain(t *testing.T) {
-	cpuGauge := models.Metric{ID: "cpu-usage", MType: "gauge", Value: 23.23}
-	emptyCounter := models.Metric{ID: "mem-usage", MType: "counter"}
-	unknownMetric := models.Metric{ID: "mem-usage", MType: "unknown-type"}
+	cpuGauge := models.Metric{Name: "cpu-usage", Type: "gauge", Value: 23.23}
+	emptyCounter := models.Metric{Name: "mem-usage", Type: "counter"}
+	unknownMetric := models.Metric{Name: "mem-usage", Type: "unknown-type"}
 
 	tests := []struct {
 		name string
 
 		storReturnValue models.Metric
-		storReturnOk    bool
 		storReturnErr   error
 
 		method string
@@ -126,25 +126,25 @@ func TestHandlers_GetMetricPlain(t *testing.T) {
 	}{
 		{
 			"GET existed, ok",
-			cpuGauge, true, nil,
+			cpuGauge, nil,
 			http.MethodGet, "/value/gauge/cpu-usage",
 			http.StatusOK, "23.23",
 		},
 		{
 			"GET not existed, 404",
-			emptyCounter, false, nil,
+			emptyCounter, storage.ErrNoMetric,
 			http.MethodGet, "/value/counter/mem-usage",
 			http.StatusNotFound, "metric not found. type: counter, id: mem-usage",
 		},
 		{
 			"GET unknown type, 404",
-			unknownMetric, false, errors.New("storage error: unknown metric type"),
+			unknownMetric, storage.ErrNoMetric,
 			http.MethodGet, "/value/unknown-type/mem-usage",
-			http.StatusNotFound, "storage error: unknown metric type",
+			http.StatusNotFound, "metric not found. type: unknown-type, id: mem-usage",
 		},
 		{
 			"GET invalid url pattern, 404",
-			unknownMetric, true, nil,
+			unknownMetric, storage.ErrNoMetric,
 			http.MethodGet, "/value/co",
 			http.StatusNotFound, "404 page not found",
 		},
@@ -152,8 +152,8 @@ func TestHandlers_GetMetricPlain(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			mockedStorage := &mocks.StorageMock{GetMetricFunc: func(mID string, mType string) (models.Metric, bool, error) {
-				return tc.storReturnValue, tc.storReturnOk, tc.storReturnErr
+			mockedStorage := &mocks.StorageMock{GetMetricFunc: func(ctx context.Context, mType string, mName string) (models.Metric, error) {
+				return tc.storReturnValue, tc.storReturnErr
 			}}
 
 			router := NewMetricRouter(mockedStorage)
@@ -174,15 +174,13 @@ func TestHandlers_GetMetricPlain(t *testing.T) {
 }
 
 func TestHandlers_GetMetricJSON(t *testing.T) {
-	cpuGauge := models.Metric{ID: "cpu-usage", MType: "gauge", Value: 23.23}
-	emptyCounter := models.Metric{ID: "mem-usage", MType: "counter"}
-	unknownMetric := models.Metric{ID: "mem-usage", MType: "unknown-type"}
+	cpuGauge := models.Metric{Name: "cpu-usage", Type: "gauge", Value: 23.23}
+	emptyCounter := models.Metric{Name: "mem-usage", Type: "counter"}
 
 	tests := []struct {
 		name string
 
 		storReturnValue models.Metric
-		storReturnOk    bool
 		storReturnErr   error
 
 		method  string
@@ -193,28 +191,22 @@ func TestHandlers_GetMetricJSON(t *testing.T) {
 	}{
 		{
 			"GET existed, ok",
-			cpuGauge, true, nil,
+			cpuGauge, nil,
 			http.MethodGet, `{"id": "cpu-usage", "type": "gauge"}}`,
 			http.StatusOK, `{"id":"cpu-usage","type":"gauge","value":23.23}`,
 		},
 		{
 			"GET not existed, 404",
-			emptyCounter, false, nil,
+			emptyCounter, storage.ErrNoMetric,
 			http.MethodGet, `{"id": "mem-usage", "type": "counter"}}`,
 			http.StatusNotFound, "metric not found. type: counter, id: mem-usage",
-		},
-		{
-			"GET unknown type, 404",
-			unknownMetric, false, errors.New("storage error: unknown metric type"),
-			http.MethodGet, `{"id": "mem-usage", "type": "unknown-type"}}`,
-			http.StatusNotFound, "storage error: unknown metric type",
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			mockedStorage := &mocks.StorageMock{GetMetricFunc: func(mID string, mType string) (models.Metric, bool, error) {
-				return tc.storReturnValue, tc.storReturnOk, tc.storReturnErr
+			mockedStorage := &mocks.StorageMock{GetMetricFunc: func(ctx context.Context, mType string, mName string) (models.Metric, error) {
+				return tc.storReturnValue, tc.storReturnErr
 			}}
 
 			router := NewMetricRouter(mockedStorage)
@@ -237,12 +229,13 @@ func TestHandlers_GetMetricJSON(t *testing.T) {
 func TestHandlers_ListMetrics(t *testing.T) {
 	// Mocked storage; behave like it has 3 stored metrics.
 	mockedStorage := &mocks.StorageMock{
-		CountFunc: func() int { return 3 },
-		IterateFunc: func(iter storage.IterFunc) error {
-			_ = iter(models.Metric{ID: "foo", MType: models.CounterTypeName, Delta: 100})
-			_ = iter(models.Metric{ID: "bar", MType: models.CounterTypeName, Delta: 200})
-			_ = iter(models.Metric{ID: "mem-load", MType: models.GaugeTypeName, Value: 234.23})
-			return nil
+		CountMetricFunc: func(ctx context.Context) (int, error) { return 3, nil },
+		ListMetricFunc: func(ctx context.Context) ([]models.Metric, error) {
+			return []models.Metric{
+				{Type: models.CounterTypeName, Name: "bar", Delta: 200},
+				{Type: models.CounterTypeName, Name: "foo", Delta: 100},
+				{Type: models.GaugeTypeName, Name: "mem-load", Value: 234.23},
+			}, nil
 		},
 	}
 
@@ -283,4 +276,36 @@ func TestHandlers_ListMetrics(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestHandler_Ping(t *testing.T) {
+	t.Run("500 if ping fail", func(t *testing.T) {
+		mockedStorage := &mocks.StorageMock{
+			PingFunc: func(ctx context.Context) error { return errors.New("something terrible happened") },
+		}
+
+		router := NewMetricRouter(mockedStorage)
+		srv := httptest.NewServer(router)
+		defer srv.Close()
+
+		resp, err := resty.New().R().SetHeader("Accept-Encoding", "").Get(srv.URL + "/ping")
+
+		require.NoError(t, err)
+		assert.Equal(t, 500, resp.StatusCode())
+	})
+
+	t.Run("200 if ok", func(t *testing.T) {
+		mockedStorage := &mocks.StorageMock{
+			PingFunc: func(ctx context.Context) error { return nil },
+		}
+
+		router := NewMetricRouter(mockedStorage)
+		srv := httptest.NewServer(router)
+		defer srv.Close()
+
+		resp, err := resty.New().R().SetHeader("Accept-Encoding", "").Get(srv.URL + "/ping")
+
+		require.NoError(t, err)
+		assert.Equal(t, 200, resp.StatusCode())
+	})
 }
