@@ -6,6 +6,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/nkiryanov/go-metrics/internal/logger"
 	"github.com/nkiryanov/go-metrics/internal/models"
 	"github.com/nkiryanov/go-metrics/internal/server/storage"
 
@@ -18,7 +19,7 @@ import (
 func newInMemory(t *testing.T) *MemStorage {
 	t.Helper()
 
-	storage, err := New("", 0, false)
+	storage, err := New("", 0, false, logger.NewNoOpLogger())
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		err := storage.Close()
@@ -40,7 +41,7 @@ func newPersistentSync(t *testing.T) (*MemStorage, string) {
 	filename := tmpFile.Name()
 	t.Cleanup(func() { _ = os.Remove(filename) })
 
-	storage, err := New(filename, 0, false)
+	storage, err := New(filename, 0, false, logger.NewNoOpLogger())
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		err := storage.Close()

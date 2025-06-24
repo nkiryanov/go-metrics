@@ -15,6 +15,7 @@ import (
 
 // MemStorage implements storage interface with in-memory metrics and optional file persistence
 type MemStorage struct {
+	lgr logger.Logger
 	// Metric storages
 	counters map[string]int64
 	gauges   map[string]float64
@@ -31,7 +32,7 @@ type MemStorage struct {
 // New creates a MemStorage instance, optionally with file persistence.
 // If filename is provided, metrics will be saved at specified saveInterval (0 = synchronous saves)
 // If filename, saveInterval, restore is empty then create in memory only storage
-func New(filename string, saveInterval time.Duration, restore bool) (*MemStorage, error) {
+func New(filename string, saveInterval time.Duration, restore bool, lgr logger.Logger) (*MemStorage, error) {
 	if filename == "" && (saveInterval != 0 || restore) {
 		return nil, errors.New("can't create in-memory only storage, cause one New args not empty")
 	}
@@ -52,6 +53,7 @@ func New(filename string, saveInterval time.Duration, restore bool) (*MemStorage
 		file:         file,
 		saveInterval: saveInterval,
 		stopCh:       make(chan struct{}),
+		lgr:          lgr,
 	}
 
 	if restore {
@@ -133,7 +135,7 @@ func (s *MemStorage) UpdateMetric(_ context.Context, in models.Metric) (models.M
 	if s.saveInterval == 0 {
 		err := s.saveToFile()
 		if err != nil {
-			logger.Slog.Errorw("metrics saving failed", "error", err.Error())
+			s.lgr.Error("metrics saving failed", "error", err.Error())
 			return metric, err
 		}
 	}
@@ -182,7 +184,7 @@ func (s *MemStorage) UpdateMetricBulk(_ context.Context, metrics []models.Metric
 	if s.saveInterval == 0 {
 		err = s.saveToFile()
 		if err != nil {
-			logger.Slog.Errorw("metrics saving failed", "error", err.Error())
+			s.lgr.Error("metrics saving failed", "error", err.Error())
 			return updated, err
 		}
 	}

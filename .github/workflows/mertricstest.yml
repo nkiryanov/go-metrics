@@ -4,20 +4,7 @@ on:
   pull_request:
     branches:
       - main
-      - iter1
-      - iter2
-      - iter3
-      - iter4
-      - iter5
-      - iter6
-      - iter7
-      - iter8
-      - iter9
-      - iter10
-      - iter11
-      - iter12
-      - iter13
-      - iter14
+      - 'iter*'
   push:
     branches:
       - main
@@ -55,6 +42,20 @@ jobs:
           --health-retries 5
 
     steps:
+      - name: Extract ITER number
+        id: extract_iter
+        shell: bash
+        run: |
+          REF="${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}"
+          echo "Processing branch: $REF"
+          if [[ "$REF" =~ ^iter([0-9]+) ]]; then
+            ITER_NUM="${BASH_REMATCH[1]}"
+          else
+            ITER_NUM=0
+          fi
+          echo "ITER_NUM=$ITER_NUM" >> $GITHUB_ENV
+          echo "Resolved ITER_NUM=$ITER_NUM"
+
       - name: Checkout code
         uses: actions/checkout@v4
 
@@ -86,20 +87,7 @@ jobs:
       - name: "Code increment #1"
         if: |
           github.ref == 'refs/heads/main' ||
-          startsWith(github.head_ref, 'iter1') ||
-          startsWith(github.head_ref, 'iter2') ||
-          startsWith(github.head_ref, 'iter3') ||
-          startsWith(github.head_ref, 'iter4') ||
-          startsWith(github.head_ref, 'iter5') ||
-          startsWith(github.head_ref, 'iter6') ||
-          startsWith(github.head_ref, 'iter7') ||
-          startsWith(github.head_ref, 'iter8') ||
-          startsWith(github.head_ref, 'iter9') ||
-          startsWith(github.head_ref, 'iter10') ||
-          startsWith(github.head_ref, 'iter11') ||
-          startsWith(github.head_ref, 'iter12') ||
-          startsWith(github.head_ref, 'iter13') ||
-          startsWith(github.head_ref, 'iter14')
+          (env.ITER_NUM != '0' && fromJSON(env.ITER_NUM) >= 1)
         run: |
           metricstest -test.v -test.run=^TestIteration1$ \
             -binary-path=cmd/server/server
@@ -112,19 +100,7 @@ jobs:
       - name: "Code increment #2"
         if: |
           github.ref == 'refs/heads/main' ||
-          startsWith(github.head_ref, 'iter2') ||
-          startsWith(github.head_ref, 'iter3') ||
-          startsWith(github.head_ref, 'iter4') ||
-          startsWith(github.head_ref, 'iter5') ||
-          startsWith(github.head_ref, 'iter6') ||
-          startsWith(github.head_ref, 'iter7') ||
-          startsWith(github.head_ref, 'iter8') ||
-          startsWith(github.head_ref, 'iter9') ||
-          startsWith(github.head_ref, 'iter10') ||
-          startsWith(github.head_ref, 'iter11') ||
-          startsWith(github.head_ref, 'iter12') ||
-          startsWith(github.head_ref, 'iter13') ||
-          startsWith(github.head_ref, 'iter14')
+          (env.ITER_NUM != '0' && fromJSON(env.ITER_NUM) >= 2)
         run: |
           metricstest -test.v -test.run=^TestIteration2[AB]*$ \
             -source-path=. \
@@ -133,18 +109,7 @@ jobs:
       - name: "Code increment #3"
         if: |
           github.ref == 'refs/heads/main' ||
-          startsWith(github.head_ref, 'iter3') ||
-          startsWith(github.head_ref, 'iter4') ||
-          startsWith(github.head_ref, 'iter5') ||
-          startsWith(github.head_ref, 'iter6') ||
-          startsWith(github.head_ref, 'iter7') ||
-          startsWith(github.head_ref, 'iter8') ||
-          startsWith(github.head_ref, 'iter9') ||
-          startsWith(github.head_ref, 'iter10') ||
-          startsWith(github.head_ref, 'iter11') ||
-          startsWith(github.head_ref, 'iter12') ||
-          startsWith(github.head_ref, 'iter13') ||
-          startsWith(github.head_ref, 'iter14')
+          (env.ITER_NUM != '0' && fromJSON(env.ITER_NUM) >= 3)
         run: |
           metricstest -test.v -test.run=^TestIteration3[AB]*$ \
             -source-path=. \
@@ -154,17 +119,7 @@ jobs:
       - name: "Code increment #4"
         if: |
           github.ref == 'refs/heads/main' ||
-          startsWith(github.head_ref, 'iter4') ||
-          startsWith(github.head_ref, 'iter5') ||
-          startsWith(github.head_ref, 'iter6') ||
-          startsWith(github.head_ref, 'iter7') ||
-          startsWith(github.head_ref, 'iter8') ||
-          startsWith(github.head_ref, 'iter9') ||
-          startsWith(github.head_ref, 'iter10') ||
-          startsWith(github.head_ref, 'iter11') ||
-          startsWith(github.head_ref, 'iter12') ||
-          startsWith(github.head_ref, 'iter13') ||
-          startsWith(github.head_ref, 'iter14')
+          (env.ITER_NUM != '0' && fromJSON(env.ITER_NUM) >= 4)
         run: |
           SERVER_PORT=$(random unused-port)
           ADDRESS="localhost:${SERVER_PORT}"
@@ -178,16 +133,7 @@ jobs:
       - name: "Code increment #5"
         if: |
           github.ref == 'refs/heads/main' ||
-          startsWith(github.head_ref, 'iter5') ||
-          startsWith(github.head_ref, 'iter6') ||
-          startsWith(github.head_ref, 'iter7') ||
-          startsWith(github.head_ref, 'iter8') ||
-          startsWith(github.head_ref, 'iter9') ||
-          startsWith(github.head_ref, 'iter10') ||
-          startsWith(github.head_ref, 'iter11') ||
-          startsWith(github.head_ref, 'iter12') ||
-          startsWith(github.head_ref, 'iter13') ||
-          startsWith(github.head_ref, 'iter14')
+          (env.ITER_NUM != '0' && fromJSON(env.ITER_NUM) >= 5)
         run: |
           SERVER_PORT=$(random unused-port)
           ADDRESS="localhost:${SERVER_PORT}"
@@ -201,15 +147,7 @@ jobs:
       - name: "Code increment #6"
         if: |
           github.ref == 'refs/heads/main' ||
-          startsWith(github.head_ref, 'iter6') ||
-          startsWith(github.head_ref, 'iter7') ||
-          startsWith(github.head_ref, 'iter8') ||
-          startsWith(github.head_ref, 'iter9') ||
-          startsWith(github.head_ref, 'iter10') ||
-          startsWith(github.head_ref, 'iter11') ||
-          startsWith(github.head_ref, 'iter12') ||
-          startsWith(github.head_ref, 'iter13') ||
-          startsWith(github.head_ref, 'iter14')
+          (env.ITER_NUM != '0' && fromJSON(env.ITER_NUM) >= 6)
         run: |
           SERVER_PORT=$(random unused-port)
           ADDRESS="localhost:${SERVER_PORT}"
@@ -223,14 +161,7 @@ jobs:
       - name: "Code increment #7"
         if: |
           github.ref == 'refs/heads/main' ||
-          startsWith(github.head_ref, 'iter7') ||
-          startsWith(github.head_ref, 'iter8') ||
-          startsWith(github.head_ref, 'iter9') ||
-          startsWith(github.head_ref, 'iter10') ||
-          startsWith(github.head_ref, 'iter11') ||
-          startsWith(github.head_ref, 'iter12') ||
-          startsWith(github.head_ref, 'iter13') ||
-          startsWith(github.head_ref, 'iter14')
+          (env.ITER_NUM != '0' && fromJSON(env.ITER_NUM) >= 7)
         run: |
           SERVER_PORT=$(random unused-port)
           ADDRESS="localhost:${SERVER_PORT}"
@@ -244,13 +175,7 @@ jobs:
       - name: "Code increment #8"
         if: |
           github.ref == 'refs/heads/main' ||
-          startsWith(github.head_ref, 'iter8') ||
-          startsWith(github.head_ref, 'iter9') ||
-          startsWith(github.head_ref, 'iter10') ||
-          startsWith(github.head_ref, 'iter11') ||
-          startsWith(github.head_ref, 'iter12') ||
-          startsWith(github.head_ref, 'iter13') ||
-          startsWith(github.head_ref, 'iter14')
+          (env.ITER_NUM != '0' && fromJSON(env.ITER_NUM) >= 8)
         run: |
           SERVER_PORT=$(random unused-port)
           ADDRESS="localhost:${SERVER_PORT}"
@@ -264,12 +189,7 @@ jobs:
       - name: "Code increment #9"
         if: |
           github.ref == 'refs/heads/main' ||
-          startsWith(github.head_ref, 'iter9') ||
-          startsWith(github.head_ref, 'iter10') ||
-          startsWith(github.head_ref, 'iter11') ||
-          startsWith(github.head_ref, 'iter12') ||
-          startsWith(github.head_ref, 'iter13') ||
-          startsWith(github.head_ref, 'iter14')
+          (env.ITER_NUM != '0' && fromJSON(env.ITER_NUM) >= 9)
         run: |
           SERVER_PORT=$(random unused-port)
           ADDRESS="localhost:${SERVER_PORT}"
@@ -284,11 +204,7 @@ jobs:
       - name: "Code increment #10"
         if: |
           github.ref == 'refs/heads/main' ||
-          startsWith(github.head_ref, 'iter10') ||
-          startsWith(github.head_ref, 'iter11') ||
-          startsWith(github.head_ref, 'iter12') ||
-          startsWith(github.head_ref, 'iter13') ||
-          startsWith(github.head_ref, 'iter14')
+          (env.ITER_NUM != '0' && fromJSON(env.ITER_NUM) >= 10)
         run: |
           SERVER_PORT=$(random unused-port)
           ADDRESS="localhost:${SERVER_PORT}"
@@ -303,10 +219,7 @@ jobs:
       - name: "Code increment #11"
         if: |
           github.ref == 'refs/heads/main' ||
-          startsWith(github.head_ref, 'iter11') ||
-          startsWith(github.head_ref, 'iter12') ||
-          startsWith(github.head_ref, 'iter13') ||
-          startsWith(github.head_ref, 'iter14')
+          (env.ITER_NUM != '0' && fromJSON(env.ITER_NUM) >= 11)
         run: |
           SERVER_PORT=$(random unused-port)
           ADDRESS="localhost:${SERVER_PORT}"
@@ -321,9 +234,7 @@ jobs:
       - name: "Code increment #12"
         if: |
           github.ref == 'refs/heads/main' ||
-          startsWith(github.head_ref, 'iter12') ||
-          startsWith(github.head_ref, 'iter13') ||
-          startsWith(github.head_ref, 'iter14')
+          (env.ITER_NUM != '0' && fromJSON(env.ITER_NUM) >= 12)
         run: |
           SERVER_PORT=$(random unused-port)
           ADDRESS="localhost:${SERVER_PORT}"
@@ -338,8 +249,7 @@ jobs:
       - name: "Code increment #13"
         if: |
           github.ref == 'refs/heads/main' ||
-          startsWith(github.head_ref, 'iter13') ||
-          startsWith(github.head_ref, 'iter14')
+          (env.ITER_NUM != '0' && fromJSON(env.ITER_NUM) >= 13)
         run: |
           SERVER_PORT=$(random unused-port)
           ADDRESS="localhost:${SERVER_PORT}"
@@ -354,7 +264,7 @@ jobs:
       - name: "Code increment #14"
         if: |
           github.ref == 'refs/heads/main' ||
-          startsWith(github.head_ref, 'iter14')
+          (env.ITER_NUM != '0' && fromJSON(env.ITER_NUM) >= 14)
         run: |
           SERVER_PORT=$(random unused-port)
           ADDRESS="localhost:${SERVER_PORT}"
@@ -370,6 +280,6 @@ jobs:
       - name: "Code increment #14 (race detection)"
         if: |
           github.ref == 'refs/heads/main' ||
-          startsWith(github.head_ref, 'iter14')
+          (env.ITER_NUM != '0' && fromJSON(env.ITER_NUM) >= 14)
         run: |
           go test -v -race ./...

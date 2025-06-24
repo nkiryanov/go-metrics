@@ -50,22 +50,18 @@ func run() error {
 	}
 	opts.Parse()
 
-	// Initialize logger
-	if err := logger.Initialize(opts.LogLevel); err != nil {
-		return fmt.Errorf("logger could not be initialized: %w", err)
-	}
-
+	lgr := logger.NewLogger(opts.LogLevel)
 	ctx := context.Background()
 
 	// Initialize storage
-	s, cancelFn, err := initStorage(ctx, opts)
+	s, cancelFn, err := initStorage(ctx, opts, lgr)
 	if err != nil {
 		return fmt.Errorf("storage initialization failed: %w", err)
 	}
 	defer func() {
 		err := cancelFn()
 		if err != nil {
-			logger.Slog.Error("Failed to cleanup storage", "error", err.Error())
+			lgr.Error("Failed to cleanup storage", "error", err.Error())
 		}
 	}()
 
@@ -77,12 +73,12 @@ func run() error {
 		stop := make(chan os.Signal, 1)
 		signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 		<-stop
-		logger.Slog.Warn("Interrupt signal")
+		lgr.Warn("Interrupt signal")
 		cancel()
 	}()
 
 	// Run server
-	srv := app.New(opts.ListenAddr, handlers.NewMetricRouter(s, opts.SecretKey))
+	srv := app.New(opts.ListenAddr, handlers.NewMetricRouter(s, lgr, opts.SecretKey), lgr)
 	if err := srv.Run(ctx); err != http.ErrServerClosed {
 		return fmt.Errorf("HTTP server error: %w", err)
 	}
@@ -93,7 +89,7 @@ func run() error {
 // Initializes storage based on configuration.
 // Returns PostgreSQL storage if DSN is provided, otherwise returns memory storage with optional file persistence.
 // The returned cancelFunc must be called to properly cleanup resources.
-func initStorage(ctx context.Context, opts *opts.Options) (s storage.Storage, cancelFunc func() error, err error) {
+func initStorage(ctx context.Context, opts *opts.Options, lgr logger.Logger) (s storage.Storage, cancelFunc func() error, err error) {
 	switch {
 	case opts.DatabaseDsn != "":
 		dbpool, err := db.ConnectAndMigrate(ctx, opts.DatabaseDsn)
@@ -108,7 +104,7 @@ func initStorage(ctx context.Context, opts *opts.Options) (s storage.Storage, ca
 		}
 		return pgs, cancelFn, nil
 	default:
-		mems, err := memstorage.New(opts.DataFilePath, opts.SaveInterval, opts.RestoreOnStart)
+		mems, err := memstorage.New(opts.DataFilePath, opts.SaveInterval, opts.RestoreOnStart, lgr)
 		if err != nil {
 			return nil, nil, err
 		}
