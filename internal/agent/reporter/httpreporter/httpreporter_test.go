@@ -1,4 +1,4 @@
-package reporter
+package httpreporter
 
 import (
 	"bytes"
@@ -25,7 +25,7 @@ func decompress(buf *bytes.Buffer) string {
 }
 
 func TestHTTPReporter_post(t *testing.T) {
-	reporter := NewHTTPReporter("http://test.server", &http.Client{}, nil)
+	reporter := New("http://test.server", &http.Client{}, nil, "VeryStrongKey")
 	metric := models.Metric{Name: "test", Type: "counter", Delta: 1} // Any valid metric should ok
 
 	httpmock.ActivateNonDefault(reporter.client)
@@ -90,6 +90,7 @@ func TestHTTPReporter_post(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, "gzip", capturedHeaders.Get("Content-Encoding"))
 		assert.Equal(t, "application/json", capturedHeaders.Get("Content-Type"))
+		assert.Equal(t, "68be31a7200fefad750239b08fe714dbbdca20324bf51b47148fcd16e8198105", capturedHeaders.Get("HashSHA256")) // computed hmac of body
 
 		expectedJSON := `{"id":"test","type":"counter","delta":1}`
 		assert.JSONEq(t, expectedJSON, decompress(capturedBody))
@@ -97,13 +98,14 @@ func TestHTTPReporter_post(t *testing.T) {
 }
 
 func TestHTTPReporter_postWithRetry(t *testing.T) {
-	reporter := NewHTTPReporter(
+	reporter := New(
 		"http://test.server",
 		&http.Client{},
 		[]time.Duration{ // Two retries max
 			100 * time.Millisecond,
 			200 * time.Millisecond,
 		},
+		"",
 	)
 	httpmock.ActivateNonDefault(reporter.client)
 	t.Cleanup(httpmock.DeactivateAndReset)
@@ -170,7 +172,7 @@ func TestHTTPReporter_postWithRetry(t *testing.T) {
 }
 
 func TestHTTPReporter_Smoke(t *testing.T) {
-	reporter := NewHTTPReporter("http://pornhub.com", &http.Client{}, nil)
+	reporter := New("http://pornhub.com", &http.Client{}, nil, "")
 	httpmock.ActivateNonDefault(reporter.client)
 	t.Cleanup(httpmock.DeactivateAndReset)
 

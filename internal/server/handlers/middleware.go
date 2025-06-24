@@ -1,7 +1,11 @@
 package handlers
 
 import (
+	"bytes"
 	"compress/gzip"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"io"
 	"net/http"
 	"strings"
@@ -10,25 +14,25 @@ import (
 	"github.com/nkiryanov/go-metrics/internal/logger"
 )
 
-type responseData struct {
-	status int
-	size   int
+type loggedData struct {
+	responseStatus int
+	responseSize   int
 }
 
 type loggingResponseWriter struct {
 	http.ResponseWriter
-	responseData responseData
+	loggedData loggedData
 }
 
-func (r *loggingResponseWriter) Write(b []byte) (int, error) {
-	size, err := r.ResponseWriter.Write(b)
-	r.responseData.size += size
+func (w *loggingResponseWriter) Write(b []byte) (int, error) {
+	size, err := w.ResponseWriter.Write(b)
+	w.loggedData.responseSize += size
 	return size, err
 }
 
-func (r *loggingResponseWriter) WriteHeader(statusCode int) {
-	r.ResponseWriter.WriteHeader(statusCode)
-	r.responseData.status = statusCode
+func (w *loggingResponseWriter) WriteHeader(statusCode int) {
+	w.ResponseWriter.WriteHeader(statusCode)
+	w.loggedData.responseStatus = statusCode
 }
 
 func LoggerMiddleware(next http.Handler) http.Handler {
@@ -37,7 +41,7 @@ func LoggerMiddleware(next http.Handler) http.Handler {
 
 		lw := loggingResponseWriter{
 			ResponseWriter: w,
-			responseData:   responseData{status: 200, size: 0},
+			loggedData:     loggedData{responseStatus: 200, responseSize: 0},
 		}
 
 		next.ServeHTTP(&lw, r)
@@ -47,69 +51,69 @@ func LoggerMiddleware(next http.Handler) http.Handler {
 			"method", r.Method,
 			"uri", r.RequestURI,
 			"duration", time.Since(start),
-			"status", lw.responseData.status,
-			"size", lw.responseData.size,
+			"status", lw.loggedData.responseStatus,
+			"size", lw.loggedData.responseSize,
 		)
 	})
 }
 
 type compressWriter struct {
 	w  http.ResponseWriter
-	cw *gzip.Writer
+	gw *gzip.Writer
 }
 
 func newCompressWriter(w http.ResponseWriter) *compressWriter {
 	return &compressWriter{
 		w:  w,
-		cw: gzip.NewWriter(w),
+		gw: gzip.NewWriter(w),
 	}
 }
 
-func (c *compressWriter) Header() http.Header {
-	return c.w.Header()
+func (cw *compressWriter) Header() http.Header {
+	return cw.w.Header()
 }
 
-func (c *compressWriter) Write(b []byte) (int, error) {
-	return c.cw.Write(b)
+func (cw *compressWriter) Write(b []byte) (int, error) {
+	return cw.gw.Write(b)
 }
 
-func (c *compressWriter) WriteHeader(statusCode int) {
-	c.w.Header().Set("Content-Encoding", "gzip")
-	c.w.WriteHeader(statusCode)
+func (cw *compressWriter) WriteHeader(statusCode int) {
+	cw.w.Header().Set("Content-Encoding", "gzip")
+	cw.w.WriteHeader(statusCode)
 }
 
-func (c *compressWriter) Close() error {
-	return c.cw.Close()
+func (cw *compressWriter) Close() error {
+	return cw.gw.Close()
 }
 
 type compressReader struct {
 	r  io.ReadCloser
-	cr *gzip.Reader
+	gr *gzip.Reader
 }
 
 func newCompressReader(r io.ReadCloser) (*compressReader, error) {
-	cr, err := gzip.NewReader(r)
+	gr, err := gzip.NewReader(r)
 	if err != nil {
 		return nil, err
 	}
 
 	return &compressReader{
 		r:  r,
-		cr: cr,
+		gr: gr,
 	}, nil
 }
 
-func (c *compressReader) Read(b []byte) (int, error) {
-	return c.cr.Read(b)
+func (cr *compressReader) Read(b []byte) (int, error) {
+	return cr.gr.Read(b)
 }
 
-func (c *compressReader) Close() error {
-	if err := c.r.Close(); err != nil {
-		_ = c.cr.Close()
+func (cr *compressReader) Close() error {
+	if err := cr.r.Close(); err != nil {
+		_ = cr.gr.Close()
 		return err
 	}
 
-	return c.cr.Close()
+	return cr.gr.Close()
 }
 
 // Naive implementation. Prefer chi.Compressor middleware instead
@@ -138,4 +142,95 @@ func GzipMiddleware(next http.Handler) http.Handler {
 
 		next.ServeHTTP(w, r)
 	})
+}
+
+// Capture Write calls and store content to internal 'body' buffer: it is required to calculate HMAC value
+// Capture WriteHeaders calls and store at internal 'statusCode'. It has to be done to not write send headers before HMAC calculated and added to Headers
+// Release() method calculate HMAC for the entire body and call WriteHeader and Write methods accordingly
+type hmacWriter struct {
+	w          http.ResponseWriter
+	body       *bytes.Buffer
+	statusCode int
+}
+
+func (hw *hmacWriter) Header() http.Header {
+	return hw.w.Header()
+}
+
+// Capture all the data to internal buffer
+func (hw *hmacWriter) Write(p []byte) (int, error) {
+	return hw.body.Write(p)
+}
+
+// Capture status code to internal buffer
+func (hw *hmacWriter) WriteHeader(statusCode int) {
+	hw.statusCode = statusCode
+}
+
+func (hw *hmacWriter) Release(secretKey []byte) {
+	// Calculate HMAC header
+	h := hmac.New(sha256.New, secretKey)
+	_, err := h.Write(hw.body.Bytes())
+	if err != nil {
+		logger.Slog.Error("HMAC message signing failed", "error", err)
+	} else {
+		hw.Header().Set("HashSHA256", hex.EncodeToString(h.Sum(nil)))
+	}
+
+	// Write captured data to internal writer
+	hw.w.WriteHeader(hw.statusCode)
+	_, err = hw.w.Write(hw.body.Bytes())
+
+	if err != nil {
+		logger.Slog.Error("write response error", "error", err.Error())
+		http.Error(hw.w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
+func HmacSHA256Middleware(secretKey string) func(http.Handler) http.Handler {
+	if secretKey == "" {
+		// Noop middleware: just call next middleware
+		return func(next http.Handler) http.Handler {
+			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				next.ServeHTTP(w, r)
+			})
+		}
+	}
+
+	key := []byte(secretKey)
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// All responses has to be signed. Replace writer with HMAC Writer
+			hmacw := &hmacWriter{w: w, body: &bytes.Buffer{}}
+			defer hmacw.Release(key)
+
+			// If HashSHA256 is set then HMAC for request must be calculated and verified
+			if expectedMac := r.Header.Get("HashSHA256"); expectedMac != "" {
+				// Read entire body to buffer for HMAC calculation
+				// Also replace request's body with copy of the read body
+				buf, err := io.ReadAll(r.Body)
+				if err != nil {
+					http.Error(hmacw, "invalid body", http.StatusBadRequest)
+					return
+				}
+				_ = r.Body.Close()
+				r.Body = io.NopCloser(bytes.NewReader(buf))
+
+				// Verify HMAC signature
+				h := hmac.New(sha256.New, key)
+				_, err = h.Write(buf)
+				if err != nil {
+					http.Error(hmacw, err.Error(), http.StatusInternalServerError)
+				}
+				actualMac := hex.EncodeToString(h.Sum(nil))
+				if !hmac.Equal([]byte(expectedMac), []byte(actualMac)) {
+					http.Error(hmacw, "message not authorized", http.StatusBadRequest)
+					return
+				}
+			}
+
+			next.ServeHTTP(hmacw, r)
+		})
+	}
 }

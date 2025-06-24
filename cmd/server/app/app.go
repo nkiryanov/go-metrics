@@ -13,6 +13,13 @@ type ServerApp struct {
 	Handler    http.Handler
 }
 
+func New(listenAddr string, handler http.Handler) *ServerApp {
+	return &ServerApp{
+		ListenAddr: listenAddr,
+		Handler:    handler,
+	}
+}
+
 // Run starts http server and closes gracefully on context cancellation
 func (s *ServerApp) Run(ctx context.Context) error {
 	logger.Slog.Infow("Starting server", "ListenAddr", s.ListenAddr)

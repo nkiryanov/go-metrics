@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/nkiryanov/go-metrics/internal/agent/capturer"
-	"github.com/nkiryanov/go-metrics/internal/agent/reporter"
+	"github.com/nkiryanov/go-metrics/internal/agent/reporter/httpreporter"
 	"github.com/nkiryanov/go-metrics/internal/logger"
 
 	"github.com/nkiryanov/go-metrics/cmd/agent/app"
@@ -18,17 +18,21 @@ import (
 )
 
 const (
-	ReptAddr = "http://localhost:8080"
+	ReportAddr = "http://localhost:8080"
 
-	PollIntv = 2 * time.Second
-	ReptIntv = 10 * time.Second
+	PollInterval   = 2 * time.Second
+	ReportInterval = 10 * time.Second
+	LogLevel       = "info"
+	SecretKey      = ""
 )
 
 func main() {
 	opts := &opts.Options{
-		ReptAddr: ReptAddr,
-		PollIntv: PollIntv,
-		ReptIntv: ReptIntv,
+		ReportAddr:     ReportAddr,
+		PollInterval:   PollInterval,
+		ReportInterval: ReportInterval,
+		LogLevel:       LogLevel,
+		SecretKey:      SecretKey,
 	}
 	opts.Parse()
 
@@ -46,13 +50,14 @@ func main() {
 	}()
 
 	agent := &app.Agent{
-		PollInterval:   opts.PollIntv,
-		ReportInterval: opts.ReptIntv,
+		PollInterval:   opts.PollInterval,
+		ReportInterval: opts.ReportInterval,
 
-		Reporter: reporter.NewHTTPReporter(
-			opts.ReptAddr,
+		Reporter: httpreporter.New(
+			opts.ReportAddr,
 			&http.Client{},
 			[]time.Duration{time.Second, 3 * time.Second, 5 * time.Second},
+			opts.SecretKey,
 		),
 		Capturer: capturer.NewMemCapturer(),
 	}

@@ -12,19 +12,21 @@ import (
 )
 
 type Options struct {
-	ReptAddr string
-	LogLevel string
+	ReportAddr string
+	LogLevel   string
 
-	PollIntv time.Duration
-	ReptIntv time.Duration
+	PollInterval   time.Duration
+	ReportInterval time.Duration
+	SecretKey      string
 }
 
 func (opts *Options) Parse() {
-	flag.Func("a", "report address in format http://reports.com", parseReptAddr(&opts.ReptAddr))
-	flag.Func("p", "capturer polling interval (in seconds by default). Should be positive number like: 10 or 10s or 1m.", parseIntv(&opts.PollIntv))
-	flag.Func("r", "report interval (in seconds by default). Should be positive number like: 10 or 10s or 1m.", parseIntv(&opts.ReptIntv))
+	flag.Func("a", "report address in format http://reports.com", parseReportAddr(&opts.ReportAddr))
+	flag.Func("p", "capturer polling interval (in seconds by default). Should be positive number like: 10 or 10s or 1m.", parseInterval(&opts.PollInterval))
+	flag.Func("r", "report interval (in seconds by default). Should be positive number like: 10 or 10s or 1m.", parseInterval(&opts.ReportInterval))
 
-	flag.StringVar(&opts.LogLevel, "l", "info", "log level like info, debug, error, etc.")
+	flag.StringVar(&opts.LogLevel, "l", opts.LogLevel, "log level like info, debug, error, etc.")
+	flag.StringVar(&opts.SecretKey, "k", opts.SecretKey, "secret key to sign reported metrics")
 
 	flag.Parse()
 
@@ -33,10 +35,11 @@ func (opts *Options) Parse() {
 
 func (opts *Options) parseEnv() {
 	envMap := map[string]func(string) error{
-		"ADDRESS":         parseReptAddr(&opts.ReptAddr),
-		"REPORT_INTERVAL": parseIntv(&opts.ReptIntv),
-		"POLL_INTERVAL":   parseIntv(&opts.PollIntv),
+		"ADDRESS":         parseReportAddr(&opts.ReportAddr),
+		"REPORT_INTERVAL": parseInterval(&opts.ReportInterval),
+		"POLL_INTERVAL":   parseInterval(&opts.PollInterval),
 		"LOG_LEVEL":       func(value string) error { opts.LogLevel = value; return nil },
+		"KEY":             func(value string) error { opts.SecretKey = value; return nil },
 	}
 
 	for key, parseFn := range envMap {
@@ -51,7 +54,7 @@ func (opts *Options) parseEnv() {
 }
 
 // Return a func to parse and set value for ReportAddr
-func parseReptAddr(ra *string) func(string) error {
+func parseReportAddr(ra *string) func(string) error {
 	return func(flagValue string) error {
 		// ReptAddr has to have scheme. Add it manually if not set (cause weird tests use that)
 		if !strings.Contains(flagValue, "://") {
@@ -71,7 +74,7 @@ func parseReptAddr(ra *string) func(string) error {
 
 // Parse interval to time.Duration
 // The behavior is the same as time.Duration, but if units not specified than 'seconds' is used.
-func parseIntv(intv *time.Duration) func(string) error {
+func parseInterval(intv *time.Duration) func(string) error {
 	return func(flagValue string) error {
 		// If no suffix add 's'
 		if _, err := strconv.Atoi(flagValue); err == nil {

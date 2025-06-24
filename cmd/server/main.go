@@ -81,12 +81,8 @@ func run() error {
 		cancel()
 	}()
 
-	// Initialize and run web server
-	srv := &app.ServerApp{
-		ListenAddr: opts.ListenAddr,
-		Handler:    handlers.NewMetricRouter(s),
-	}
-
+	// Run server
+	srv := app.New(opts.ListenAddr, handlers.NewMetricRouter(s, opts.SecretKey))
 	if err := srv.Run(ctx); err != http.ErrServerClosed {
 		return fmt.Errorf("HTTP server error: %w", err)
 	}
