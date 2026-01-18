@@ -97,3 +97,12 @@ func TestMemStatsCollector(t *testing.T) {
 		assert.Len(t, got, len(expectedStatNames))
 	})
 }
+
+func Benchmark_StatsCollector(b *testing.B) {
+	collector := New()
+
+	for b.Loop() {
+		_ = collector.Collect(b.Context())
+	}
+
+}
