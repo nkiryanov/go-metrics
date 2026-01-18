@@ -4,30 +4,15 @@ on:
   pull_request:
     branches:
       - main
-      - 'iter*'
   push:
     branches:
       - main
 
 jobs:
 
-  branchtest:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Check branch name
-        run: |
-          if [[ ! $GITHUB_HEAD_REF =~ ^iter[0-9]+.*$ ]] && [[ ${{ github.ref }} != "refs/heads/main" ]]; then
-            echo "Branch name must match start with 'iter<number>' or be 'main'"
-            echo "Detected branch: ${GITHUB_HEAD_REF}"
-            exit 1
-          fi
-          echo "Branch OK: ${GITHUB_HEAD_REF}"
-
   metricstest:
     runs-on: ubuntu-latest
-    container: golang:1.24
-    needs: branchtest
+    container: golang:1.25
 
     services:
       postgres:
@@ -57,10 +42,10 @@ jobs:
           echo "Resolved ITER_NUM=$ITER_NUM"
 
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Download autotests binaries
-        uses: robinraju/release-downloader@v1.11
+        uses: robinraju/release-downloader@v1.12
         with:
           repository: Yandex-Practicum/go-autotests
           latest: true
