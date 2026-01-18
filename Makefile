@@ -11,11 +11,11 @@ fmt:
 lint:
 	golangci-lint run ./...
 
-.PHONE: generate
+.PHONY: generate
 generate:
 	go generate ./...
 
-.PHONE: build
+.PHONY: build
 build:
 	cd cmd/server && go build .
 	cd cmd/agent && go build .

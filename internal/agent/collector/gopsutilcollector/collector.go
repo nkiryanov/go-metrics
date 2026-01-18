@@ -6,8 +6,8 @@ import (
 
 	"github.com/nkiryanov/go-metrics/internal/agent/collector/memstorage"
 	"github.com/nkiryanov/go-metrics/internal/models"
-	"github.com/shirou/gopsutil/cpu"
-	"github.com/shirou/gopsutil/mem"
+	"github.com/shirou/gopsutil/v4/cpu"
+	"github.com/shirou/gopsutil/v4/mem"
 	"golang.org/x/sync/errgroup"
 )
 
