@@ -124,6 +124,7 @@ func TestOptions(t *testing.T) {
 		RestoreOnStart: false,
 		DatabaseDsn:    "postgres://go-metrics@localhost:5432/go-metrics",
 		SecretKey:      "",
+		PprofAddr:      "",
 	}
 
 	tests := []struct {
@@ -142,6 +143,7 @@ func TestOptions(t *testing.T) {
 				"-r", "false",
 				"-d", "postgres://test@test:5432/test",
 				"-k", "cli-secret-key",
+				"--pprof", "localhost:9999",
 			},
 			envVars: map[string]string{
 				"ADDRESS":           "127.0.0.1:9090",
@@ -151,6 +153,7 @@ func TestOptions(t *testing.T) {
 				"RESTORE":           "TRUE",
 				"DATABASE_DSN":      "postgres://envuser@localhost:5432/envdb",
 				"KEY":               "env-secret-key",
+				"PPROF_ADDRESS":     "127.0.0.1:5050",
 			},
 			expectedOptions: Options{
 				ListenAddr:   "127.0.0.1:9090",
@@ -159,6 +162,7 @@ func TestOptions(t *testing.T) {
 				SaveInterval: 1 * time.Minute,
 				DatabaseDsn:  "postgres://envuser@localhost:5432/envdb",
 				SecretKey:    "env-secret-key",
+				PprofAddr:    "127.0.0.1:5050",
 			},
 		},
 		{
@@ -171,6 +175,7 @@ func TestOptions(t *testing.T) {
 				"-r", "true",
 				"-d", "postgres://test@test:5432/test",
 				"-k", "cli-secret-key",
+				"--pprof", "localhost:9999", // using two dashes here cause flag's length more than one letter, but '-pprof' also works
 			},
 			envVars: map[string]string{},
 			expectedOptions: Options{
@@ -181,6 +186,7 @@ func TestOptions(t *testing.T) {
 				RestoreOnStart: true,
 				DatabaseDsn:    "postgres://test@test:5432/test",
 				SecretKey:      "cli-secret-key",
+				PprofAddr:      "127.0.0.1:9999",
 			},
 		},
 		{
@@ -200,6 +206,7 @@ func TestOptions(t *testing.T) {
 				SaveInterval:   1 * time.Minute, // Should use cli argument cause env variable invalid
 				RestoreOnStart: defaultOpts.RestoreOnStart,
 				SecretKey:      defaultOpts.SecretKey,
+				PprofAddr:      defaultOpts.PprofAddr,
 			},
 		},
 	}
