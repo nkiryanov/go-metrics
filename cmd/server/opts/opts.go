@@ -25,6 +25,10 @@ type Options struct {
 
 	// Secret key to verify hmac of reported metrics
 	SecretKey string
+
+	// Pprof address
+	// If set, the pprof handler will be registered on address and port
+	PprofAddr string
 }
 
 func (opts *Options) Parse() {
@@ -35,6 +39,7 @@ func (opts *Options) Parse() {
 	flag.StringVar(&opts.DatabaseDsn, "d", opts.DatabaseDsn, "Database connection string like 'postgres://user:password@localhost:5432/dbname'")
 	flag.StringVar(&opts.SecretKey, "k", opts.SecretKey, "Secret Key to verify HMAC (provided in HashSHA256 header) of reporting metrics. Takes no effect if not set or empty")
 	flag.BoolVar(&opts.RestoreOnStart, "r", opts.RestoreOnStart, "Restore initial state from the file storage file on server start")
+	flag.Func("pprof", "Server listen address in format 'host:port' to run pprof on it. Should be different with main address", parseListenAddr(&opts.PprofAddr))
 
 	// Parse command line args
 	flag.Parse()
@@ -73,6 +78,7 @@ func (opts *Options) parseEnv() {
 		"RESTORE":           parseBool(&opts.RestoreOnStart),
 		"DATABASE_DSN":      parseString(&opts.DatabaseDsn),
 		"KEY":               parseString(&opts.SecretKey),
+		"PPROF_ADDRESS":     parseListenAddr(&opts.ListenAddr),
 	}
 
 	for key, parseFn := range envMap {
