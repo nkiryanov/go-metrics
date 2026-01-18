@@ -26,7 +26,7 @@ jobs:
 
   metricstest:
     runs-on: ubuntu-latest
-    container: golang:1.24
+    container: golang:1.25
     needs: branchtest
 
     services:
@@ -57,10 +57,10 @@ jobs:
           echo "Resolved ITER_NUM=$ITER_NUM"
 
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Download autotests binaries
-        uses: robinraju/release-downloader@v1.11
+        uses: robinraju/release-downloader@v1.12
         with:
           repository: Yandex-Practicum/go-autotests
           latest: true

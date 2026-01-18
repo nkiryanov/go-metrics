@@ -9,10 +9,10 @@ jobs:
 
     steps:
       - name: checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: set up go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         id: go
         with:
           go-version-file: "go.mod"
