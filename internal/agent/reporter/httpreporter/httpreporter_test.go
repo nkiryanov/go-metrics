@@ -263,3 +263,22 @@ func TestHTTPReporter_Smoke(t *testing.T) {
 		assert.Equal(t, 1, info["POST http://pornhub.com/updates"])
 	})
 }
+
+func BenchmarkHTTPReporter_post(b *testing.B) {
+	reporter := New("http://test.server",
+		[]time.Duration{}, // retry intervals, not needed in tests actually
+		100,
+		"VeryStrongKey",
+		&http.Client{},
+		logger.NewNoOpLogger(),
+	)
+	httpmock.ActivateNonDefault(reporter.client)
+	b.Cleanup(httpmock.DeactivateAndReset)
+
+	for b.Loop() {
+		_ = reporter.post(
+			"/update",
+			models.Metric{Name: "test", Type: "counter", Delta: 1},
+		)
+	}
+}

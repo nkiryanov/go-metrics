@@ -63,3 +63,12 @@ func TestGopsutilCollector(t *testing.T) {
 		require.GreaterOrEqual(t, len(got), 3, "Expect TotalMemory, FreeMemory and at least one CpuUtilization metric")
 	})
 }
+
+func BenchmarkGopsutil(b *testing.B) {
+	c := New()
+
+	b.ResetTimer()
+	for b.Loop() {
+		_ = c.Collect(b.Context())
+	}
+}
