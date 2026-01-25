@@ -5,10 +5,11 @@ test:
 
 .PHONY: fmt
 fmt:
-	go fmt ./...
+	go tool goimports -local "github.com/nkiryanov/go-metrics" -w .
 
 .PHONY: lint
 lint:
+	go tool staticcheck ./...
 	golangci-lint run ./...
 
 .PHONY: generate
