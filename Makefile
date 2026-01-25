@@ -1,14 +1,15 @@
 .PHONY: test tests
 tests: test
 test:
-	go test -race -timeout=60s -count 1 ./...
+	go tool gotestsum --format="testname" -- -race -timeout="60s" -count="1" ./...
 
 .PHONY: fmt
 fmt:
-	go fmt ./...
+	go tool goimports -local "github.com/nkiryanov/go-metrics" -w .
 
 .PHONY: lint
 lint:
+	go tool staticcheck ./...
 	golangci-lint run ./...
 
 .PHONY: generate
@@ -19,3 +20,7 @@ generate:
 build:
 	cd cmd/server && go build .
 	cd cmd/agent && go build .
+
+coverage:
+	go test -coverprofile=coverage.out ./... > /dev/null
+	go tool cover -func=coverage.out | grep total | awk '{print $$3}'

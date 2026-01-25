@@ -12,7 +12,7 @@ var (
 	ErrNoMetric = errors.New("no metric found")
 )
 
-//go:generate moq -out mocks/storage.go -pkg mocks -skip-ensure -fmt goimports . Storage
+//go:generate go tool moq -out mocks/storage.go -pkg mocks -skip-ensure -fmt goimports . Storage
 
 type Storage interface {
 	// Ping wether storage ready to work

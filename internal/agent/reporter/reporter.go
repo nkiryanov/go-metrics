@@ -4,7 +4,7 @@ import (
 	"github.com/nkiryanov/go-metrics/internal/models"
 )
 
-//go:generate moq -out mocks/reporter.go -pkg mocks -skip-ensure -fmt goimports . Reporter
+//go:generate go tool moq -out mocks/reporter.go -pkg mocks -skip-ensure -fmt goimports . Reporter
 
 type Reporter interface {
 	// Should report metric

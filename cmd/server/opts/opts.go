@@ -78,7 +78,7 @@ func (opts *Options) parseEnv() {
 		"RESTORE":           parseBool(&opts.RestoreOnStart),
 		"DATABASE_DSN":      parseString(&opts.DatabaseDsn),
 		"KEY":               parseString(&opts.SecretKey),
-		"PPROF_ADDRESS":     parseListenAddr(&opts.ListenAddr),
+		"PPROF_ADDRESS":     parseListenAddr(&opts.PprofAddr),
 	}
 
 	for key, parseFn := range envMap {

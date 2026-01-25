@@ -4,10 +4,11 @@ import (
 	"time"
 
 	"context"
+
 	"github.com/nkiryanov/go-metrics/internal/models"
 )
 
-//go:generate moq -out mocks/collector.go -pkg mocks -skip-ensure -fmt goimports . Collector
+//go:generate go tool moq -out mocks/collector.go -pkg mocks -skip-ensure -fmt goimports . Collector
 
 // Collector collects system metrics at configured intervals, stores them internally
 type Collector interface {
