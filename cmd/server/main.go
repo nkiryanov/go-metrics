@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"golang.org/x/sync/errgroup"
 	"log"
 	"net/http"
 	"os"
@@ -12,10 +13,11 @@ import (
 
 	_ "github.com/jackc/pgx/v5"
 
-	"github.com/nkiryanov/go-metrics/cmd/server/app"
 	"github.com/nkiryanov/go-metrics/cmd/server/opts"
 	"github.com/nkiryanov/go-metrics/internal/logger"
+	"github.com/nkiryanov/go-metrics/internal/server/app"
 	"github.com/nkiryanov/go-metrics/internal/server/handlers"
+	"github.com/nkiryanov/go-metrics/internal/server/pprofserver"
 	"github.com/nkiryanov/go-metrics/internal/server/storage"
 	"github.com/nkiryanov/go-metrics/internal/server/storage/memstorage"
 	"github.com/nkiryanov/go-metrics/internal/server/storage/pgstorage"
@@ -30,6 +32,7 @@ const (
 	saveInterval   = 300 * time.Second
 	restoreOnStart = false
 	databaseDsn    = ""
+	pprofAddr      = "" // empty by default = pprof disabled
 )
 
 func main() {
@@ -47,6 +50,7 @@ func run() error {
 		SaveInterval:   saveInterval,
 		RestoreOnStart: restoreOnStart,
 		DatabaseDsn:    databaseDsn,
+		PprofAddr:      pprofAddr,
 	}
 	opts.Parse()
 
@@ -77,13 +81,32 @@ func run() error {
 		cancel()
 	}()
 
-	// Run server
-	srv := app.New(opts.ListenAddr, handlers.NewMetricRouter(s, lgr, opts.SecretKey), lgr)
-	if err := srv.Run(ctx); err != http.ErrServerClosed {
-		return fmt.Errorf("HTTP server error: %w", err)
-	}
+	// Run servers
+	{
+		g, gCtx := errgroup.WithContext(ctx)
 
-	return nil
+		// pprof server if configured
+		g.Go(func() error {
+			pprofSrv := pprofserver.New(opts.PprofAddr, lgr)
+			err := pprofSrv.Run(gCtx)
+			if err != http.ErrServerClosed {
+				return fmt.Errorf("pprof server error: %w", err)
+			}
+			return nil
+		})
+
+		// app server
+		g.Go(func() error {
+			srv := app.New(opts.ListenAddr, handlers.NewMetricRouter(s, lgr, opts.SecretKey), lgr)
+			err := srv.Run(ctx)
+			if err != http.ErrServerClosed {
+				return fmt.Errorf("HTTP server error: %w", err)
+			}
+			return nil
+		})
+
+		return g.Wait()
+	}
 }
 
 // Initializes storage based on configuration.

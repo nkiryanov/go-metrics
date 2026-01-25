@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/nkiryanov/go-metrics/internal/logger"
@@ -59,15 +60,32 @@ func LoggerMiddleware(lgr logger.Logger) func(http.Handler) http.Handler {
 	}
 }
 
+// Pools for reusing gzip writers and readers
+var (
+	gzipWriterPool = sync.Pool{
+		New: func() any {
+			return gzip.NewWriter(io.Discard)
+		},
+	}
+	gzipReaderPool = sync.Pool{
+		New: func() any {
+			// Return a placeholder, will be reset on first use
+			return new(gzip.Reader)
+		},
+	}
+)
+
 type compressWriter struct {
 	w  http.ResponseWriter
 	gw *gzip.Writer
 }
 
 func newCompressWriter(w http.ResponseWriter) *compressWriter {
+	gw := gzipWriterPool.Get().(*gzip.Writer)
+	gw.Reset(w)
 	return &compressWriter{
 		w:  w,
-		gw: gzip.NewWriter(w),
+		gw: gw,
 	}
 }
 
@@ -85,7 +103,9 @@ func (cw *compressWriter) WriteHeader(statusCode int) {
 }
 
 func (cw *compressWriter) Close() error {
-	return cw.gw.Close()
+	err := cw.gw.Close()
+	gzipWriterPool.Put(cw.gw)
+	return err
 }
 
 type compressReader struct {
@@ -94,8 +114,10 @@ type compressReader struct {
 }
 
 func newCompressReader(r io.ReadCloser) (*compressReader, error) {
-	gr, err := gzip.NewReader(r)
+	gr := gzipReaderPool.Get().(*gzip.Reader)
+	err := gr.Reset(r)
 	if err != nil {
+		gzipReaderPool.Put(gr)
 		return nil, err
 	}
 
@@ -110,6 +132,8 @@ func (cr *compressReader) Read(b []byte) (int, error) {
 }
 
 func (cr *compressReader) Close() error {
+	defer gzipReaderPool.Put(cr.gr)
+
 	if err := cr.r.Close(); err != nil {
 		_ = cr.gr.Close()
 		return err
