@@ -6,8 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/nkiryanov/go-metrics/internal/agent/collector/mocks"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/nkiryanov/go-metrics/internal/agent/collector/mocks"
 )
 
 func TestCollector_Run(t *testing.T) {

@@ -4,11 +4,12 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/nkiryanov/go-metrics/internal/agent/collector/memstorage"
-	"github.com/nkiryanov/go-metrics/internal/models"
 	"github.com/shirou/gopsutil/v4/cpu"
 	"github.com/shirou/gopsutil/v4/mem"
 	"golang.org/x/sync/errgroup"
+
+	"github.com/nkiryanov/go-metrics/internal/agent/collector/memstorage"
+	"github.com/nkiryanov/go-metrics/internal/models"
 )
 
 const (

@@ -17,7 +17,7 @@ const (
 	LevelError = "ERROR"
 )
 
-//go:generate moq -out mocks/logger.go -pkg mocks -skip-ensure -fmt goimports . Logger
+//go:generate go tool moq -out mocks/logger.go -pkg mocks -skip-ensure -fmt goimports . Logger
 
 type Logger interface {
 	Debug(msg string, args ...any)

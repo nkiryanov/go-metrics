@@ -5,9 +5,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/nkiryanov/go-metrics/internal/logger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/nkiryanov/go-metrics/internal/logger"
 )
 
 const (

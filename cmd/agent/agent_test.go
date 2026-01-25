@@ -5,13 +5,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/nkiryanov/go-metrics/internal/agent/collector"
 	cmocks "github.com/nkiryanov/go-metrics/internal/agent/collector/mocks"
 	"github.com/nkiryanov/go-metrics/internal/agent/reporter"
 	rmocks "github.com/nkiryanov/go-metrics/internal/agent/reporter/mocks"
 	"github.com/nkiryanov/go-metrics/internal/logger"
 	"github.com/nkiryanov/go-metrics/internal/models"
-	"github.com/stretchr/testify/require"
 )
 
 func TestAgent_Run(t *testing.T) {
