@@ -1,5 +1,6 @@
 # go-metrics
 
-«Сервер сбора метрик и алертинга» — учебный проект я.практикус трека по Go
+A loose interpretation of the ya.practicum Go course.
+Track `Сервер сбора метрик и алертинга`.
 
-Что происходит и задание +/- можно найти в описании смердженных PR.
+What's going on at each step — check merged PR descriptions.
