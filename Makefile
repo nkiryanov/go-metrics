@@ -20,6 +20,7 @@ generate:
 build:
 	cd cmd/server && go build .
 	cd cmd/agent && go build .
+	cd cmd/staticlint && go build .
 
 coverage:
 	go test -coverprofile=coverage.out ./... > /dev/null
