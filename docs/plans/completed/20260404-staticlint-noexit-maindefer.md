@@ -10,7 +10,6 @@ Replaces existing `cmd/staticlint/osexit/` skeleton. Registered via `multichecke
 ## Context
 - Existing: `cmd/staticlint/staticlint.go` (skeleton), `cmd/staticlint/osexit/osexit.go` (skeleton — delete).
 - `golang.org/x/tools v0.41.0` already in `go.mod` (direct). No new deps.
-- Branch: `os-exit-analyzer`.
 - Project uses `go tool` for dev tools; tests via `gotestsum`.
 
 ## Development Approach
@@ -129,8 +128,3 @@ ast.Inspect(mainFn.Body, func(n ast.Node) bool {
 
 ## Post-Completion
 - Run `go run ./cmd/staticlint ./...` on the full project; fix any legitimate findings in a separate PR (not this one).
-- Optional: integrate into `make lint` target.
-
-## Unresolved questions
-1. Should `make lint` target be updated to invoke the custom `staticlint` binary in this PR, or separate follow-up?
-2. Any preference for diagnostic message wording? (Current plan: `"os.Exit is only allowed in main()"` and `"defer in main: use run() pattern"` — happy to adjust.)
