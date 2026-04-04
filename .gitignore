@@ -12,10 +12,9 @@
 *.out
 
 # Binaries
-cmd/agent/main
 cmd/agent/agent
-cmd/server/main
 cmd/server/server
+cmd/staticlint/staticlint
 
 # Server runtime artifacts
 server_data.json
