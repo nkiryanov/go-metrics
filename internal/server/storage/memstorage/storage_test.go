@@ -108,12 +108,10 @@ func TestMemStorage_UpdateMetric(t *testing.T) {
 
 		var wg sync.WaitGroup
 		for range 10 {
-			wg.Add(1)
-			go func() {
+			wg.Go(func() {
 				_, _ = s.UpdateMetric(context.TODO(), mCounter)
 				_, _ = s.UpdateMetric(context.TODO(), mGauge)
-				wg.Done()
-			}()
+			})
 		}
 		got, err := s.UpdateMetric(context.TODO(), mGauge)
 
@@ -148,8 +146,7 @@ func TestMemStorage_CountMetric(t *testing.T) {
 
 	var wg sync.WaitGroup
 	for range 10 {
-		wg.Add(1)
-		go func() { s.CountMetric(context.TODO()); wg.Done() }() // nolint:errcheck
+		wg.Go(func() { s.CountMetric(context.TODO()) }) // nolint:errcheck
 	}
 	wg.Wait()
 	got, err := s.CountMetric(context.TODO())
@@ -218,12 +215,10 @@ func TestMemStorage_GetMetric(t *testing.T) {
 	t.Run("concurrently ok", func(t *testing.T) {
 		var wg sync.WaitGroup
 		for range 10 {
-			wg.Add(1)
-			go func() {
+			wg.Go(func() {
 				s.GetMetric(context.TODO(), models.CounterTypeName, "foo") // nolint:errcheck
 				s.GetMetric(context.TODO(), models.GaugeTypeName, "foo")   // nolint:errcheck
-				wg.Done()
-			}()
+			})
 		}
 		wg.Wait()
 		got, err := s.GetMetric(context.TODO(), models.GaugeTypeName, "foo")
@@ -257,11 +252,9 @@ func TestMemStorage_ListMetric(t *testing.T) {
 		// Run something to imitate concurrent access
 		var wg sync.WaitGroup
 		for idx := range mResults {
-			wg.Add(1)
-			go func() {
+			wg.Go(func() {
 				mResults[idx], _ = s.ListMetric(context.TODO())
-				wg.Done()
-			}()
+			})
 		}
 
 		wg.Wait()

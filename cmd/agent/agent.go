@@ -86,11 +86,9 @@ func (a *Agent) Run(ctx context.Context) error {
 	}
 
 	// Run bath report with report interval, until context canceled
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		a.runReporter(ctx)
-	}()
+	})
 
 	wg.Wait()
 	a.Lgr.Info("Agent stopped")
