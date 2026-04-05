@@ -52,12 +52,10 @@ func TestMemStorage(t *testing.T) {
 		wg := sync.WaitGroup{}
 
 		for range 10 {
-			wg.Add(1)
-			go func() {
+			wg.Go(func() {
 				s.Set(metrics...)
 				_ = s.List()
-				wg.Done()
-			}()
+			})
 		}
 
 		wg.Wait()

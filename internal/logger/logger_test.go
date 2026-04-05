@@ -81,7 +81,7 @@ func TestLogger_NewJSONLogger(t *testing.T) {
 	require.NoError(t, err)
 
 	// Try to parse as JSON to verify format
-	var logEntry map[string]interface{}
+	var logEntry map[string]any
 	err = json.Unmarshal(output, &logEntry)
 	require.NoError(t, err, "JSON logger output should be valid JSON")
 
@@ -218,12 +218,12 @@ func TestLogger_WithGroup(t *testing.T) {
 	require.NoError(t, err)
 
 	// Parse JSON to check structure
-	var logEntry map[string]interface{}
+	var logEntry map[string]any
 	err = json.Unmarshal(output, &logEntry)
 	require.NoError(t, err, "Failed to parse JSON log")
 
 	// Check that group is created
-	database, ok := logEntry["database"].(map[string]interface{})
+	database, ok := logEntry["database"].(map[string]any)
 	require.True(t, ok, "WithGroup should create a group in the log output")
 	assert.Equal(t, "localhost", database["host"], "WithGroup should group attributes under the specified name")
 }
