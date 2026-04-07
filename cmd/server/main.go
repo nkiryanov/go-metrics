@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -25,6 +24,13 @@ import (
 	"github.com/nkiryanov/go-metrics/internal/server/storage/pgstorage/db"
 )
 
+// Should be set on a build stage
+var (
+	buildVersion string = "N/A"
+	buildDate    string = "N/A"
+	buildCommit  string = "N/A"
+)
+
 // Defaults
 const (
 	listenAddr     = "localhost:8080"
@@ -37,13 +43,6 @@ const (
 )
 
 func main() {
-	err := run()
-	if err != nil {
-		log.Fatal(err)
-	}
-}
-
-func run() error {
 	opts := &opts.Options{
 		ListenAddr:     listenAddr,
 		LogLevel:       logLevel,
@@ -56,83 +55,79 @@ func run() error {
 	opts.Parse()
 
 	lgr := logger.NewLogger(opts.LogLevel)
-	ctx := context.Background()
 
-	// Initialize storage
-	s, cancelFn, err := initStorage(ctx, opts, lgr)
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	if err := run(ctx, opts, lgr); err != nil {
+		lgr.Error("Server stopped with error", "error", err.Error())
+		os.Exit(1)
+	}
+}
+
+func run(ctx context.Context, opts *opts.Options, lgr logger.Logger) error {
+	fmt.Printf("Build version: %s\n", buildVersion)
+	fmt.Printf("Build date: %s\n", buildDate)
+	fmt.Printf("Build commit: %s\n", buildCommit)
+
+	s, cleanup, err := initStorage(ctx, opts, lgr)
 	if err != nil {
 		return fmt.Errorf("storage initialization failed: %w", err)
 	}
 	defer func() {
-		err := cancelFn()
-		if err != nil {
+		if err := cleanup(); err != nil {
 			lgr.Error("Failed to cleanup storage", "error", err.Error())
 		}
 	}()
 
-	// Initialize context that cancelled on SIGTERM
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	g, gCtx := errgroup.WithContext(ctx)
 
-	go func() {
-		stop := make(chan os.Signal, 1)
-		signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
-		<-stop
-		lgr.Warn("Interrupt signal")
-		cancel()
-	}()
-
-	// Run servers
-	{
-		g, gCtx := errgroup.WithContext(ctx)
-
-		// pprof server if configured
+	if opts.PprofAddr != "" {
 		g.Go(func() error {
 			pprofSrv := pprofserver.New(opts.PprofAddr, lgr)
-			err := pprofSrv.Run(gCtx)
-			if err != http.ErrServerClosed {
+			if err := pprofSrv.Run(gCtx); err != nil && err != http.ErrServerClosed {
 				return fmt.Errorf("pprof server error: %w", err)
 			}
 			return nil
 		})
-
-		// app server
-		g.Go(func() error {
-			srv := app.New(opts.ListenAddr, handlers.NewMetricRouter(s, lgr, opts.SecretKey), lgr)
-			err := srv.Run(ctx)
-			if err != http.ErrServerClosed {
-				return fmt.Errorf("HTTP server error: %w", err)
-			}
-			return nil
-		})
-
-		return g.Wait()
 	}
+
+	g.Go(func() error {
+		srv := app.New(opts.ListenAddr, handlers.NewMetricRouter(s, lgr, opts.SecretKey), lgr)
+		if err := srv.Run(gCtx); err != nil && err != http.ErrServerClosed {
+			return fmt.Errorf("HTTP server error: %w", err)
+		}
+		return nil
+	})
+
+	return g.Wait()
 }
 
-// Initializes storage based on configuration.
-// Returns PostgreSQL storage if DSN is provided, otherwise returns memory storage with optional file persistence.
-// The returned cancelFunc must be called to properly cleanup resources.
-func initStorage(ctx context.Context, opts *opts.Options, lgr logger.Logger) (s storage.Storage, cancelFunc func() error, err error) {
+// initStorage initializes storage based on configuration.
+// The returned cleanup func must be called to release resources — call it after all consumers have stopped.
+func initStorage(ctx context.Context, opts *opts.Options, lgr logger.Logger) (storage.Storage, func() error, error) {
 	switch {
 	case opts.DatabaseDsn != "":
+		// PostgreSQL storage: connect and run migrations before returning.
 		dbpool, err := db.ConnectAndMigrate(ctx, opts.DatabaseDsn)
 		if err != nil {
 			return nil, nil, err
 		}
 
-		pgs := pgstorage.New(ctx, dbpool)
-		cancelFn := func() error {
+		store := pgstorage.New(ctx, dbpool)
+		cleanup := func() error {
 			dbpool.Close()
-			return pgs.Close()
+			return store.Close()
 		}
-		return pgs, cancelFn, nil
+		return store, cleanup, nil
+
 	default:
-		mems, err := memstorage.New(opts.DataFilePath, opts.SaveInterval, opts.RestoreOnStart, lgr)
+		// In-memory storage with optional file persistence.
+		store, err := memstorage.New(opts.DataFilePath, opts.SaveInterval, opts.RestoreOnStart, lgr)
 		if err != nil {
 			return nil, nil, err
 		}
 
-		return mems, mems.Close, nil
+		return store, store.Close, nil
 	}
 }
