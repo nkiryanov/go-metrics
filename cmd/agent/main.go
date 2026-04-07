@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -9,6 +10,13 @@ import (
 
 	"github.com/nkiryanov/go-metrics/internal/agent/config"
 	"github.com/nkiryanov/go-metrics/internal/logger"
+)
+
+// Should be set on a build stage[
+var (
+	buildVersion string = "N/A"
+	buildDate    string = "N/A"
+	buildCommit  string = "N/A"
 )
 
 const (
@@ -34,18 +42,27 @@ func main() {
 	cfg.MustLoad()
 
 	lgr := logger.NewLogger(cfg.LogLevel)
-	ctx, cancel := context.WithCancel(context.Background())
-	go func() {
-		stop := make(chan os.Signal, 1)
-		signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
-		<-stop
-		lgr.Warn("Interrupt signal")
-		cancel()
-	}()
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	if err := run(ctx, cfg, lgr); err != nil {
+		lgr.Error("Agent stopped with error", "error", err.Error())
+		os.Exit(1)
+	}
+}
+
+func run(ctx context.Context, cfg *config.Config, lgr logger.Logger) error {
+	fmt.Printf("Build version: %s\n", buildVersion)
+	fmt.Printf("Build date: %s\n", buildDate)
+	fmt.Printf("Build commit: %s\n", buildCommit)
 
 	agent := NewAgent(cfg)
-	err := agent.Run(ctx)
-	if err != nil && err != ErrAgentStopped {
-		lgr.Error("Agent stopped unintentionally", "error", err.Error())
+
+	if err := agent.Run(ctx); err != nil && err != ErrAgentStopped {
+		return err
 	}
+
+	lgr.Info("Agent stopped gracefully")
+	return nil
 }

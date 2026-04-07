@@ -91,7 +91,6 @@ func (a *Agent) Run(ctx context.Context) error {
 	})
 
 	wg.Wait()
-	a.Lgr.Info("Agent stopped")
 	return ErrAgentStopped
 }
 
