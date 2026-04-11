@@ -196,6 +196,30 @@ func TestOptions(t *testing.T) {
 			expectedOptions: defaultOpts,
 		},
 		{
+			name:    "crypto-key flag sets CryptoKeyPath",
+			args:    []string{"-crypto-key", "/tmp/priv.pem"},
+			envVars: map[string]string{},
+			expectedOptions: Options{
+				ListenAddr:    defaultOpts.ListenAddr,
+				LogLevel:      defaultOpts.LogLevel,
+				DataFilePath:  defaultOpts.DataFilePath,
+				CryptoKeyPath: "/tmp/priv.pem",
+			},
+		},
+		{
+			name: "CRYPTO_KEY env sets CryptoKeyPath",
+			args: []string{},
+			envVars: map[string]string{
+				"CRYPTO_KEY": "/etc/keys/priv.pem",
+			},
+			expectedOptions: Options{
+				ListenAddr:    defaultOpts.ListenAddr,
+				LogLevel:      defaultOpts.LogLevel,
+				DataFilePath:  defaultOpts.DataFilePath,
+				CryptoKeyPath: "/etc/keys/priv.pem",
+			},
+		},
+		{
 			name:    "use cli arguments if env value set but invalid",
 			args:    []string{"-i", "1m"},
 			envVars: map[string]string{"STORE_INTERVAL": "-2"}, // Invalid store interval

@@ -7,6 +7,8 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+
+	"github.com/nkiryanov/go-metrics/internal/crypto"
 )
 
 // Encode postCxt data to json and compress with gzip
@@ -39,7 +41,22 @@ func (r *HTTPReporter) jsonGzipMiddleware(postCtx *postContext) error {
 	return nil
 }
 
-// If secret key is set, calculate hash and set HashSHA256 header
+// encrypt body if public key is set
+func (r *HTTPReporter) encryptMiddleware(postCtx *postContext) error {
+	if r.publicKey == nil || postCtx.body == nil {
+		return nil
+	}
+
+	encrypted, err := crypto.Encrypt(r.publicKey, postCtx.body.Bytes())
+	if err != nil {
+		return err
+	}
+
+	postCtx.body = bytes.NewBuffer(encrypted)
+	return nil
+}
+
+// if secret key is set, calculate hash and set HashSHA256 header
 func (r *HTTPReporter) hmacSha256Middleware(postCtx *postContext) error {
 	// Do nothing if secret key not set or body empty
 	if r.secretKey == "" || postCtx.body == nil {

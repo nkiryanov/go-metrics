@@ -3,6 +3,8 @@ package httpreporter
 import (
 	"bytes"
 	"compress/gzip"
+	"crypto/ecdh"
+	"crypto/rand"
 	"errors"
 	"io"
 	"net/http"
@@ -10,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/nkiryanov/go-metrics/internal/crypto"
 	"github.com/nkiryanov/go-metrics/internal/logger"
 	"github.com/nkiryanov/go-metrics/internal/models"
 
@@ -32,6 +35,7 @@ func TestHTTPReporter_post(t *testing.T) {
 		[]time.Duration{}, // retry intervals, not needed in tests actually
 		100,
 		"VeryStrongKey",
+		nil, // no encryption
 		&http.Client{},
 		logger.NewNoOpLogger(),
 	)
@@ -113,8 +117,9 @@ func TestHTTPReporter_postWithRetry(t *testing.T) {
 			100 * time.Millisecond,
 			200 * time.Millisecond,
 		},
-		20, // Rate limit to sever connections
-		"", // Secret key, not used in test
+		20,  // Rate limit to sever connections
+		"",  // Secret key, not used in test
+		nil, // no encryption
 		&http.Client{},
 		logger.NewNoOpLogger(),
 	)
@@ -232,6 +237,7 @@ func TestHTTPReporter_Smoke(t *testing.T) {
 		[]time.Duration{},
 		20,
 		"strong-secret",
+		nil, // no encryption
 		&http.Client{},
 		logger.NewNoOpLogger(),
 	)
@@ -264,11 +270,53 @@ func TestHTTPReporter_Smoke(t *testing.T) {
 	})
 }
 
+func TestHTTPReporter_encryptMiddleware(t *testing.T) {
+	generatePair := func(t *testing.T) (*ecdh.PrivateKey, *ecdh.PublicKey) {
+		t.Helper()
+		priv, err := ecdh.X25519().GenerateKey(rand.Reader)
+		require.NoError(t, err)
+		return priv, priv.PublicKey()
+	}
+
+	t.Run("noop when publicKey is nil", func(t *testing.T) {
+		reporter := New("http://test.server", []time.Duration{}, 1, "", nil, &http.Client{}, logger.NewNoOpLogger())
+		body := []byte("original body")
+		postCtx := &postContext{
+			headers: make(map[string]string),
+			body:    bytes.NewBuffer(body),
+		}
+
+		err := reporter.encryptMiddleware(postCtx)
+
+		require.NoError(t, err)
+		assert.Equal(t, body, postCtx.body.Bytes())
+	})
+
+	t.Run("roundtrip: encrypted body decrypts back to original", func(t *testing.T) {
+		priv, pub := generatePair(t)
+		reporter := New("http://test.server", []time.Duration{}, 1, "", pub, &http.Client{}, logger.NewNoOpLogger())
+		original := []byte("secret metrics data")
+		postCtx := &postContext{
+			headers: make(map[string]string),
+			body:    bytes.NewBuffer(original),
+		}
+
+		err := reporter.encryptMiddleware(postCtx)
+		require.NoError(t, err)
+		assert.NotEqual(t, original, postCtx.body.Bytes(), "body should be encrypted")
+
+		decrypted, err := crypto.Decrypt(priv, postCtx.body.Bytes())
+		require.NoError(t, err)
+		assert.Equal(t, original, decrypted)
+	})
+}
+
 func BenchmarkHTTPReporter_post(b *testing.B) {
 	reporter := New("http://test.server",
 		[]time.Duration{}, // retry intervals, not needed in tests actually
 		100,
 		"VeryStrongKey",
+		nil, // no encryption
 		&http.Client{},
 		logger.NewNoOpLogger(),
 	)

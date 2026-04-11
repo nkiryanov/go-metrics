@@ -57,7 +57,11 @@ func run(ctx context.Context, cfg *config.Config, lgr logger.Logger) error {
 	fmt.Printf("Build date: %s\n", buildDate)
 	fmt.Printf("Build commit: %s\n", buildCommit)
 
-	agent := NewAgent(cfg)
+	agent, err := NewAgent(cfg)
+	if err != nil {
+		lgr.Error("Failed to initialize agent", "error", err.Error())
+		return err
+	}
 
 	if err := agent.Run(ctx); err != nil && err != ErrAgentStopped {
 		return err

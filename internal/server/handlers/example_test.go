@@ -21,7 +21,7 @@ func ExampleNewMetricRouter_updateCounter() {
 		},
 	}
 
-	router := handlers.NewMetricRouter(storage, logger.NewNoOpLogger(), "")
+	router := handlers.NewMetricRouter(storage, logger.NewNoOpLogger(), "", nil)
 	srv := httptest.NewServer(router)
 	defer srv.Close()
 
@@ -47,7 +47,7 @@ func ExampleNewMetricRouter_updateGauge() {
 		},
 	}
 
-	router := handlers.NewMetricRouter(storage, logger.NewNoOpLogger(), "")
+	router := handlers.NewMetricRouter(storage, logger.NewNoOpLogger(), "", nil)
 	srv := httptest.NewServer(router)
 	defer srv.Close()
 
@@ -76,7 +76,7 @@ func ExampleNewMetricRouter_updateJSON() {
 		},
 	}
 
-	router := handlers.NewMetricRouter(storage, logger.NewNoOpLogger(), "")
+	router := handlers.NewMetricRouter(storage, logger.NewNoOpLogger(), "", nil)
 	srv := httptest.NewServer(router)
 	defer srv.Close()
 
@@ -105,7 +105,7 @@ func ExampleNewMetricRouter_getValue() {
 		},
 	}
 
-	router := handlers.NewMetricRouter(storage, logger.NewNoOpLogger(), "")
+	router := handlers.NewMetricRouter(storage, logger.NewNoOpLogger(), "", nil)
 	srv := httptest.NewServer(router)
 	defer srv.Close()
 
@@ -132,7 +132,7 @@ func ExampleNewMetricRouter_ping() {
 		PingFunc: func(ctx context.Context) error { return nil },
 	}
 
-	router := handlers.NewMetricRouter(storage, logger.NewNoOpLogger(), "")
+	router := handlers.NewMetricRouter(storage, logger.NewNoOpLogger(), "", nil)
 	srv := httptest.NewServer(router)
 	defer srv.Close()
 

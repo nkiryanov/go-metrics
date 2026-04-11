@@ -3,12 +3,15 @@ package handlers
 import (
 	"bytes"
 	"compress/gzip"
+	"crypto/ecdh"
+	"crypto/rand"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
+	"github.com/nkiryanov/go-metrics/internal/crypto"
 	"github.com/nkiryanov/go-metrics/internal/logger"
 	"github.com/nkiryanov/go-metrics/internal/logger/mocks"
 
@@ -178,5 +181,62 @@ func TestHandlers_HmacSHA256Middleware(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, "OK", string(body))
 		assert.Equal(t, "ffb8ab2cdd8a64b62d392d988408e0e52a68460c56bbcdec892c6b762ce4e340", response.Header.Get("HashSHA256"), "Response has to be signed")
+	})
+}
+
+func generateX25519Pair(t *testing.T) (*ecdh.PrivateKey, *ecdh.PublicKey) {
+	t.Helper()
+	priv, err := ecdh.X25519().GenerateKey(rand.Reader)
+	require.NoError(t, err)
+	return priv, priv.PublicKey()
+}
+
+func TestHandlers_DecryptMiddleware(t *testing.T) {
+	t.Run("noop when privKey is nil", func(t *testing.T) {
+		original := []byte("plain body")
+		r := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(original))
+		w := httptest.NewRecorder()
+
+		var gotBody []byte
+		handler := DecryptMiddleware(nil)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			gotBody, _ = io.ReadAll(r.Body)
+			w.WriteHeader(http.StatusOK)
+		}))
+		handler.ServeHTTP(w, r)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+		assert.Equal(t, original, gotBody)
+	})
+
+	t.Run("decrypts body when privKey is set", func(t *testing.T) {
+		priv, pub := generateX25519Pair(t)
+		original := []byte("secret metrics payload")
+
+		encrypted, err := crypto.Encrypt(pub, original)
+		require.NoError(t, err)
+
+		r := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(encrypted))
+		w := httptest.NewRecorder()
+
+		var gotBody []byte
+		handler := DecryptMiddleware(priv)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			gotBody, _ = io.ReadAll(r.Body)
+			w.WriteHeader(http.StatusOK)
+		}))
+		handler.ServeHTTP(w, r)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+		assert.Equal(t, original, gotBody)
+	})
+
+	t.Run("returns 400 for garbage body", func(t *testing.T) {
+		priv, _ := generateX25519Pair(t)
+		r := httptest.NewRequest(http.MethodPost, "/", strings.NewReader("this is not encrypted"))
+		w := httptest.NewRecorder()
+
+		handler := DecryptMiddleware(priv)(okHandler(t))
+		handler.ServeHTTP(w, r)
+
+		assert.Equal(t, http.StatusBadRequest, w.Code)
 	})
 }

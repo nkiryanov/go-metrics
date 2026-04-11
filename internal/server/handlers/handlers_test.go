@@ -68,7 +68,7 @@ func TestHandler_UpdateMetricPlain(t *testing.T) {
 				return result, tc.storageUpdateErr
 			}}
 
-			router := NewMetricRouter(mockedStorage, logger.NewNoOpLogger(), "")
+			router := NewMetricRouter(mockedStorage, logger.NewNoOpLogger(), "", nil)
 			srv := httptest.NewServer(router)
 			defer srv.Close()
 
@@ -91,7 +91,7 @@ func TestHandlers_UpdateMetricJSON(t *testing.T) {
 		mockedStorage := &mocks.StorageMock{UpdateMetricFunc: func(ctx context.Context, m models.Metric) (models.Metric, error) {
 			return m, nil
 		}}
-		router := NewMetricRouter(mockedStorage, logger.NewNoOpLogger(), "")
+		router := NewMetricRouter(mockedStorage, logger.NewNoOpLogger(), "", nil)
 		srv := httptest.NewServer(router)
 		defer srv.Close()
 
@@ -157,7 +157,7 @@ func TestHandlers_GetMetricPlain(t *testing.T) {
 				return tc.storReturnValue, tc.storReturnErr
 			}}
 
-			router := NewMetricRouter(mockedStorage, logger.NewNoOpLogger(), "")
+			router := NewMetricRouter(mockedStorage, logger.NewNoOpLogger(), "", nil)
 			srv := httptest.NewServer(router)
 			defer srv.Close()
 
@@ -210,7 +210,7 @@ func TestHandlers_GetMetricJSON(t *testing.T) {
 				return tc.storReturnValue, tc.storReturnErr
 			}}
 
-			router := NewMetricRouter(mockedStorage, logger.NewNoOpLogger(), "")
+			router := NewMetricRouter(mockedStorage, logger.NewNoOpLogger(), "", nil)
 			srv := httptest.NewServer(router)
 			defer srv.Close()
 
@@ -240,7 +240,7 @@ func TestHandlers_ListMetrics(t *testing.T) {
 		},
 	}
 
-	router := NewMetricRouter(mockedStorage, logger.NewNoOpLogger(), "")
+	router := NewMetricRouter(mockedStorage, logger.NewNoOpLogger(), "", nil)
 	srv := httptest.NewServer(router)
 	defer srv.Close()
 
@@ -285,7 +285,7 @@ func TestHandler_Ping(t *testing.T) {
 			PingFunc: func(ctx context.Context) error { return errors.New("something terrible happened") },
 		}
 
-		router := NewMetricRouter(mockedStorage, logger.NewNoOpLogger(), "")
+		router := NewMetricRouter(mockedStorage, logger.NewNoOpLogger(), "", nil)
 		srv := httptest.NewServer(router)
 		defer srv.Close()
 
@@ -300,7 +300,7 @@ func TestHandler_Ping(t *testing.T) {
 			PingFunc: func(ctx context.Context) error { return nil },
 		}
 
-		router := NewMetricRouter(mockedStorage, logger.NewNoOpLogger(), "")
+		router := NewMetricRouter(mockedStorage, logger.NewNoOpLogger(), "", nil)
 		srv := httptest.NewServer(router)
 		defer srv.Close()
 

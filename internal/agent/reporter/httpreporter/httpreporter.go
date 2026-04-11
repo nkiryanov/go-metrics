@@ -2,6 +2,7 @@ package httpreporter
 
 import (
 	"bytes"
+	"crypto/ecdh"
 	"errors"
 	"fmt"
 	"io"
@@ -44,6 +45,7 @@ type HTTPReporter struct {
 	retryIntervals []time.Duration // intervals to retry on connection error
 	sem            *Semaphore      // limits concurrent requests to server
 	secretKey      string          // secret key to sign requests with hmac sha256
+	publicKey      *ecdh.PublicKey // server's X25519 public key; nil disables encryption
 
 	client *http.Client
 	lgr    logger.Logger
@@ -54,6 +56,7 @@ func New(
 	retryIntervals []time.Duration,
 	rateLimit int,
 	secretKey string,
+	publicKey *ecdh.PublicKey,
 	client *http.Client,
 	lgr logger.Logger,
 ) *HTTPReporter {
@@ -63,6 +66,7 @@ func New(
 		retryIntervals: retryIntervals,
 		sem:            NewSemaphore(rateLimit),
 		secretKey:      secretKey,
+		publicKey:      publicKey,
 		client:         client,
 		lgr:            lgr,
 	}
@@ -94,6 +98,10 @@ func (r *HTTPReporter) post(url string, data any) error {
 		return newReportError(err, false)
 	}
 	err = r.hmacSha256Middleware(&postContext)
+	if err != nil {
+		return newReportError(err, false)
+	}
+	err = r.encryptMiddleware(&postContext)
 	if err != nil {
 		return newReportError(err, false)
 	}

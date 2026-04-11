@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"crypto/ecdh"
 	"errors"
+	"fmt"
 	"net/http"
 	"sync"
 	"time"
@@ -13,6 +15,7 @@ import (
 	"github.com/nkiryanov/go-metrics/internal/agent/config"
 	"github.com/nkiryanov/go-metrics/internal/agent/reporter"
 	"github.com/nkiryanov/go-metrics/internal/agent/reporter/httpreporter"
+	"github.com/nkiryanov/go-metrics/internal/crypto"
 	"github.com/nkiryanov/go-metrics/internal/logger"
 	"github.com/nkiryanov/go-metrics/internal/models"
 )
@@ -37,8 +40,17 @@ type Agent struct {
 	Lgr logger.Logger
 }
 
-func NewAgent(cfg *config.Config) *Agent {
+func NewAgent(cfg *config.Config) (*Agent, error) {
 	lgr := logger.NewLogger(cfg.LogLevel)
+
+	var pubKey *ecdh.PublicKey
+	if cfg.CryptoKeyPath != "" {
+		var err error
+		pubKey, err = crypto.LoadPublicKey(cfg.CryptoKeyPath)
+		if err != nil {
+			return nil, fmt.Errorf("load public key: %w", err)
+		}
+	}
 
 	return &Agent{
 		Collectors: []struct {
@@ -58,13 +70,14 @@ func NewAgent(cfg *config.Config) *Agent {
 				[]time.Duration{time.Second, 3 * time.Second, 5 * time.Second},
 				cfg.ReportRateLimit,
 				cfg.SecretKey,
+				pubKey,
 				&http.Client{},
 				lgr,
 			),
 			i: cfg.ReportInterval,
 		},
 		Lgr: lgr,
-	}
+	}, nil
 }
 
 // Run agent unit cancelled with context
