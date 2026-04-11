@@ -17,6 +17,7 @@ func TestConfig(t *testing.T) {
 		ReportInterval:  3 * time.Hour,
 		ReportRateLimit: 100,
 		SecretKey:       "default-secret-key",
+		CryptoKeyPath:   "",
 		CollectInterval: 5 * time.Hour,
 	}
 
@@ -78,6 +79,36 @@ func TestConfig(t *testing.T) {
 			args:           []string{},
 			envVars:        map[string]string{},
 			expectedConfig: defaultConfig,
+		},
+		{
+			name:    "crypto-key flag sets CryptoKeyPath",
+			args:    []string{"-crypto-key", "/tmp/pub.pem"},
+			envVars: map[string]string{},
+			expectedConfig: Config{
+				LogLevel:        defaultConfig.LogLevel,
+				ReportAddr:      defaultConfig.ReportAddr,
+				ReportInterval:  defaultConfig.ReportInterval,
+				ReportRateLimit: defaultConfig.ReportRateLimit,
+				SecretKey:       defaultConfig.SecretKey,
+				CryptoKeyPath:   "/tmp/pub.pem",
+				CollectInterval: defaultConfig.CollectInterval,
+			},
+		},
+		{
+			name: "CRYPTO_KEY env sets CryptoKeyPath",
+			args: []string{},
+			envVars: map[string]string{
+				"CRYPTO_KEY": "/etc/keys/pub.pem",
+			},
+			expectedConfig: Config{
+				LogLevel:        defaultConfig.LogLevel,
+				ReportAddr:      defaultConfig.ReportAddr,
+				ReportInterval:  defaultConfig.ReportInterval,
+				ReportRateLimit: defaultConfig.ReportRateLimit,
+				SecretKey:       defaultConfig.SecretKey,
+				CryptoKeyPath:   "/etc/keys/pub.pem",
+				CollectInterval: defaultConfig.CollectInterval,
+			},
 		},
 		{
 			name: "use cli arguments if env value set but invalid",

@@ -26,6 +26,9 @@ type Options struct {
 	// Secret key to verify hmac of reported metrics
 	SecretKey string
 
+	// Path to X25519 private key for decrypting agent requests; empty disables decryption
+	CryptoKeyPath string
+
 	// Pprof address
 	// If set, the pprof handler will be registered on address and port
 	PprofAddr string
@@ -38,6 +41,7 @@ func (opts *Options) Parse() {
 	flag.StringVar(&opts.DataFilePath, "f", opts.DataFilePath, "File storage path, like '/tmp/server_data_json.json")
 	flag.StringVar(&opts.DatabaseDsn, "d", opts.DatabaseDsn, "Database connection string like 'postgres://user:password@localhost:5432/dbname'")
 	flag.StringVar(&opts.SecretKey, "k", opts.SecretKey, "Secret Key to verify HMAC (provided in HashSHA256 header) of reporting metrics. Takes no effect if not set or empty")
+	flag.StringVar(&opts.CryptoKeyPath, "crypto-key", opts.CryptoKeyPath, "Path to X25519 private key file for decrypting agent requests. Takes no effect if not set or empty")
 	flag.BoolVar(&opts.RestoreOnStart, "r", opts.RestoreOnStart, "Restore initial state from the file storage file on server start")
 	flag.Func("pprof", "Server listen address in format 'host:port' to run pprof on it. Should be different with main address", parseListenAddr(&opts.PprofAddr))
 
@@ -78,6 +82,7 @@ func (opts *Options) parseEnv() {
 		"RESTORE":           parseBool(&opts.RestoreOnStart),
 		"DATABASE_DSN":      parseString(&opts.DatabaseDsn),
 		"KEY":               parseString(&opts.SecretKey),
+		"CRYPTO_KEY":        parseString(&opts.CryptoKeyPath),
 		"PPROF_ADDRESS":     parseListenAddr(&opts.PprofAddr),
 	}
 

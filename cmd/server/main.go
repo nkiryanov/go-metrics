@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/ecdh"
 	"fmt"
 	"net/http"
 	"os"
@@ -14,6 +15,7 @@ import (
 	_ "github.com/jackc/pgx/v5"
 
 	"github.com/nkiryanov/go-metrics/cmd/server/opts"
+	"github.com/nkiryanov/go-metrics/internal/crypto"
 	"github.com/nkiryanov/go-metrics/internal/logger"
 	"github.com/nkiryanov/go-metrics/internal/server/app"
 	"github.com/nkiryanov/go-metrics/internal/server/handlers"
@@ -70,6 +72,15 @@ func run(ctx context.Context, opts *opts.Options, lgr logger.Logger) error {
 	fmt.Printf("Build date: %s\n", buildDate)
 	fmt.Printf("Build commit: %s\n", buildCommit)
 
+	var privKey *ecdh.PrivateKey
+	if opts.CryptoKeyPath != "" {
+		var err error
+		privKey, err = crypto.LoadPrivateKey(opts.CryptoKeyPath)
+		if err != nil {
+			return fmt.Errorf("load private key: %w", err)
+		}
+	}
+
 	s, cleanup, err := initStorage(ctx, opts, lgr)
 	if err != nil {
 		return fmt.Errorf("storage initialization failed: %w", err)
@@ -93,7 +104,7 @@ func run(ctx context.Context, opts *opts.Options, lgr logger.Logger) error {
 	}
 
 	g.Go(func() error {
-		srv := app.New(opts.ListenAddr, handlers.NewMetricRouter(s, lgr, opts.SecretKey), lgr)
+		srv := app.New(opts.ListenAddr, handlers.NewMetricRouter(s, lgr, opts.SecretKey, privKey), lgr)
 		if err := srv.Run(gCtx); err != nil && err != http.ErrServerClosed {
 			return fmt.Errorf("HTTP server error: %w", err)
 		}

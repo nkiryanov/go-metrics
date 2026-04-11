@@ -17,6 +17,7 @@ type Config struct {
 	ReportInterval  time.Duration
 	ReportRateLimit int // Limit reporter connections to server
 	SecretKey       string
+	CryptoKeyPath   string // path to server's X25519 public key for encryption
 
 	// Agent collectors settings
 	CollectInterval time.Duration
@@ -30,6 +31,7 @@ func (cfg *Config) MustLoad() {
 	flag.Func("v", "log level like info, debug, etc.", parser.LogLevel(&cfg.LogLevel))
 
 	flag.StringVar(&cfg.SecretKey, "k", cfg.SecretKey, "secret key to sign reported metrics")
+	flag.StringVar(&cfg.CryptoKeyPath, "crypto-key", cfg.CryptoKeyPath, "path to server's X25519 public key for encryption")
 
 	flag.Parse()
 	cfg.loadEnvs()
@@ -47,6 +49,7 @@ func (cfg *Config) loadEnvs() {
 		"RATE_LIMIT":      parser.PositiveInt(&cfg.ReportRateLimit),
 		"KEY":             func(value string) error { cfg.SecretKey = value; return nil },
 		"POLL_INTERVAL":   parser.Interval(&cfg.CollectInterval), // Collect Interval
+		"CRYPTO_KEY":      func(value string) error { cfg.CryptoKeyPath = value; return nil },
 	}
 
 	for key, parseFn := range envMap {

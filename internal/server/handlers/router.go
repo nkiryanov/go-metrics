@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"crypto/ecdh"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -16,11 +17,12 @@ const (
 	URLMetricValue string = "mValue"
 )
 
-func NewMetricRouter(stor storage.Storage, lgr logger.Logger, hmacSecretKey string) http.Handler {
+func NewMetricRouter(stor storage.Storage, lgr logger.Logger, hmacSecretKey string, privKey *ecdh.PrivateKey) http.Handler {
 	router := chi.NewRouter()
 
 	router.Use(
 		LoggerMiddleware(lgr),
+		DecryptMiddleware(privKey),
 		HmacSHA256Middleware(lgr, hmacSecretKey),
 		GzipMiddleware,
 	)

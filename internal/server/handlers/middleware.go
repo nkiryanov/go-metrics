@@ -3,6 +3,7 @@ package handlers
 import (
 	"bytes"
 	"compress/gzip"
+	"crypto/ecdh"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
@@ -12,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/nkiryanov/go-metrics/internal/crypto"
 	"github.com/nkiryanov/go-metrics/internal/logger"
 )
 
@@ -215,13 +217,39 @@ func (hw *hmacWriter) Release(secretKey []byte) {
 	}
 }
 
+// DecryptMiddleware decrypts request bodies encrypted by the agent using X25519+AES-GCM.
+// noop if privKey is nil.
+func DecryptMiddleware(privKey *ecdh.PrivateKey) func(http.Handler) http.Handler {
+	if privKey == nil {
+		return func(next http.Handler) http.Handler { return next }
+	}
+
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			body, err := io.ReadAll(r.Body)
+			if err != nil {
+				http.Error(w, "failed to read body", http.StatusBadRequest)
+				return
+			}
+			_ = r.Body.Close()
+
+			decrypted, err := crypto.Decrypt(privKey, body)
+			if err != nil {
+				http.Error(w, "decryption failed", http.StatusBadRequest)
+				return
+			}
+
+			r.Body = io.NopCloser(bytes.NewReader(decrypted))
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
 func HmacSHA256Middleware(lgr logger.Logger, secretKey string) func(http.Handler) http.Handler {
 	if secretKey == "" {
 		// Noop middleware: just call next middleware
 		return func(next http.Handler) http.Handler {
-			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				next.ServeHTTP(w, r)
-			})
+			return next
 		}
 	}
 
@@ -249,6 +277,7 @@ func HmacSHA256Middleware(lgr logger.Logger, secretKey string) func(http.Handler
 				_, err = h.Write(buf)
 				if err != nil {
 					http.Error(hmacw, err.Error(), http.StatusInternalServerError)
+					return
 				}
 				actualMac := hex.EncodeToString(h.Sum(nil))
 				if !hmac.Equal([]byte(expectedMac), []byte(actualMac)) {
